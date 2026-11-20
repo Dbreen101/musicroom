@@ -94,6 +94,38 @@ tools/server.sh restart
 From the server's own Terminal (with `MR_GR_DB=~/MusicRoomServer/data/green_room.db`):
 `python gr_server.py usage` (what each person has done), `feedback`, `events`.
 
+## The credits trial (records from a Spotify playlist)
+
+While it is on, everyone brings records home or buys them with credits — no
+basket, no plans, no wallet. The shop's records come from one public Spotify
+playlist you made: every track on it brings in its whole album or single, and
+each record's first artist gets a simulated artist account with a public room.
+Nothing is ever downloaded: each person's own Spotify plays them inside the
+Music Room.
+
+```bash
+tools/server.sh sim on        # or: master page → Credits trial → The trial is on
+```
+
+Then, on the master page (your own app, signed in to the master):
+
+1. **Credits trial** → paste the playlist's link → *Save* → *Bring records in
+   now*. Your app must be signed in to Spotify (Settings → Spotify) with the
+   account that made the playlist. It looks again every hour while your app is
+   open; records already in the shop stay as they are.
+2. **Spotify keys** → add your app's Client ID (developer.spotify.com → your app
+   → Settings). Give it to up to five people. On developer.spotify.com add each of
+   them too (User Management: name + the email of their Spotify account). Their
+   apps pick the key up by themselves; they sign in to Spotify once and hear whole
+   tracks (Spotify Premium). Everyone else hears Spotify's own small player.
+3. **Activity** → what everyone spent, their room, what they did when it was full;
+   both tables as spreadsheets.
+
+The numbers (credits to start, what bringing home and buying cost, the whole
+record's share, the room's space, the days before a track taken out comes back)
+are on the Credits trial tab. Every change is logged with the time, so a week's
+numbers can be read against that week's rules.
+
 ## If the fellows' apps can't reach it
 
 Shared Wi-Fi sometimes stops laptops seeing each other. Check from another

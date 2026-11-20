@@ -121,6 +121,11 @@ def _play_start(kind, ctx, track):
 
     import green_room
     data, mime = green_room.shop_listen(kind, ctx, track)
+    if mime == "application/json":
+        # a record from the playlist shop has no file: its one play streams from the
+        # listener's own Spotify (gr_sim) — the page plays it through the deck, once
+        import json as _json
+        return {"stream": _json.loads(data.decode("utf-8") or "{}")}
     ticket = secrets.token_urlsafe(12)
     now = time.time()
     with _plays_lock:
@@ -228,6 +233,8 @@ def register(app):
             ticket = _play_start(kind, ctx, track)
         except green_room.GRError as e:
             return jsonify({"error": str(e), "heard": bool(getattr(e, "heard", False))}), 403
+        if isinstance(ticket, dict):
+            return jsonify(ticket)
         return jsonify({"play": ticket, "url": f"/api/gr/shop/play/{ticket}"})
 
     @app.route("/api/gr/shop/play/<ticket>/end", methods=["POST"])

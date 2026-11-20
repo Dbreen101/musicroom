@@ -166,7 +166,8 @@ class SeinnteoirPlayer:
             # Re-coerce: re-resolves paths (drive may have remapped) + drops any
             # files that have since vanished. The stored items already carry a
             # resolved file_path, which _coerce re-validates.
-            coerced = [c for c in (self._coerce(i) for i in (data.get("queue") or [])) if c]
+            coerced = [c for c in (self._coerce(i) for i in (data.get("queue") or [])
+                                   if not (isinstance(i, dict) and i.get("once"))) if c]
             if not coerced:
                 return
             self.queue     = coerced
@@ -263,6 +264,9 @@ class SeinnteoirPlayer:
                 'image_url':   item.get('image_url') or '',
                 'place_id':    None,
                 'place_name':  '',
+                # heard ONCE (record shopping): it leaves the cue the moment it
+                # stops being the record playing, so it can't be played again
+                'once':        bool(item.get('once')),
             }
         # Green Room borrow: an encrypted local file + the key that plays it.
         # Survives restore as long as the encrypted file is still on disk
@@ -785,7 +789,17 @@ class SeinnteoirPlayer:
         except Exception:
             pass
 
+    def _leave_once_locked(self):
+        """The record playing was heard once (record shopping): take it out of the
+        cue as the deck moves off it. → True if it went (idx is then the one before)."""
+        if 0 <= self.idx < len(self.queue) and self.queue[self.idx].get('once'):
+            del self.queue[self.idx]
+            self.idx -= 1
+            return True
+        return False
+
     def _advance_locked(self):
+        self._leave_once_locked()
         if self.idx + 1 < len(self.queue):
             self.idx += 1
             self.position = 0.0
@@ -854,12 +868,24 @@ class SeinnteoirPlayer:
                 self.is_paused = True
             self._persist_locked()
 
-    def add(self, items, autostart=True):
+    def add(self, items, autostart=True, play_now=False):
         """Append to the queue. autostart=False cues silently even when the
-        queue was empty — the 3D room's cue-up flow (never autoplay there)."""
+        queue was empty — the 3D room's cue-up flow (never autoplay there).
+        play_now: put them straight after the record playing and play them
+        now; the cue carries on after them (record shopping's one play)."""
         with self._lock:
             coerced = self._coerce_all_locked(items)
             if not coerced: return 0
+            if play_now:
+                self._fade_if_playing_locked()
+                self._leave_once_locked()
+                at = max(0, self.idx + 1)
+                self.queue[at:at] = coerced
+                self.idx = at
+                self.position = 0.0
+                self._load_and_play_locked(0.0)
+                self._persist_locked()
+                return len(coerced)
             was_empty = (len(self.queue) == 0)
             self.queue.extend(coerced)
             if was_empty and autostart:
@@ -951,7 +977,15 @@ class SeinnteoirPlayer:
             # Same UX as most players: if past 3 s into the track, restart;
             # otherwise jump to previous.
             cur = self._current_position_locked()
-            if cur > 3.0 or self.idx <= 0:
+            if self._leave_once_locked():          # (heard once: no going back to it)
+                if self.idx < 0 and self.queue:
+                    self.idx = 0
+                if self.idx >= 0:
+                    self.position = 0.0
+                    self._load_and_play_locked(0.0)
+                else:
+                    self.clear(); return
+            elif cur > 3.0 or self.idx <= 0:
                 self._load_and_play_locked(0.0)
             else:
                 self.idx -= 1
@@ -978,6 +1012,8 @@ class SeinnteoirPlayer:
         with self._lock:
             if 0 <= i < len(self.queue):
                 self._fade_if_playing_locked()   # user picked a different record → fade out, then play
+                if i != self.idx and self._leave_once_locked() and i > self.idx:
+                    i -= 1                       # (the one heard once went; everything after it moved up)
                 self.idx = i
                 self.position = 0.0
                 self._load_and_play_locked(0.0)

@@ -1,0 +1,81 @@
+/* sim_shop.css — the credits trial's buttons, records and "From the shop"
+   (static/js/sim_shop.js). The working document: hairlines, mono caps for
+   things to press, serif for names, one ink fill, red only for a warning.
+   Reads the page's own tokens, so it stands on any page. */
+
+.sim-acts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sim-btn { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
+  font-weight: 400; line-height: 1.2; border: 1px solid var(--border2, var(--border, #c8c3b6)); border-radius: 0; background: none;
+  color: var(--text, #161513); padding: 6px 10px; cursor: pointer; text-decoration: none; transition: border-color .2s, background .2s, color .2s; }
+.sim-btn:hover { border-color: var(--text, #161513); }
+.sim-btn--primary { background: var(--text, #161513); color: var(--bg, #f2efe8); border-color: var(--text, #161513); }
+.sim-btn--quiet { border-color: transparent; color: var(--muted, #6e6a61); }
+.sim-btn--quiet:hover { color: var(--text, #161513); border-color: var(--border2, var(--border, #c8c3b6)); }
+.sim-btn--danger { color: var(--red, #c9412f); border-color: var(--red, #c9412f); }
+.sim-btn--danger:hover { background: var(--red, #c9412f); color: var(--bg, #f2efe8); }
+.sim-btn[disabled] { opacity: .45; cursor: default; }
+.sim-state { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted, #6e6a61); padding: 6px 2px; white-space: nowrap; }
+
+/* ── records, whole: a cover, the record's name, its tracks ── */
+.sim-recs { display: grid; gap: 28px; }
+.sim-rec { display: grid; grid-template-columns: 132px 1fr; gap: 20px; align-items: start; padding-top: 18px; border-top: 1px solid var(--border, #c8c3b6); }
+.sim-rec__cov { width: 132px; height: 132px; object-fit: cover; display: block; background: var(--surface2, rgba(0,0,0,.04)); }
+.sim-rec__cov--none { display: flex; align-items: flex-end; padding: 10px; box-sizing: border-box; border: 1px solid var(--border, #c8c3b6);
+  font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 2.4rem; color: var(--muted, #6e6a61); }
+.sim-rec__body { min-width: 0; }
+.sim-rec__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.6rem; line-height: 1.1; color: var(--text, #161513); overflow-wrap: anywhere; }
+.sim-rec__s { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted, #6e6a61); margin-top: 6px; }
+.sim-rec__whole { margin: 12px 0 10px; }
+.sim-rec__tracks { list-style: none; margin: 0; padding: 0; }
+.sim-tr { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) 3.4em auto; gap: 10px; align-items: center; padding: 6px 0;
+  border-top: 1px solid var(--border, #c8c3b6); font-size: .86rem; color: var(--text, #161513); }
+.sim-tr__n, .sim-tr__d { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .7rem; color: var(--muted, #6e6a61); }
+.sim-tr__d { text-align: right; }
+.sim-tr__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--f-body, "IBM Plex Mono", ui-monospace, monospace); }
+.sim-tr__t em { font-style: normal; color: var(--muted, #6e6a61); margin-left: 8px; font-size: .78rem; }
+.sim-tr .sim-acts { justify-content: flex-end; }
+.sim-tr.is-out .sim-tr__t { color: var(--muted, #6e6a61); }
+@media (max-width: 720px) {
+  .sim-rec { grid-template-columns: 84px 1fr; gap: 14px; }
+  .sim-rec__cov { width: 84px; height: 84px; }
+  .sim-tr { grid-template-columns: 2em minmax(0, 1fr) 3em; }
+  .sim-tr .sim-acts { grid-column: 2 / -1; justify-content: flex-start; }
+}
+
+/* ── My Room → From the shop ── */
+.sim-mine { max-width: 1060px; margin: 0 auto; color: var(--text, #161513); font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); }
+.sim-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--text, #161513); padding-bottom: 12px; }
+.sim-h { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-weight: 400; font-size: 2.6rem; line-height: 1; margin: 0; }
+.sim-meter { display: flex; gap: 22px; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted, #6e6a61); }
+.sim-meter b { color: var(--text, #161513); font-weight: 500; font-size: .9rem; letter-spacing: 0; }
+.sim-p { font-size: .8rem; line-height: 1.6; color: var(--muted, #6e6a61); max-width: 70ch; margin: 14px 0; }
+.sim-empty { color: var(--text, #161513); }
+.sim-tabs { display: flex; gap: 0; margin: 18px 0 8px; border-bottom: 1px solid var(--border, #c8c3b6); flex-wrap: wrap; }
+.sim-tab { appearance: none; border: 0; background: none; cursor: pointer; padding: 9px 14px 9px 0; margin-right: 14px;
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted, #6e6a61); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.sim-tab span { margin-left: 6px; }
+.sim-tab.on { color: var(--text, #161513); border-bottom-color: var(--text, #161513); }
+.sim-mine .sim-recs, .sim-mine > .sim-rec { margin-top: 10px; }
+.sim-mine > .sim-rec + .sim-rec { margin-top: 26px; }
+
+/* ── the small window that makes sure, and the line that says what happened ── */
+.sim-ask { position: fixed; z-index: 100000; box-sizing: border-box; background: var(--bg, #f2efe8); color: var(--text, #161513);
+  border: 1px solid var(--text, #161513); padding: 16px 16px 14px; box-shadow: 0 10px 40px rgba(0,0,0,.18);
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); }
+.sim-ask__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.3rem; line-height: 1.15; margin-bottom: 8px; overflow-wrap: anywhere; }
+.sim-ask__p { font-size: .76rem; line-height: 1.6; color: var(--text, #161513); }
+.sim-ask__p b { font-weight: 600; }
+.sim-ask__b { display: flex; gap: 8px; margin-top: 14px; }
+.sim-said { position: fixed; z-index: 100001; box-sizing: border-box; background: var(--text, #161513); color: var(--bg, #f2efe8);
+  padding: 9px 12px; font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .72rem; line-height: 1.5;
+  transition: opacity .5s; pointer-events: none; }
+.sim-said--bad { background: var(--bg, #f2efe8); color: var(--red, #c9412f); border: 1px solid var(--red, #c9412f); }
+.sim-said.gone { opacity: 0; }
+
+/* the credits in the top bar */
+.nav__credits { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }

@@ -1075,6 +1075,9 @@ function mount(host, opts) {
             html = `<div class="gp-now__row"><span class="gp-now__k">In Spotify now</span>
                 <span class="gp-now__t">${esc(now.title || '')}${now.subtitle ? ' <i>— ' + esc(now.subtitle) + '</i>' : ''}</span>
                 <button class="gp-btn gp-btn--small" data-now="add">Add</button></div>`;
+        } else if (SP && !SP.connected && window.MR_GR && !SP.client_id_set) {
+            // the trial: a key is given by the Music Room to five people at a time (gr_sim); no set-up page for anyone
+            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify links play here in Spotify's own small player. Playing whole tracks through your own Spotify is open to a few people at a time — the Music Room can add you.</span></div>`;
         } else if (SP && !SP.connected) {
             html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify isn't connected here. Connect it to search Spotify from this line, add what it is playing, and hear whole tracks through your own Spotify.</span>
                 <button class="gp-btn gp-btn--small" data-now="signin">${SP.client_id_set ? 'Sign in to Spotify' : 'Set up Spotify'}</button></div>`;

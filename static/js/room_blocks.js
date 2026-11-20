@@ -114,6 +114,9 @@ window.RoomBlocks = (function () {
       let tracks = ctx.tracks || [];
       if (b.which === 'chosen') { const want = new Set((b.ids || []).map(Number)); tracks = tracks.filter(t => want.has(t.id)); }
       if (!tracks.length) return '';
+      // whole records (the credits trial: albums and singles, each with its tracks) when the page draws them so
+      const whole = ctx.recordsHtml ? ctx.recordsHtml(tracks, b.layout) : null;
+      if (whole) return `<section class="rb rb-records rb-records--whole">${heading(b, 'Records')}${whole}</section>`;
       const cards = tracks.map(t => ctx.recordHtml ? ctx.recordHtml(t, b.layout) : `<div>${esc(t.title)}</div>`).join('');
       return `<section class="rb rb-records rb-records--${esc(b.layout || 'grid')}">${heading(b, 'Records')}<div class="rb-records__grid">${cards}</div></section>`;
     },

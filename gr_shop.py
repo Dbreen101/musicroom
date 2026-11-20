@@ -265,6 +265,9 @@ def _cards(conn, acct, ids):
         "SELECT track_id FROM gr_borrows WHERE account_id=? AND month=?", (aid, S._month()))}
     credit = S._credit_cents(conn, acct)
     heard = heard_ids(conn, aid, list(rows))
+    import gr_sim
+    sim = gr_sim.track_sim(conn, aid, list(rows.values()))
+    bought |= gr_sim.owned_ids(conn, aid)
     out = []
     for i in ids:
         t = rows.get(i)
@@ -287,14 +290,17 @@ def _cards(conn, acct, ids):
             "mine": t["owner_account_id"] == aid,
             "heard": t["id"] in heard,
         })
+        if t["id"] in sim:
+            out[-1]["sim"] = sim[t["id"]]
     return out
 
 
 def _pool(conn, acct):
     """Every record this person could still buy here: not their own, not one
     they bought already."""
+    import gr_sim
     bought = {r["track_id"] for r in conn.execute(
-        "SELECT track_id FROM gr_purchases WHERE account_id=?", (acct["id"],))}
+        "SELECT track_id FROM gr_purchases WHERE account_id=?", (acct["id"],))} | gr_sim.owned_ids(conn, acct["id"])
     return [r for r in conn.execute(
         "SELECT t.id, t.year, t.genre, t.owner_account_id, a.place_name FROM gr_tracks t"
         f" LEFT JOIN gr_accounts a ON a.id = t.owner_account_id WHERE {ON_SHELF}")
@@ -655,6 +661,11 @@ def _first_play(conn, acct, track, via):
     return None
 
 
+def _sim_me(conn, acct):
+    import gr_sim
+    return gr_sim.me_json(conn, acct)
+
+
 def no_json(words, code=400, **more):
     return jsonify(dict({"error": words}, **more)), code
 
@@ -789,7 +800,9 @@ def register(app, server):
                     "open": open_for(conn, acct),
                 },
                 "can_make": can_make(conn, acct),
-                "listening": bool(_ffmpeg()) or os.environ.get("MR_SHOP_PLAY_ORIGINALS") == "1",
+                "listening": bool(_ffmpeg()) or os.environ.get("MR_SHOP_PLAY_ORIGINALS") == "1"
+                             or bool(conn.execute("SELECT 1 FROM gr_tracks WHERE spotify_uri IS NOT NULL LIMIT 1").fetchone()),
+                "sim": _sim_me(conn, acct),
                 "day": today,
             })
         return signed_in(go)
@@ -851,6 +864,10 @@ def register(app, server):
             refused = _first_play(conn, acct, track, next((k for k in ("pull", "q") if request.args.get(k)), ""))
             if refused:
                 return refused
+            import gr_sim
+            streamed = gr_sim.listen_json(track)
+            if streamed:                       # (no file: it plays once from the listener's own Spotify)
+                return jsonify(streamed)
         path, mime = listen_copy(track)
         if not path:
             return no(mime, 503)
@@ -1206,6 +1223,10 @@ def register(app, server):
             refused = _first_play(conn, acct, track, "blind")
             if refused:
                 return refused
+            import gr_sim
+            streamed = gr_sim.listen_json(track)
+            if streamed:
+                return jsonify(streamed)
         path, mime = listen_copy(track)
         if not path:
             return no(mime, 503)

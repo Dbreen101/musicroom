@@ -1021,6 +1021,13 @@ def master_file(track_id, what, range_header=None):
             raise GRError("the server can't be reached")
 
 
+def master_csv(what):
+    """The trial's ledger or activity as the server writes it (master only)."""
+    with closing(_db()) as conn:
+        r = _get(conn, f"/api/master/sim/{what}.csv")
+    return r
+
+
 def shop_listen(kind, ctx_id, server_track_id=None):
     """The shop's listening copy of a record → (bytes, mimetype). `kind` says
     from where it is being heard: "pull" (a crate handed over today) or "q" (an

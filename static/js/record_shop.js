@@ -66,7 +66,10 @@ const REC = new Map();              // every record painted, by its number
 const audio = new Audio(); audio.preload = 'none';
 let playing = null;                 // { key, spec, play, state: loading | playing | paused | error, err }
 const heardTracks = new Set(), heardBlind = new Set();
-const HEARD_LINE = 'You’ve heard this one. To hear it again, borrow it or buy it.';
+let HEARD_LINE = 'You’ve heard this one. To hear it again, borrow it or buy it.';
+// the credits trial (gr_sim; sim_shop.js): bring home / buy with credits instead of the basket
+const simOn = () => !!(S && S.sim && S.sim.on && window.SimShop);
+const isSim = r => !!(simOn() && r && r.sim);
 const ONE_PLAY = 'Each record plays once here — all of it, if you like.';
 function isHeard(spec, r) { return spec.kind === 'blind' ? heardBlind.has(+spec.ctx) || !!(B && B.heard && +spec.ctx === B.id) : heardTracks.has(+spec.track) || !!(r && r.heard); }
 function markHeard(spec) { if (spec.kind === 'blind') heardBlind.add(+spec.ctx); else heardTracks.add(+spec.track); }
@@ -108,6 +111,22 @@ async function listen(key, spec) {
         if (r.d.heard) { markHeard(spec); playing = null; }
         paintListen(); return;
     }
+    if (r.d.stream) {
+        // a record from the playlist shop (gr_sim): its one play streams from the listener's own
+        // Spotify through the deck, and leaves the deck's cue as soon as it stops playing
+        const st = r.d.stream, rec = spec.kind !== 'blind' ? REC.get(spec.track) : null;
+        markHeard(spec);
+        const d = window.Seinnteoir;
+        if (d && d.playOnce) await d.playOnce({ kind: 'embed', url: st.url, source: 'spotify', stream_type: 'track',
+            title: spec.kind === 'blind' ? 'Blind · the record in front of you' : (st.title || ''), artist: spec.kind === 'blind' ? '' : (st.artist || ''),
+            duration_sec: st.duration_s || 0, image_url: rec && rec.has_art ? art(rec) : '' });
+        playing = null;
+        p.state = 'deck';
+        paintListen();
+        const m = host && host.querySelector(`[data-listenmsg="${CSS.escape(key)}"]`);
+        if (m) { m.textContent = 'Playing once, in your deck. To hear it again, bring it home or buy it.'; m.classList.remove('rs-listenmsg--quiet'); }
+        return;
+    }
     p.play = r.d.play;
     audio.volume = typeof v === 'number' ? Math.max(0, Math.min(1, v)) : .8;
     audio.src = r.d.url;
@@ -128,6 +147,8 @@ audio.addEventListener('error', () => {
 
 function listenRow(key, spec, total, r) {
     const off = S && S.listening === false;
+    if (isSim(r) && (r.sim.state === 'home' || r.sim.state === 'bought'))
+        return `<div class="rs-listen rs-listen--yours"><span class="rs-state">It’s in your room</span>${r.sim.url ? `<button type="button" class="sim-btn" data-sim-act="play" data-id="${r.id}">▶ Play</button>` : ''}</div>`;
     if (r && (r.purchased || r.borrow_id)) return `<div class="rs-listen rs-listen--yours"><span class="rs-state">It’s in your room — play it there</span></div>`;
     return `<div class="rs-listen" data-listen="${esc(key)}" data-kind="${esc(spec.kind)}" data-ctx="${+spec.ctx || 0}" data-track="${+spec.track || 0}" data-total="${Number(total) || 0}">
         <button type="button" class="rs-btn rs-btn--primary rs-play" data-act="listen"${off ? ' disabled' : ''}>Listen</button>
@@ -173,13 +194,33 @@ const initial = r => esc(((r && (r.title || r.artist)) || '?').trim().charAt(0).
 function thumb(r) { const a = art(r); return `<span class="rs-thumb">${a ? `<img src="${esc(a)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span>${initial(r)}</span></span>`; }
 function keep(list) { (list || []).forEach(r => { if (r && r.id != null) REC.set(r.id, r); }); return list; }
 const inBasket = id => (S && S.basket && S.basket[String(id)]) || '';
+// (the credits trial: what is brought home or bought, where the basket was)
+const kept = r => simOn() ? !!(r && ((r.sim && (r.sim.state === 'home' || r.sim.state === 'bought')) || r.purchased || r.borrow_id)) : !!inBasket(r && r.id);
 const isNoted = id => !!(S && S.wish && (S.wish.ids || []).includes(id));
 const leftLine = (n, of) => `${n} of ${of} left today`;
 
 // what you can do with a record: basket (to borrow, to buy), note it. Nothing else.
+function simActs(r) {
+    // bring home / buy with credits; the whole record when it has more than this track
+    let h = SimShop.trackActs(r, { noOut: true, noPlay: true });      // (Play sits on the listening line)
+    if (r.sim.record_tracks > 1 && r.sim.record) h += `<button type="button" class="sim-btn sim-btn--quiet" data-act="record" data-key="${esc(r.sim.record)}" title="Every track of “${esc(r.sim.record_title)}”">The whole record · ${r.sim.record_tracks} tracks</button>`;
+    return h;
+}
+function fileActs(r) {
+    // a record FILE (an artist's own upload) while the trial runs: brought home or bought with credits too
+    if (r.purchased) return `<span class="rs-state">Yours already</span>`;
+    const R = (S.sim && S.sim.rules) || { home_cost: 1, buy_cost: 3 };
+    return (r.borrow_id ? `<span class="rs-state">At home</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Bring home · ${R.home_cost}</button>`)
+        + `<button type="button" class="sim-btn" data-act="file-buy" data-id="${r.id}">Buy · ${r.borrow_id ? Math.max(0, R.buy_cost - R.home_cost) : R.buy_cost}</button>`;
+}
 function actsFor(r, more) {
     const b = inBasket(r.id), price = r.buy_now_cents != null ? r.buy_now_cents : r.price_cents;
     let h = '';
+    if (simOn()) {
+        h += isSim(r) ? simActs(r) : fileActs(r);
+        h += `<button type="button" class="rs-btn${isNoted(r.id) ? ' on' : ''}" data-act="note" data-id="${r.id}" title="Keep its name and why you liked it on your wishlist">${isNoted(r.id) ? 'Noted' : 'Note it'}</button>`;
+        return `<div class="rs-acts">${h}${more || ''}</div>`;
+    }
     if (r.purchased) h += `<span class="rs-state">Yours already</span>`;
     else {
         if (r.borrow_id) h += `<span class="rs-state">Borrowed · in your room</span>`;
@@ -280,8 +321,8 @@ function crateView() {
     const by = crate.kind === 'made' ? `A crate by ${esc(crate.by.name)}` : crate.kind === 'plugin' ? `Picked by the plug-in ${esc(crate.by.name)}` : 'Put together from the shelves' +
         ((crate.sources || []).length ? ' · with records from ' + crate.sources.map(s => `${esc(s.crate)} (${esc(s.by)})`).join(', ') : '');
     const ticks = !n ? '' : `<div class="rs-ticks" role="group" aria-label="The records in this crate">${items.map((r, i) =>
-        `<button type="button" data-act="jump" data-i="${i}" class="${[i === idx ? 'on' : '', seen.has(i) ? 'seen' : '', inBasket(r.id) ? 'b' : '', isNoted(r.id) ? 'w' : ''].join(' ').trim()}" title="Record ${i + 1}" aria-label="Record ${i + 1}"></button>`).join('')}</div>
-        <div class="rs-legend"><span><i class="b"></i>in your basket</span><span><i></i>noted</span><span class="rs-legend__r">open until the day ends</span></div>`;
+        `<button type="button" data-act="jump" data-i="${i}" class="${[i === idx ? 'on' : '', seen.has(i) ? 'seen' : '', kept(r) ? 'b' : '', isNoted(r.id) ? 'w' : ''].join(' ').trim()}" title="Record ${i + 1}" aria-label="Record ${i + 1}"></button>`).join('')}</div>
+        <div class="rs-legend"><span><i class="b"></i>${simOn() ? 'brought home or bought' : 'in your basket'}</span><span><i></i>noted</span><span class="rs-legend__r">open until the day ends</span></div>`;
     const top = `<div class="rs-crate__top">
         <div>
           <button type="button" class="rs-link" data-act="back">← Crates</button>
@@ -297,15 +338,15 @@ function crateView() {
       </div>${ticks}`;
     if (!n) return top + `<p class="rs-quiet">The records in this crate have left the shop.</p>`;
     if (end) {
-        const nb = items.filter(r => inBasket(r.id)).length, nw = items.filter(r => isNoted(r.id)).length;
+        const nb = items.filter(r => kept(r)).length, nw = items.filter(r => isNoted(r.id)).length;
         return top + `<div class="rs-end">
             <div class="rs-kicker">The end of the crate</div>
             <h2 class="rs-h">That is all ${n}.</h2>
-            <p class="rs-p">${nb} in your basket · ${nw} noted for later.</p>
+            <p class="rs-p">${nb} ${simOn() ? 'brought home or bought' : 'in your basket'} · ${nw} noted for later.</p>
             <div class="rs-bar">
               <button type="button" class="rs-btn" data-act="jump" data-i="0">Back to the first</button>
               <button type="button" class="rs-btn rs-btn--primary" data-act="back">Crates</button>
-              ${nb ? `<a class="rs-btn" href="/basket">Open the basket</a>` : ''}
+              ${nb ? (simOn() ? `<a class="rs-btn" href="/room?shop=1">Your records from the shop</a>` : `<a class="rs-btn" href="/basket">Open the basket</a>`) : ''}
             </div></div>`;
     }
     const r = items[idx], a = art(r);
@@ -333,7 +374,7 @@ function qCard(q) {
     if (!a) return `<div class="rs-q"><div class="rs-q__t">${esc(q.text)}</div>
         <div class="rs-q__s"><span>Waiting for an answer</span><button type="button" class="rs-link" data-act="withdraw" data-id="${q.id}">Take it back</button></div></div>`;
     const r = a.record; if (r) keep([r]);
-    const settled = { basket: 'In your basket', note: 'Noted for later', pass: 'Not for you' }[a.settled] || '';
+    const settled = { basket: simOn() ? 'You kept it' : 'In your basket', note: 'Noted for later', pass: 'Not for you' }[a.settled] || '';
     return `<div class="rs-q"><div class="rs-q__t">${esc(q.text)}${fresh.has(q.id) ? '<i class="rs-new">new</i>' : ''}</div>
         <div class="rs-q__s"><span>Answered by ${esc(a.by.name || 'someone')}</span>${settled ? `<span>${settled}</span>` : ''}</div>
         ${r ? `<div class="rs-ans">${thumb(r)}
@@ -343,7 +384,7 @@ function qCard(q) {
             <div class="rs-said"><p>${esc(a.text)}</p><span>${esc(a.by.name || '')}</span></div>
             ${a.settled ? '' : (a.can_listen ? listenRow('q:' + q.id + ':' + r.id, { kind: 'q', ctx: q.id, track: r.id }, r.duration_s, r) : '')
                 + `<div class="rs-acts" data-q="${q.id}">
-                 ${r.purchased ? '<span class="rs-state">Yours already</span>' : (r.borrow_id ? '<span class="rs-state">Borrowed · in your room</span>'
+                 ${simOn() ? (isSim(r) ? simActs(r) : fileActs(r)) : r.purchased ? '<span class="rs-state">Yours already</span>' : (r.borrow_id ? '<span class="rs-state">Borrowed · in your room</span>'
                     : `<button type="button" class="rs-btn" data-act="settle" data-choice="basket" data-mode="borrow" data-q="${q.id}" data-id="${r.id}">Borrow</button>`)
                     + `<button type="button" class="rs-btn" data-act="settle" data-choice="basket" data-mode="buy" data-q="${q.id}" data-id="${r.id}">Buy ${euro(r.buy_now_cents != null ? r.buy_now_cents : r.price_cents)}</button>`}
                  <button type="button" class="rs-btn" data-act="settle" data-choice="note" data-q="${q.id}" data-id="${r.id}">Note it</button>
@@ -422,7 +463,7 @@ function blindView() {
           <div class="rs-artist">Listen first</div>
           ${listenRow(key, spec, B.duration_s)}
           <div class="rs-acts">
-            <button type="button" class="rs-btn" data-act="blind-decide" data-choice="basket">Put it in my basket</button>
+            <button type="button" class="rs-btn" data-act="blind-decide" data-choice="basket">${simOn() ? 'I’d keep it' : 'Put it in my basket'}</button>
             <button type="button" class="rs-btn" data-act="blind-decide" data-choice="note">Note it</button>
             <button type="button" class="rs-btn" data-act="blind-decide" data-choice="pass">Not for me</button>
           </div>
@@ -431,7 +472,7 @@ function blindView() {
       </div>`;
     keep([r]);
     const a = art(r), b = inBasket(r.id);
-    const did = B.choice === 'basket' ? 'You put it in your basket' : B.choice === 'note' ? (isNoted(r.id) ? 'You noted it for later' : 'You chose to note it') : 'You passed on it';
+    const did = B.choice === 'basket' ? (simOn() ? 'You’d keep it' : 'You put it in your basket') : B.choice === 'note' ? (isNoted(r.id) ? 'You noted it for later' : 'You chose to note it') : 'You passed on it';
     return `<div class="rs-kicker">Blind <span>${leftLine(L, of)}</span></div>
       <div class="rs-blind" style="margin-top:18px">
         <div class="rs-left"><div class="rs-stack"><div class="rs-sleeve rs-turn">${a ? `<img src="${esc(a)}" alt="" onerror="this.remove()">` : ''}<span class="rs-sleeve__none">${initial(r)}</span></div></div></div>
@@ -440,7 +481,8 @@ function blindView() {
           <div class="rs-title" style="margin-top:10px">${esc(r.title || 'Untitled')}</div>
           <div class="rs-artist">${esc(r.artist || '')}</div>
           ${listenRow(key, spec, r.duration_s)}
-          ${B.choice === 'basket' ? `<div class="rs-acts">
+          ${B.choice === 'basket' && simOn() ? `<div class="rs-acts">${isSim(r) ? simActs(r) : fileActs(r)}</div>` : ''}
+          ${B.choice === 'basket' && !simOn() ? `<div class="rs-acts">
               <button type="button" class="rs-btn${b === 'borrow' ? ' on' : ''}" data-act="basket" data-mode="borrow" data-id="${r.id}">${b === 'borrow' ? 'In basket · to borrow' : 'Borrow instead'}</button>
               <button type="button" class="rs-btn${b === 'buy' ? ' on' : ''}" data-act="basket" data-mode="buy" data-id="${r.id}">${b === 'buy' ? 'In basket · to buy' : 'Buy instead · ' + euro(r.buy_now_cents != null ? r.buy_now_cents : r.price_cents)}</button></div>` : ''}
           ${B.choice === 'note' && !isNoted(r.id) ? `<div class="rs-acts"><button type="button" class="rs-btn" data-act="note" data-id="${r.id}">Note it</button></div>` : ''}
@@ -456,6 +498,7 @@ function blindView() {
 async function refresh() {
     const r = await call('/api/gr/shop');
     S = r.ok ? r.d : Object.assign({ away: true }, r.d);
+    HEARD_LINE = simOn() ? 'You’ve heard this one. To hear it again, bring it home or buy it.' : 'You’ve heard this one. To hear it again, borrow it or buy it.';
     if (!r.ok && r.d && r.d.wish) S.wish = r.d.wish;
     if (r.ok && S.counter && window.grShopNews) window.grShopNews(S.counter.new);    // the top bar and the door hear it too
     paint();
@@ -524,6 +567,9 @@ const ACTS = {
         if (total && box.width) { try { audio.currentTime = Math.max(0, Math.min(total - .2, total * (e.clientX - box.left) / box.width)); } catch (_) {} }
     },
     basket: async (t) => { t.disabled = true; await addToBasket(+t.dataset.id, t.dataset.mode); repaintKeepingSound(); },
+    record: (t) => openRecord(t.dataset.key, t),
+    'file-home': (t) => fileDo(t, 'home'),
+    'file-buy': (t) => fileDo(t, 'buy'),
     note: async (t) => {
         const rec = REC.get(+t.dataset.id); if (!rec) return;
         const found = crate && tab === 'crates' ? 'a crate · ' + crate.title + (crate.kind === 'made' ? ' by ' + crate.by.name : crate.kind === 'plugin' ? ' (plug-in ' + crate.by.name + ')' : '') : tab === 'blind' ? 'blind' : 'record shopping';
@@ -602,11 +648,64 @@ const ACTS = {
         t.disabled = true;
         const d = await decide();
         if (!d.ok) { say(d.error); return paint(); }
-        if (choice === 'basket') await addToBasket(B.record.id, 'borrow');
+        if (choice === 'basket' && !simOn()) await addToBasket(B.record.id, 'borrow');
         repaintKeepingSound();
     },
 };
-function repaintKeepingSound() { paint(); }                                   // (the player isn't in the page's markup: it carries on)
+function repaintKeepingSound() { paint(); }
+// ── the credits trial ──
+// a record file brought home or bought (the old borrow / buy, paid in credits while the trial runs)
+async function fileDo(t, what) {
+    const id = +t.dataset.id, rec = REC.get(id);
+    if (what === 'buy' && !(await SimShop.ask(t, { title: 'Buy “' + ((rec && rec.title) || 'this record') + '”?', html: 'It comes to you as a plain file, yours for good, and takes no room.', yes: 'Buy', no: 'Not now' }))) return;
+    t.disabled = true;
+    const r = await call(what === 'home' ? '/api/gr/borrow' : '/api/gr/buy-track', 'POST', { track_id: id });
+    if (!r.ok) { SimShop.say(t, r.d.error || 'That didn’t work.', true); t.disabled = false; return; }
+    if (rec) { if (what === 'home') rec.borrow_id = r.d.borrow_id || 1; else rec.purchased = true; }
+    SimShop.say(t, what === 'home' ? 'Brought home — it’s in your room.' : 'Bought — the file is in your room.');
+    SimShop.me(true);
+    settleKept(id);
+    paint();
+}
+// the whole record a track is on, over the shop: every track, with what each costs
+let recSheet = null;
+async function openRecord(key, anchor) {
+    closeRecord();
+    const r = await call('/api/gr/sim/record/' + encodeURIComponent(key));
+    if (!r.ok || !r.d.record) { SimShop.say(anchor, (r.d && r.d.error) || 'That record can’t be opened.', true); return; }
+    const rec = r.d.record;
+    const el = recSheet = document.createElement('div');
+    el.className = 'rs-recsheet';
+    const ts = rec.tracks.map(t => Object.assign({}, t, { has_art: !!rec.cover_id, art_v: rec.art_v, year: null, sim: Object.assign({}, t, { record: rec.key, record_title: rec.title }) }));
+    el.innerHTML = `<div class="rs-recsheet__in" role="dialog" aria-label="${esc(rec.title)}">
+        <button type="button" class="rs-recsheet__x" aria-label="Close">✕</button>
+        <div class="rs-kicker"><span>${esc(rec.owner ? 'Sold by ' + rec.owner.name : '')}</span></div>
+        ${SimShop.recordsHtml(ts, { cover: () => '/api/gr/art/' + rec.cover_id + '?v=' + (rec.art_v || 0), artist: rec.artist })}
+      </div>`;
+    document.body.appendChild(el);
+    el.addEventListener('click', e => { if (e.target === el || e.target.closest('.rs-recsheet__x')) closeRecord(); });
+}
+function closeRecord() { if (recSheet) { recSheet.remove(); recSheet = null; } }
+// after something is brought home or bought: the shop's cards learn it, and an open answer at the counter is settled as kept
+function settleKept(ids) {
+    ids = [].concat(ids || []);
+    if (tab !== 'counter' || !C) return;
+    (C.questions || []).forEach(q => {
+        const a = q.answer; if (!a || a.settled || !a.record || !ids.includes(a.record.id)) return;
+        call(`/api/gr/shop/counter/${q.id}/settle`, 'POST', { choice: 'basket' }).then(loadCounter);
+    });
+}
+window.addEventListener('sim-changed', async e => {
+    const d = e.detail || {};
+    const ids = (d.tracks || []).map(t => t.id);
+    ids.forEach(id => { const rec = REC.get(id); const t = (d.tracks || []).find(x => x.id === id);
+        if (rec && rec.sim && t) { rec.sim.state = t.state; rec.sim.url = t.url; rec.sim.spotify_uri = t.spotify_uri;
+            if (t.state === 'bought') rec.sim.buy_cost = null; else if (t.state === 'home') { rec.sim.home_cost = null; rec.sim.buy_cost = Math.max(0, ((S.sim.rules || {}).buy_cost || 3) - ((S.sim.rules || {}).home_cost || 1)); } } });
+    if (d.credits != null && S && S.sim) S.sim.credits = d.credits;
+    settleKept(ids);
+    if (recSheet && d.what !== 'play') { const k = recSheet.querySelector('[data-record]'); if (k) openRecord(k.dataset.record, null); }
+    if (host && host.isConnected) paint();
+});                                   // (the player isn't in the page's markup: it carries on)
 function step(d) {
     if (!crate) return;
     const n = crate.items.length, to = Math.max(0, Math.min(n, idx + d));

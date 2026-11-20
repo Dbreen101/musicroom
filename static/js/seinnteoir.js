@@ -1439,7 +1439,16 @@ async function add(tracks) {
 const _isEmbed = t => !!(t && t.kind === 'embed' && t.url);
 function _embedItem(t) {
     return { kind: 'embed', url: t.url, source: t.source || '', stream_type: t.stream_type || '',
-             title: t.title || '', artist: t.artist || '', image_url: t.image_url || '', duration_sec: t.duration_sec || 0 };
+             title: t.title || '', artist: t.artist || '', image_url: t.image_url || '', duration_sec: t.duration_sec || 0,
+             once: !!t.once };
+}
+// record shopping's one play of a streamed record: it plays now, straight after
+// the record playing, and leaves the cue as soon as the deck moves off it
+async function playOnce(t) {
+    if (!_isEmbed(t)) return 0;
+    await _post('add', { items: [Object.assign(_embedItem(t), { once: true })], play_now: true });
+    _ensureBar(); _setMode('open'); _pollOnce();
+    return 1;
 }
 async function playAll(tracks, startIdx) {
     const items = (tracks || []).filter(t => t && (t.file_id || _isEmbed(t))).map(t => _isEmbed(t) ? _embedItem(t) : Object.assign({
@@ -1508,7 +1517,7 @@ function _openDeepListen() {
 }
 
 window.Seinnteoir = {
-    add, playAll, playStream, cueStream, clear, togglePlay, next, prev,
+    add, playAll, playOnce, playStream, cueStream, clear, togglePlay, next, prev,
     isActive, getState, open, minimize, putAway,
     _playAt, _remove,
 };

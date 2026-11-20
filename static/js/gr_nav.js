@@ -108,3 +108,36 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', look); else look();
 })();
+
+// ── the credits trial (gr_sim, 2026-11-20): while the shop runs it, the top bar
+// shows your credits where the basket was, and they lead to My Room → From the
+// shop. Asking also lets the app pick up the Spotify key the master gave you.
+(function () {
+  if (!document.documentElement.classList.contains('is-gr')) return;
+  const links = document.querySelector('.nav__links');
+  if (!links) return;
+  const need = () => window.SimShop ? Promise.resolve() : new Promise(res => {
+    if (!document.querySelector('link[href^="/static/css/sim_shop.css"]')) {
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/static/css/sim_shop.css'; document.head.appendChild(l);
+    }
+    const s = document.createElement('script'); s.src = '/static/js/sim_shop.js'; s.onload = res; s.onerror = res; document.head.appendChild(s);
+  });
+  const paint = m => {
+    if (!m || !m.on) return;
+    const basket = links.querySelector('.nav__basket');
+    if (basket && basket.parentElement) basket.parentElement.style.display = 'none';
+    let a = links.querySelector('[data-gr-credits]');
+    if (!a) {
+      const li = document.createElement('li');
+      li.innerHTML = '<a href="/room?shop=1" class="nav__credits" data-gr-credits></a>';
+      const icons = links.querySelector('.nav__icons');
+      links.insertBefore(li, icons || null);
+      a = li.firstChild;
+    }
+    a.textContent = m.credits + (m.credits === 1 ? ' credit' : ' credits');
+    a.title = 'Your room holds ' + m.room.count + ' of ' + m.room.space + ' brought-home tracks · your records from the shop';
+  };
+  const go = () => need().then(() => window.SimShop && window.SimShop.me().then(paint));
+  window.addEventListener('sim-me', e => paint(e.detail));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();

@@ -208,3 +208,12 @@ body.view-shop .rs-view { display: block; }
   .rs-crate__top { grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
   .rs-step { justify-self: start; }
 }
+
+/* the credits trial: a record, whole, over the shop (record_shop.js openRecord) */
+.rs-recsheet { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.28); display: flex; align-items: flex-start; justify-content: center;
+  padding: calc(var(--nav-h, 54px) + 28px) 16px calc(var(--snt-clear, 0px) + 24px); overflow-y: auto; }
+.rs-recsheet__in { position: relative; width: min(820px, 100%); background: var(--bg); color: var(--text); border: 1px solid var(--text);
+  padding: 22px 24px 24px; box-sizing: border-box; }
+.rs-recsheet__x { position: absolute; top: 10px; right: 12px; appearance: none; border: 0; background: none; color: var(--text); font-size: 1rem; cursor: pointer; padding: 6px; }
+.rs-recsheet .sim-rec { border-top: 0; padding-top: 6px; }
+.rs-listen--yours .sim-btn { margin-left: 10px; }

@@ -1153,7 +1153,14 @@ async function grSettingsLoad() {
         `Signed in as <strong>${st.name || '—'}</strong> at <code>${st.server_url}</code>`
             + ` — ${st.reachable ? '<span style="color:#6fae7d;">connected</span>' : '<span style="color:#d48080;">not reachable right now</span>'}`,
     ];
-    if (me) {
+    if (me && me.sim && me.sim.on) {
+        // the credits trial (gr_sim): credits and a room, no wallet and no plans
+        lines.push(`<strong>${me.sim.credits}</strong> credits · your room holds <strong>${me.sim.room.count}</strong> of ${me.sim.room.space} brought-home tracks · <a href="/room?shop=1" style="color:var(--accent);">your records from the shop</a>`);
+        lines.push(`Bring a track home: ${me.sim.rules.home_cost} · buy one: ${me.sim.rules.buy_cost} (or the difference, once it is home) · a whole record: ${me.sim.rules.record_share}% of its tracks. A track taken out can come back free after ${me.sim.rules.wait_days} days.`);
+        lines.push(me.sim.spotify_client_id ? `The Music Room has given this account a Spotify key: <a href="/spotify" style="color:var(--accent);">sign in to Spotify</a> to hear whole tracks through your own Spotify (Premium).`
+                                           : `Records play in Spotify's own small player. Whole tracks through your own Spotify are open to a few people at a time — the Music Room can add you.`);
+    }
+    if (me && !(me.sim && me.sim.on)) {
         lines.push(`Wallet <strong>${euro(me.wallet_cents)}</strong> (play money${me.topups_cents ? `, topped up ${euro(me.topups_cents)} so far` : ''})`);
         if (!me.plan) {
             lines.push(`No subscription yet — <a href="/subscribe?next=/settings" style="color:var(--accent);">choose one</a> (needed to borrow)`);
@@ -1165,6 +1172,8 @@ async function grSettingsLoad() {
                 + (me.credit_cents ? `, buyout credit ${euro(me.credit_cents)} per track` : '')
                 + ` · <a href="/subscribe?next=/settings" style="color:var(--muted);">change</a>`);
         }
+    }
+    if (me) {
         lines.push(`Your account code: <code>${st.invite_code || '—'}</code> — sign in with it on another device, or here after logging out. Keep it private: it is your password.`);
         const kinds = { artist: 'an artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
         if (me.kind_requested) lines.push(`Your request to be ${kinds[me.kind_requested] || me.kind_requested} is waiting for the Music Room.`);

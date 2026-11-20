@@ -1214,6 +1214,12 @@ def _needs_onboarding():
         return False
     if get_setting("setup_complete", "") != "1":
         return True
+    # The trial's room is never dead when empty: it has Grúpaí and, while the shop
+    # runs the credits trial, "From the shop" — most fellows have no music of their
+    # own (David, 2026-11-20). Without this, skipping the walkthrough sent My Room
+    # straight back to it, for good.
+    if IS_GR:
+        return False
     # Marked complete but empty → only truly set up if a library folder exists.
     return not (get_library_dest() or "").strip()
 
@@ -1575,6 +1581,7 @@ def _items_with_paths(items):
                     "artist":       it.get("artist") or "",
                     "duration_sec": it.get("duration_sec") or 0,
                     "image_url":    it.get("image_url") or "",
+                    "once":         bool(it.get("once")),     # record shopping's one play: leaves the cue after
                 })
             continue
         # Remote stream items (Explore mixes/podcasts) carry an audio_url, not a
@@ -1741,7 +1748,8 @@ def api_seinnteoir_add():
     items = _items_with_paths(d.get("items") or [])
     # autostart defaults True (existing 2D behaviour); the 3D room cues with
     # autostart=False so adding to an empty queue never starts playback.
-    n = _get_seinnteoir_player().add(items, autostart=bool(d.get("autostart", True)))
+    n = _get_seinnteoir_player().add(items, autostart=bool(d.get("autostart", True)),
+                                     play_now=bool(d.get("play_now")))
     return jsonify({"ok": True, "added": n})
 
 
@@ -14946,7 +14954,14 @@ def _md_page(path):
 
 # ── the master account's page, and what everyone can ask of the master (gr_master.py on the server) ──
 import re as _re_master
-_MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|reports(/\d+)?|feedback(/\d+)?|version|grupai/\d+)$")
+_MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|reports(/\d+)?|feedback(/\d+)?|version|grupai/\d+"
+                                  r"|sim(/(rules|credits|playlist|activity|sync-note))?|spotify-keys(/assign)?)$")
+
+# the credits trial (gr_sim.py on the server): bring home, buy, take out, the
+# Spotify key the master gives each person, the master's playlist reading
+import gr_sim_app  # noqa: E402
+gr_sim_app.register(app, get_setting=_get_setting_threadsafe, set_setting=_set_setting_threadsafe,
+                    spotify=lambda: _get_spotify(), is_gr=IS_GR)
 
 
 def _app_version():

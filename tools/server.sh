@@ -24,6 +24,7 @@
 #   tools/server.sh start | stop | restart | status | log
 #   tools/server.sh backup                 a copy of the database now
 #   tools/server.sh master "Your Name"     make the master account (prints its code)
+#   tools/server.sh sim on|off|status      the credits trial (bring home / buy with credits)
 #   tools/server.sh address                the address the fellows' apps use
 #   tools/server.sh releases               which releases are here, and which is running
 #
@@ -169,6 +170,8 @@ case "$cmd" in
   log)       tail -n "${1:-60}" "$HOME_DIR/logs/server.log" ;;
   master)    [ -n "${1:-}" ] || die "a name, please: tools/server.sh master \"Your Name\""
              ( cd "$HOME_DIR/current" && MR_GR_DB="$DB" MR_LIBRARY_DB="$HOME_DIR/data/no-library.db" "$PY" gr_server.py master "$@" ) ;;
+  sim)       [ -n "${1:-}" ] || die "on, off or status: tools/server.sh sim on"
+             ( cd "$HOME_DIR/current" && MR_GR_DB="$DB" MR_LIBRARY_DB="$HOME_DIR/data/no-library.db" "$PY" gr_server.py sim "$1" ) ;;
   releases)  ls -1 "$HOME_DIR/releases" 2>/dev/null | grep -v '\.part$' | while read -r r; do [ "$r" = "$(running_tag)" ] && echo "$r   ← running" || echo "$r"; done ;;
   address)   ip="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo '?')"
              say "On this Wi-Fi:      http://$ip:$PORT"

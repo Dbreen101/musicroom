@@ -40,6 +40,21 @@
         .ms-form input { padding: 9px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text); font-size: .9rem; }
         .ms-said { min-height: 1.4em; font-family: var(--f-mono, monospace); font-size: .66rem; color: var(--muted); }
         audio { height: 32px; vertical-align: middle; }
+        /* the credits trial (gr_sim.py) */
+        .ms-h2 { font-family: var(--f-display, Georgia, serif); font-weight: 400; font-size: 1.6rem; margin: 26px 0 6px; }
+        .ms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 18px; max-width: 900px; align-items: end; }
+        .ms-grid label { display: grid; gap: 4px; font-family: var(--f-mono, monospace); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+        .ms-grid input, .ms-grid select, .ms-line input, .ms-line select { padding: 8px 9px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+            font-family: var(--f-mono, monospace); font-size: .8rem; text-transform: none; letter-spacing: 0; }
+        .ms-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+        .ms-line input[type=text], .ms-line input:not([type]) { flex: 1 1 260px; }
+        .ms-switch { display: inline-flex; gap: 8px; align-items: center; font-family: var(--f-mono, monospace); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+        .ms-table { width: 100%; border-collapse: collapse; font-family: var(--f-mono, monospace); font-size: .68rem; }
+        .ms-table th { text-align: right; font-weight: 400; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-size: .56rem; padding: 6px 6px; border-bottom: 1px solid var(--text); vertical-align: bottom; }
+        .ms-table td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .ms-table th:first-child, .ms-table td:first-child { text-align: left; }
+        .ms-wide { overflow-x: auto; }
+        .ms-key { padding: 12px 0; border-bottom: 1px solid var(--border); }
     </style>
 </head>
 <body class="gr-page">
@@ -56,6 +71,9 @@
         <button data-tab="reports">Reports<b id="n-reports" hidden></b></button>
         <button data-tab="feedback">Feedback<b id="n-feedback" hidden></b></button>
         <button data-tab="version">Version</button>
+        <button data-tab="trial">Credits trial</button>
+        <button data-tab="spotify">Spotify keys</button>
+        <button data-tab="activity">Activity</button>
     </nav>
     <div class="ms-said" id="ms-said" role="status"></div>
     <section id="ms-body"></section>
@@ -89,7 +107,7 @@ async function overview() {
 function show(tab) {
     TAB = tab; history.replaceState(null, '', '#' + tab); said.textContent = '';
     document.querySelectorAll('#ms-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-    ({ accounts, records, reports, feedback, version }[tab] || accounts)();
+    ({ accounts, records, reports, feedback, version, trial, spotify, activity }[tab] || accounts)();
 }
 document.getElementById('ms-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.tab); });
 
@@ -231,8 +249,122 @@ async function version() {
         said.textContent = out.ok ? 'Saved. Apps will see it within ten minutes.' : out.d.error;
     });
 }
-overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version'].includes(TAB) ? TAB : 'accounts'); });
+
+// ── the credits trial (gr_sim.py): the numbers, the playlist the shop is made from, credits ──
+const RULES = [['start_credits', 'Credits to start with'], ['home_cost', 'Bring a track home'], ['buy_cost', 'Buy a track'],
+    ['record_share', 'A whole record costs (% of its tracks)'], ['room_space', 'Room space (tracks brought home)'], ['wait_days', 'Days before a track taken out can come back']];
+let SYNC_T = 0;
+async function trial() {
+    const r = await api('sim');
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const d = r.d, R = d.rules, pl = d.playlist || {};
+    body.innerHTML = `
+      <p class="gr-lede" style="max-width:700px">Records come from your Spotify playlist; each record's first artist gets an artist account.
+        Everyone brings tracks home or buys them with credits. Every credit spent is kept, with how full their room was.</p>
+      <div class="ms-line"><label class="ms-switch"><input type="checkbox" id="t-on" ${R.on ? 'checked' : ''}> The trial is on</label>
+        <span class="ms-row__s">${R.on ? 'Everyone brings home and buys with credits. No basket, no plans.' : 'Off: the old borrowing, plans and basket.'}</span></div>
+      <h2 class="ms-h2">The numbers</h2>
+      <div class="ms-grid">${RULES.map(([k, l]) => `<label>${l}<input type="number" min="${d.limits[k][0]}" max="${d.limits[k][1]}" data-rule="${k}" value="${esc(R[k])}"></label>`).join('')}</div>
+      <div class="ms-line"><button class="ms-btn ms-btn--go" id="t-save">Save the numbers</button>
+        <span class="ms-row__s">Changes count from now. Credits already given stay as they are; the starting credits are for people who haven't started yet.</span></div>
+
+      <h2 class="ms-h2">The shop's playlist</h2>
+      <p class="ms-row__s" style="max-width:700px">A public Spotify playlist you made. Each track on it brings in its whole album or single (a track off a compilation comes alone).
+        This app reads it — signed in to Spotify with the account that made it — once now, and every hour by itself while it is open. Records that are already here stay as they are.</p>
+      <div class="ms-line"><input id="t-pl" value="${esc(pl.url || '')}" placeholder="https://open.spotify.com/playlist/…" aria-label="The playlist's link">
+        <button class="ms-btn" id="t-plsave">Save</button><button class="ms-btn ms-btn--go" id="t-sync" ${pl.id ? '' : 'disabled'}>Bring records in now</button></div>
+      <div class="ms-row__s" id="t-syncsaid">${pl.synced_at ? `Last brought in ${when(pl.synced_at)}${pl.name ? ' from “' + esc(pl.name) + '”' : ''}${pl.note ? ' · ' + esc(pl.note) : ''}.` : (pl.note ? esc(pl.note) : '')}</div>
+      <p class="ms-row__s">In the shop now: <b>${d.counts.records}</b> records, <b>${d.counts.tracks}</b> tracks, <b>${d.counts.artists}</b> artist accounts.</p>
+
+      <h2 class="ms-h2">Give or take credits</h2>
+      <div class="ms-line"><select id="t-who" aria-label="Who"><option value="all">Everyone</option>${d.people.map(p => `<option value="${p.id}">${esc(p.name)} (@${esc(p.handle)})</option>`).join('')}</select>
+        <input id="t-n" type="number" style="width:110px" placeholder="50 or −50" aria-label="Credits">
+        <input id="t-why" placeholder="why (kept in the ledger)" aria-label="Why"><button class="ms-btn" id="t-give">Give</button></div>`;
+    document.getElementById('t-on').onchange = async e => { const o = await api('sim/rules', { on: e.target.checked }); said.textContent = o.ok ? (o.d.rules.on ? 'The trial is on.' : 'The trial is off.') : o.d.error; trial(); };
+    document.getElementById('t-save').onclick = async () => {
+        const send = {}; body.querySelectorAll('[data-rule]').forEach(i => send[i.dataset.rule] = i.value);
+        const o = await api('sim/rules', send); said.textContent = o.ok ? 'Saved.' : o.d.error;
+    };
+    document.getElementById('t-plsave').onclick = async () => { const o = await api('sim/playlist', { url: document.getElementById('t-pl').value }); said.textContent = o.ok ? 'Saved.' : o.d.error; if (o.ok) trial(); };
+    document.getElementById('t-sync').onclick = () => syncNow();
+    document.getElementById('t-give').onclick = async () => {
+        const who = document.getElementById('t-who').value, n = parseInt(document.getElementById('t-n').value, 10);
+        if (!n) { said.textContent = 'How many credits?'; return; }
+        const o = await api('sim/credits', Object.assign({ credits: n, note: document.getElementById('t-why').value }, who === 'all' ? { everyone: true } : { account_id: +who }));
+        said.textContent = o.ok ? `Done — ${o.d.people} ${o.d.people === 1 ? 'person' : 'people'}.` : o.d.error;
+    };
+}
+async function syncNow() {
+    const out = document.getElementById('t-syncsaid');
+    try { await fetch('/api/gr/sim/sync', { method: 'POST' }); } catch (_) {}
+    clearInterval(SYNC_T);
+    SYNC_T = setInterval(async () => {
+        let s = {}; try { s = await (await fetch('/api/gr/sim/sync')).json(); } catch (_) {}
+        if (!document.getElementById('t-syncsaid')) { clearInterval(SYNC_T); return; }
+        if (s.running) { out.textContent = 'Reading… ' + (s.step || '') + (s.total ? ` (${s.done} of ${s.total} records)` : ''); return; }
+        clearInterval(SYNC_T);
+        if (s.error) { out.textContent = s.error; return; }
+        const m = s.result || {};
+        said.textContent = `Brought in ${m.records || 0} new records (${m.tracks || 0} tracks), ${m.artists || 0} new artist accounts.`;
+        trial();
+    }, 1200);
+}
+
+// ── Spotify keys: one key lets five people play Spotify from inside the Music Room ──
+async function spotify() {
+    const r = await api('sim');
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const d = r.d, keys = d.keys || [];
+    const keyOf = id => keys.find(k => k.id === id);
+    body.innerHTML = `
+      <p class="gr-lede" style="max-width:720px">Spotify lets an app in development be used by ${d.per_key} people. Give a key to up to ${d.per_key} people:
+        their app picks it up by itself, and they can sign in to Spotify and hear whole tracks through their own Spotify. Everyone else hears records in Spotify's own small player.</p>
+      <p class="ms-row__s" style="max-width:720px">On developer.spotify.com, each person must also be added to that app (Settings → User Management: their name and the email of their Spotify account), and the app needs the address
+        <code>http://127.0.0.1:5177/api/spotify/callback</code> under Redirect URIs. People need Spotify Premium for the deck to play their Spotify.</p>
+      <h2 class="ms-h2">Keys</h2>
+      <div id="k-list">${keys.map(k => `<div class="ms-line" data-key="${esc(k.id)}"><input data-f="label" value="${esc(k.label)}" style="flex:0 1 180px" aria-label="Name">
+          <input data-f="client_id" value="${esc(k.client_id)}" aria-label="Client ID"><span class="ms-row__s">${k.people.length} of ${d.per_key}</span>
+          <button class="ms-btn ms-btn--red" data-kx>Remove</button></div>`).join('') || '<p class="ms-none">No keys yet.</p>'}</div>
+      <div class="ms-line"><input id="k-label" placeholder="a name, e.g. David's app" style="flex:0 1 180px" aria-label="Name"><input id="k-cid" placeholder="Client ID (32 letters and numbers)" aria-label="Client ID">
+        <button class="ms-btn" id="k-add">Add</button><button class="ms-btn ms-btn--go" id="k-save">Save keys</button></div>
+      <h2 class="ms-h2">Who has which</h2>
+      ${d.people.map(p => `<div class="ms-row"><div><div class="ms-row__t">${esc(p.name)}</div><div class="ms-row__s">@${esc(p.handle)} · ${esc(p.kind)}</div></div>
+        <div class="ms-acts"><select data-person="${p.id}" aria-label="Spotify key for ${esc(p.name)}"><option value="">No key — Spotify's own player</option>
+          ${keys.map(k => `<option value="${esc(k.id)}" ${p.spotify_key === k.id ? 'selected' : ''}>${esc(k.label)} (${k.people.length}/${d.per_key})</option>`).join('')}</select></div></div>`).join('')}`;
+    const collect = () => [...body.querySelectorAll('#k-list [data-key]')].map(row => ({ id: row.dataset.key, label: row.querySelector('[data-f=label]').value, client_id: row.querySelector('[data-f=client_id]').value }));
+    const save = async (list) => { const o = await api('spotify-keys', { keys: list }); said.textContent = o.ok ? 'Saved.' : o.d.error; if (o.ok) spotify(); };
+    body.querySelectorAll('[data-kx]').forEach(b => b.onclick = () => { b.closest('[data-key]').remove(); });
+    document.getElementById('k-add').onclick = () => { const c = document.getElementById('k-cid').value.trim(); if (!c) return; save(collect().concat([{ label: document.getElementById('k-label').value, client_id: c }])); };
+    document.getElementById('k-save').onclick = () => save(collect());
+    body.querySelectorAll('select[data-person]').forEach(sel => sel.onchange = async () => {
+        const o = await api('spotify-keys/assign', { account_id: +sel.dataset.person, key: sel.value });
+        said.textContent = o.ok ? 'Done. Their app picks it up the next time a page opens.' : o.d.error; spotify();
+    });
+}
+
+// ── what everyone did with their credits ──
+async function activity() {
+    const r = await api('sim/activity');
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const ppl = r.d.people || [], R = r.d.rules || {};
+    const sum = k => ppl.reduce((a, p) => a + (p[k] || 0), 0);
+    body.innerHTML = `
+      <p class="gr-lede" style="max-width:720px">Per person: credits left, what they spent them on, their room, and what they did when it was full.
+        Room space now: ${esc(R.room_space)}. ${sum('spent')} credits spent in all; ${sum('buys_when_full')} buys made with a full room.</p>
+      <div class="ms-line"><a class="ms-btn" href="/api/gr/sim-csv/activity" download>This table as a spreadsheet</a>
+        <a class="ms-btn" href="/api/gr/sim-csv/ledger" download>Every credit, as a spreadsheet</a></div>
+      <div class="ms-wide"><table class="ms-table"><thead><tr>
+        <th>Person</th><th>Credits left</th><th>Spent</th><th>on bringing home</th><th>on buying</th><th>Given</th><th>At home</th><th>Bought</th><th>Taken out</th>
+        <th>Room</th><th>Refused: room full</th><th>Bought with room full</th><th>Refused: too few credits</th><th>Plays</th><th>One-plays in the shop</th><th>Last</th></tr></thead><tbody>
+        ${ppl.map(p => `<tr><td>${esc(p.name)} <span class="ms-row__s">@${esc(p.handle)}</span></td><td>${p.credits == null ? '—' : p.credits}</td><td>${p.spent}</td>
+          <td>${p.spent_home}</td><td>${p.spent_buy}</td><td>${p.given}</td><td>${p.home_now}</td><td>${p.bought}</td><td>${p.taken_out}</td>
+          <td>${p.room_count} / ${p.room_space}</td><td>${p.full_refused}</td><td>${p.buys_when_full}</td><td>${p.short_refused}</td><td>${p.plays}</td><td>${p.one_plays}</td><td>${when(p.last) || '—'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="ms-row__s">Plays are counted when a record is started from “From the shop” or a public room. The activity log in Terminal (<code>gr_server.py events --kind sim_buy</code>) has every move.</p>`;
+}
+overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version', 'trial', 'spotify', 'activity'].includes(TAB) ? TAB : 'accounts'); });
 </script>
 <script src="/static/js/theme.js"></script>
+<script src="/static/js/gr_nav.js"></script>
 </body>
 </html>

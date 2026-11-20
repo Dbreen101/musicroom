@@ -227,6 +227,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.commit()
     gr_shop.ensure(conn)      # record shopping: crates, the counter, blind (gr_shop.py)
     gr_master.ensure(conn)    # the master account, approvals, reports, the version (gr_master.py)
+    gr_sim.ensure(conn)       # the credits trial: bring home, buy, the room's space (gr_sim.py)
 
 
 ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "business")
@@ -598,6 +599,7 @@ def api_me():
                 "room_hidden": gr_master.is_hidden(acct),
                 "room_hidden_note": (acct["hidden_note"] if "hidden_note" in acct.keys() else None) or "",
                 "agreed": bool(acct["agreed_at"]) if "agreed_at" in acct.keys() else False,
+                "sim": gr_sim.me_json(conn, acct),
             }
         )
 
@@ -758,11 +760,12 @@ def _catalogue_rows(conn, acct, owner_id=None, everything=False):
         if not owner_id:        # (a room the master took down: its records leave the shelves too)
             where += " AND (a.id IS NULL OR a.hidden_at IS NULL)"
     out = []
-    for t in conn.execute(
+    db_rows = conn.execute(
         f"SELECT t.*, a.handle AS owner_handle, a.name AS owner_name, a.kind AS owner_kind"
         f" FROM gr_tracks t LEFT JOIN gr_accounts a ON a.id = t.owner_account_id"
-        f" {where} ORDER BY t.artist, t.album, t.title", params
-    ):
+        f" {where} ORDER BY t.artist, t.album, COALESCE(t.disc_no,1), COALESCE(t.track_no,0), t.title", params
+    ).fetchall()
+    for t in db_rows:
         c = credit if t["id"] in borrowed_this_month else 0
         out.append(
             {
@@ -787,7 +790,7 @@ def _catalogue_rows(conn, acct, owner_id=None, everything=False):
                 "year": _opt(t, "year"), "genre": _opt(t, "genre"), "label": _opt(t, "label"),
             }
         )
-    return out
+    return gr_sim.attach(conn, acct, out, db_rows)
 
 
 def _opt(row, key):
@@ -861,10 +864,19 @@ def api_borrow():
         if existing:
             return _payload(existing)
 
-        err = _ensure_sub(conn, acct)
-        if err:
-            return err
-        plan = _plan_of(acct)
+        if gr_sim.is_on(conn):
+            # the credits trial: a record file brought home costs credits and takes room (gr_sim)
+            if _opt(track, "spotify_uri"):
+                return jsonify({"error": "bring this one home from the shop instead", "sim": True}), 409
+            refused = gr_sim.file_home(conn, acct, track)
+            if refused:
+                return jsonify(refused[0]), refused[1]
+            plan = None
+        else:
+            err = _ensure_sub(conn, acct)
+            if err:
+                return err
+            plan = _plan_of(acct)
         if plan and plan["per_month"]:
             used = conn.execute(
                 "SELECT COUNT(*) FROM gr_borrows WHERE account_id=? AND month=?",
@@ -977,14 +989,23 @@ def api_buy():
         if already:
             return jsonify({"bought": True, "paid_cents": 0, "already": True,
                             "url": f"/api/download-plain/{track['id']}"})
+        if _opt(track, "spotify_uri"):
+            return jsonify({"error": "buy this one from the shop instead", "sim": True}), 409
         price = track["price_cents"] or 0
-        borrowed_this_month = conn.execute(
-            "SELECT 1 FROM gr_borrows WHERE account_id=? AND track_id=? AND month=?",
-            (acct["id"], track["id"], _month()),
-        ).fetchone()
-        credit = _credit_cents(conn, acct) if borrowed_this_month else 0
-        to_pay = max(0, price - credit)
-        _charge(conn, acct, to_pay, f"buy track {track['id']}")
+        spent = None
+        if gr_sim.is_on(conn):
+            refused, spent = gr_sim.file_buy(conn, acct, track)
+            if refused:
+                return jsonify(refused[0]), refused[1]
+            credit, to_pay = 0, 0
+        else:
+            borrowed_this_month = conn.execute(
+                "SELECT 1 FROM gr_borrows WHERE account_id=? AND track_id=? AND month=?",
+                (acct["id"], track["id"], _month()),
+            ).fetchone()
+            credit = _credit_cents(conn, acct) if borrowed_this_month else 0
+            to_pay = max(0, price - credit)
+            _charge(conn, acct, to_pay, f"buy track {track['id']}")
         conn.execute(
             "INSERT INTO gr_purchases(account_id, track_id, paid_cents, artist_cents, bought_at)"
             " VALUES(?,?,?,?,?)", (acct["id"], track["id"], to_pay, price, _now()))
@@ -997,7 +1018,7 @@ def api_buy():
                                           "paid_cents": to_pay, "credit_cents": credit,
                                           "artist_cents": price, "owner": track["owner_account_id"]})
         return jsonify({"bought": True, "paid_cents": to_pay, "credit_cents": credit,
-                        "artist_cents": price, "format": track["format"],
+                        "credits_spent": spent, "artist_cents": price, "format": track["format"],
                         "filename": track["filename"],
                         "url": f"/api/download-plain/{track['id']}"})
 
@@ -2082,6 +2103,8 @@ def main(argv=None):
     p_ev.add_argument("-n", type=int, default=60)
     p_ev.add_argument("--csv", help="write EVERYTHING to this csv file instead")
     sub.add_parser("feedback", help="in-app feedback and bug reports, latest first")
+    p_sim = sub.add_parser("sim", help="the credits trial: bring home / buy with credits (on | off | status)")
+    p_sim.add_argument("switch", choices=("on", "off", "status"))
     p_run = sub.add_parser("run")
     p_run.add_argument("--host", default="0.0.0.0")
     p_run.add_argument("--port", type=int, default=5301)
@@ -2143,6 +2166,15 @@ def main(argv=None):
             for r in conn.execute("SELECT f.*, a.name FROM gr_feedback f LEFT JOIN gr_accounts a ON a.id=f.account_id"
                                   " ORDER BY f.at DESC LIMIT 200"):
                 print(f"{r['at'][:16]}  {(r['name'] or '—')[:16]:<16} {r['kind']:<9} {r['page'] or '':<22} {r['note'][:110]}")
+    elif args.cmd == "sim":
+        with closing(db()) as conn:
+            init_db(conn)
+            r = gr_sim.rules(conn)
+            if args.switch != "status":
+                r["on"] = args.switch == "on"
+                gr_master.set_setting(conn, "sim", r)
+            print(("the credits trial is ON" if r["on"] else "the credits trial is off") + " — " +
+                  ", ".join(f"{k} {v}" for k, v in r.items() if k != "on"))
     elif args.cmd == "run":
         with closing(db()) as conn:
             init_db(conn)
@@ -2198,6 +2230,12 @@ gr_shop.register(app, sys.modules[__name__])
 import gr_master  # noqa: E402
 
 gr_master.register(app, sys.modules[__name__])
+
+# the credits trial — bring home, buy, take out, records from David's Spotify
+# playlist, the Spotify keys — lives in gr_sim.py
+import gr_sim  # noqa: E402
+
+gr_sim.register(app, sys.modules[__name__])
 
 
 if __name__ == "__main__":
