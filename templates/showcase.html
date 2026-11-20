@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showcase — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <script src="/static/js/room_transition.js"></script>
+    <script src="/static/vendor/sortable/Sortable.min.js"></script>
+    <style>
+        .sc-wrap { max-width: 860px; margin: 36px auto 80px; padding: 32px 36px 44px; }
+        .sc-wrap h1 { font-family: var(--font-celtic); font-size: 1.6rem; margin-bottom: 6px; }
+        .sc-meta { font-size: 0.78rem; color: var(--muted2); line-height: 1.6; }
+        .sc-sec { margin-top: 26px; }
+        .sc-sec h2 { font-family: var(--font-serif); font-style: italic; font-weight: 400;
+            font-size: 1.12rem; margin-bottom: 8px; }
+        .sc-field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+        .sc-field label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.4px; }
+        .sc-field input, .sc-field textarea { background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); padding: 8px 11px;
+            font-family: var(--font-main); font-size: 0.88rem; outline: none; }
+        .sc-field textarea { font-family: var(--font-serif); font-style: italic; font-size: 0.98rem;
+            min-height: 58px; resize: vertical; }
+        .sc-field input:focus, .sc-field textarea:focus { border-color: var(--border2); }
+
+        .sc-items { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+        .sc-it { display: flex; align-items: center; gap: 11px; padding: 8px 11px;
+            background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+            cursor: grab; }
+        .sc-it:active { cursor: grabbing; }
+        .sc-it__kind { font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 1.1px;
+            text-transform: uppercase; color: var(--accent); border: 1px solid var(--border);
+            border-radius: 20px; padding: 2px 8px; min-width: 52px; text-align: center; }
+        .sc-it__cov { width: 34px; height: 34px; border-radius: 5px; object-fit: cover;
+            background: var(--surface); flex: none; }
+        .sc-it__t { flex: 1; min-width: 0; }
+        .sc-it__title { font-size: 0.87rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sc-it__sub { font-family: var(--font-serif); font-style: italic; font-size: 0.78rem;
+            color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sc-it__x { background: none; border: none; color: var(--muted2); cursor: pointer;
+            font-size: 0.9rem; padding: 4px 7px; }
+        .sc-it__x:hover { color: var(--text); }
+        .sc-empty { font-family: var(--font-serif); font-style: italic; color: var(--muted);
+            font-size: 0.9rem; padding: 12px 2px; }
+
+        .sc-addrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+        .sc-addrow input[type=search], .sc-addrow input[type=url], .sc-addrow input[type=text] {
+            flex: 1; min-width: 180px; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); padding: 8px 11px;
+            font-family: var(--font-main); font-size: 0.86rem; outline: none; }
+        .sc-btn { padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--accent);
+            color: var(--accent); background: none; cursor: pointer;
+            font-family: var(--font-main); font-size: 0.84rem; }
+        .sc-btn:hover { background: var(--accent-dim); }
+        .sc-btn--quiet { border-color: var(--border); color: var(--muted); }
+        .sc-btn--quiet:hover { color: var(--text); }
+        .sc-results { display: flex; flex-direction: column; gap: 3px; margin-top: 8px;
+            max-height: 300px; overflow-y: auto; }
+        .sc-res { display: flex; align-items: baseline; gap: 9px; padding: 6px 9px; border-radius: 8px;
+            cursor: pointer; font-size: 0.85rem; }
+        .sc-res:hover { background: rgba(245,230,176,0.07); }
+        .sc-res__kind { font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--muted2); min-width: 46px; }
+        .sc-res__sub { font-family: var(--font-serif); font-style: italic; font-size: 0.78rem;
+            color: var(--muted); margin-left: auto; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; max-width: 45%; }
+        .sc-res.in { opacity: 0.4; cursor: default; }
+        .sc-status { font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted);
+            margin-top: 12px; min-height: 1.1em; }
+        .sc-status.ok { color: #9bbf9e; }
+        .sc-status.err { color: #e0a08f; }
+        .sc-pubrow { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/tools" class="active">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="sc-wrap floor-sheet">
+    <h1>Showcase</h1>
+    <p class="sc-meta">The page you share. Choose what goes in — records, whole albums, links,
+       saved articles, listening notes — and put them in your order. Publishing makes a folder
+       you can send to anyone or host anywhere. It carries metadata, your notes, covers and
+       outbound links only — never the audio, never file paths.</p>
+
+    <div class="sc-sec">
+        <div class="sc-field">
+            <label for="sc-name">name</label>
+            <input id="sc-name" type="text" placeholder="">
+        </div>
+        <div class="sc-field">
+            <label for="sc-intro">a few words at the top (optional — your voice)</label>
+            <textarea id="sc-intro"></textarea>
+        </div>
+    </div>
+
+    <div class="sc-sec">
+        <h2>What's in the window</h2>
+        <div class="sc-items" id="sc-items"></div>
+        <div class="sc-empty" id="sc-empty" hidden>Nothing yet — add things below. Drag to reorder once there's more than one.</div>
+    </div>
+
+    <div class="sc-sec">
+        <h2>Add things</h2>
+        <div class="sc-addrow">
+            <input id="sc-q" type="search" placeholder="search your records, albums, articles, notes">
+        </div>
+        <div class="sc-results" id="sc-results"></div>
+        <div class="sc-addrow" style="margin-top:14px">
+            <input id="sc-url" type="url" placeholder="or paste a link — your Mixcloud, SoundCloud, anything">
+            <input id="sc-url-title" type="text" placeholder="what to call it">
+            <button class="sc-btn sc-btn--quiet" id="sc-add-link">＋ add link</button>
+        </div>
+    </div>
+
+    <div class="sc-sec">
+        <div class="sc-pubrow">
+            <button class="sc-btn" id="sc-publish">Publish the showcase</button>
+            <span class="sc-meta">writes the folder + shows it in Finder</span>
+        </div>
+        <div class="sc-status" id="sc-status"></div>
+    </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ITEMS = [];
+
+function status(msg, cls) {
+  const el = $('sc-status');
+  el.textContent = msg || '';
+  el.className = 'sc-status' + (cls ? ' ' + cls : '');
+}
+
+async function loadShowcase() {
+  const r = await fetch('/api/showcase').then(r => r.json()).catch(() => null);
+  if (!r) { status('could not load the showcase', 'err'); return; }
+  ITEMS = r.items || [];
+  if ($('sc-name') !== document.activeElement) $('sc-name').value = r.name || '';
+  if ($('sc-intro') !== document.activeElement) $('sc-intro').value = r.intro || '';
+  renderItems();
+}
+
+function itemCover(it) {
+  if (it.kind === 'track' && it.has_art)
+    return '<img class="sc-it__cov" src="/api/artwork/' + it.track_id + '?s=192" loading="lazy">';
+  if (it.kind === 'album' && it.cover_track_id)
+    return '<img class="sc-it__cov" src="/api/artwork/' + it.cover_track_id + '?s=192" loading="lazy">';
+  if ((it.kind === 'link' || it.kind === 'article') && it.image_url)
+    return '<img class="sc-it__cov" src="' + esc(it.image_url) + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
+  return '<span class="sc-it__cov"></span>';
+}
+
+function renderItems() {
+  const box = $('sc-items');
+  box.innerHTML = ITEMS.map(it =>
+    '<div class="sc-it" data-id="' + it.id + '">' +
+      '<span class="sc-it__kind">' + esc(it.kind) + '</span>' +
+      itemCover(it) +
+      '<span class="sc-it__t">' +
+        '<div class="sc-it__title">' + esc(it.title || it.url || '') + '</div>' +
+        (it.subtitle ? '<div class="sc-it__sub">' + esc(it.subtitle) +
+          (it.kind === 'album' && it.n_tracks ? ' · ' + it.n_tracks + ' tracks' : '') + '</div>'
+          : (it.kind === 'album' && it.n_tracks ? '<div class="sc-it__sub">' + it.n_tracks + ' tracks</div>' : '')) +
+      '</span>' +
+      '<button class="sc-it__x" data-x="' + it.id + '" title="take out">✕</button>' +
+    '</div>').join('');
+  $('sc-empty').hidden = ITEMS.length !== 0;
+  if (window.Sortable && ITEMS.length > 1 && !box._sortable) {
+    box._sortable = Sortable.create(box, {
+      animation: 140,
+      onEnd: () => {
+        const order = [...box.querySelectorAll('.sc-it')].map(e => +e.dataset.id);
+        fetch('/api/showcase/reorder', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order }) }).catch(() => {});
+      }
+    });
+  }
+}
+$('sc-items').addEventListener('click', async e => {
+  const x = e.target.closest('[data-x]'); if (!x) return;
+  await fetch('/api/showcase/item/' + x.dataset.x, { method: 'DELETE' }).catch(() => {});
+  loadShowcase();
+});
+
+/* name + intro save on blur */
+function saveMeta() {
+  fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ showcase_name: $('sc-name').value.trim(),
+                           showcase_intro: $('sc-intro').value.trim() }) }).catch(() => {});
+}
+$('sc-name').addEventListener('blur', saveMeta);
+$('sc-intro').addEventListener('blur', saveMeta);
+
+/* search + add */
+let qTimer = null;
+$('sc-q').addEventListener('input', () => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(runSearch, 250);
+});
+async function runSearch() {
+  const q = $('sc-q').value.trim();
+  const box = $('sc-results');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  const r = await fetch('/api/showcase/search?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => null);
+  if (!r) return;
+  const inTracks = new Set(ITEMS.filter(i => i.kind === 'track').map(i => i.track_id));
+  const inAlbums = new Set(ITEMS.filter(i => i.kind === 'album')
+    .map(i => ((i.album || '') + '|' + (i.album_artist || '')).toLowerCase()));
+  const inNotes = new Set(ITEMS.filter(i => i.kind === 'article' || i.kind === 'note').map(i => i.note_id));
+  const rows = [];
+  (r.albums || []).forEach(a => {
+    const dup = inAlbums.has(((a.album || '') + '|' + (a.album_artist || '')).toLowerCase());
+    rows.push('<div class="sc-res' + (dup ? ' in' : '') + '" data-kind="album" data-album="' +
+      esc(a.album) + '" data-artist="' + esc(a.album_artist || '') + '">' +
+      '<span class="sc-res__kind">album</span>' + esc(a.album) +
+      '<span class="sc-res__sub">' + esc(a.album_artist || '') + ' · ' + a.n + ' tracks</span></div>');
+  });
+  (r.tracks || []).forEach(t => {
+    const dup = inTracks.has(t.id);
+    rows.push('<div class="sc-res' + (dup ? ' in' : '') + '" data-kind="track" data-id="' + t.id + '">' +
+      '<span class="sc-res__kind">record</span>' + esc(t.title) +
+      '<span class="sc-res__sub">' + esc(t.artist_name || '') + '</span></div>');
+  });
+  (r.articles || []).forEach(a => {
+    const dup = inNotes.has(a.id);
+    rows.push('<div class="sc-res' + (dup ? ' in' : '') + '" data-kind="article" data-id="' + a.id + '">' +
+      '<span class="sc-res__kind">article</span>' + esc(a.ref_title || a.ref_url || '') +
+      '<span class="sc-res__sub">' + esc(a.ref_source || '') + '</span></div>');
+  });
+  (r.notes || []).forEach(n => {
+    const dup = inNotes.has(n.id);
+    const ctx = [n.track_artist, n.track_title].filter(Boolean).join(' — ');
+    rows.push('<div class="sc-res' + (dup ? ' in' : '') + '" data-kind="note" data-id="' + n.id + '">' +
+      '<span class="sc-res__kind">note</span>' + esc((n.note_text || '').slice(0, 90)) +
+      '<span class="sc-res__sub">' + esc(ctx) + '</span></div>');
+  });
+  box.innerHTML = rows.join('') ||
+    '<div class="sc-empty">nothing found for “' + esc(q) + '”</div>';
+}
+$('sc-results').addEventListener('click', async e => {
+  const row = e.target.closest('.sc-res'); if (!row || row.classList.contains('in')) return;
+  const k = row.dataset.kind;
+  let body;
+  if (k === 'track') body = { kind: 'tracks', track_ids: [+row.dataset.id] };
+  else if (k === 'album') body = { kind: 'album', album: row.dataset.album, album_artist: row.dataset.artist };
+  else body = { kind: k, note_id: +row.dataset.id };
+  const r = await fetch('/api/showcase/add', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.json()).catch(() => null);
+  if (!r || !r.ok) { status((r && r.error) || 'could not add that', 'err'); return; }
+  status('added', 'ok');
+  row.classList.add('in');
+  loadShowcase();
+});
+
+/* paste a link — try to resolve title/image from the URL, then add */
+$('sc-add-link').addEventListener('click', async () => {
+  const url = $('sc-url').value.trim();
+  if (!url) { status('paste a link first', 'err'); return; }
+  let title = $('sc-url-title').value.trim(), image = '', subtitle = '';
+  if (!title) {
+    try {
+      const r = await fetch('/api/discover/resolve', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }) }).then(r => r.json());
+      if (r) { title = r.title || ''; image = r.image_url || r.artwork_url || ''; subtitle = r.source || ''; }
+    } catch (e) { /* offline is fine — the url alone still works */ }
+  }
+  const r = await fetch('/api/showcase/add', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'link', url, title, subtitle, image_url: image }) })
+    .then(r => r.json()).catch(() => null);
+  if (!r || !r.ok) { status((r && r.error) || 'could not add the link', 'err'); return; }
+  $('sc-url').value = ''; $('sc-url-title').value = '';
+  status('link added', 'ok');
+  loadShowcase();
+});
+
+/* publish */
+$('sc-publish').addEventListener('click', async () => {
+  saveMeta();
+  status('publishing…');
+  const r = await fetch('/api/export/share', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ showcase: true }) }).then(r => r.json()).catch(() => null);
+  if (!r || !r.ok) { status((r && r.error) || 'could not publish', 'err'); return; }
+  status('published — ' + r.count + ' things → ' + r.folder + ' (showing it in Finder). Open index.html to see it.', 'ok');
+  fetch('/api/reveal-path', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: r.folder }) }).catch(() => {});
+});
+
+loadShowcase();
+</script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

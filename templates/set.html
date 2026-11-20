@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <!-- SortableJS for drag-to-reorder -->
+    <script src="/static/vendor/sortable/Sortable.min.js"></script>
+    <style>
+        .set-meta-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .set-meta-field {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .set-meta-field input,
+        .set-meta-field select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 4px 8px;
+            font-size: 0.82rem;
+            font-family: var(--font-main);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .set-meta-field input:focus,
+        .set-meta-field select:focus { border-color: var(--accent); }
+
+        .set-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .set-track-wrapper { position: relative; }
+
+        .sortable-ghost .set-track-row {
+            opacity: 0.3;
+            background: var(--surface2);
+        }
+
+        /* Track picker panel (inline, not modal) */
+        .track-picker-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .track-picker-panel h3 {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 14px;
+            color: var(--muted);
+        }
+
+        .picker-search-inline {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 0.87rem;
+            font-family: var(--font-main);
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        .picker-search-inline:focus { border-color: var(--accent); }
+
+        .picker-list-inline {
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .picker-item-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 0.86rem;
+            transition: background 0.1s;
+        }
+
+        .picker-item-inline:last-child { border-bottom: none; }
+        .picker-item-inline:hover { background: var(--surface2); }
+        .picker-item-inline.selected { background: var(--accent-dim); }
+
+        .picker-item-inline input[type="checkbox"] {
+            accent-color: var(--accent); width: 14px; height: 14px; flex-shrink: 0;
+        }
+
+        .picker-item-inline__info { flex: 1; overflow: hidden; }
+
+        .picker-item-inline__title {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.86rem;
+        }
+
+        .picker-item-inline__meta {
+            font-size: 0.74rem; color: var(--muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .research-area {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .research-area label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .research-area textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 12px;
+            font-family: var(--font-main);
+            font-size: 0.87rem;
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 120px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .research-area textarea:focus { border-color: var(--accent); }
+
+        .export-row {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .export-row span {
+            font-size: 0.78rem;
+            color: var(--muted2);
+        }
+
+        /* Set type badge next to title */
+        .set-type-badge {
+            display: inline-block;
+            font-size: 0.62rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 100px;
+            border: 1px solid var(--border);
+            color: var(--muted2);
+            margin-left: 12px;
+            vertical-align: middle;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s;
+        }
+        .set-type-badge:hover { border-color: var(--accent); color: var(--accent); }
+        .set-type-badge.charted { border-color: var(--accent); color: var(--accent); }
+
+        /* Set prep: orderable like Charted (drag + position kept), but no
+           transition-note column — that's Charted's programmed-performance apparatus */
+        body.freestyle .set-transition-note { display: none; }
+
+        /* ───── Radio show apparatus (set_type='radio') ───── */
+        .set-public-note { display: none; }
+        body.radio .set-public-note {
+            display: block; width: 100%; margin: 2px 0 0 0;
+            background: rgba(245,230,176,0.045);
+            border: 1px solid var(--border); border-left: 2px solid var(--accent);
+            border-radius: var(--radius); color: var(--text);
+            padding: 8px 10px; font-family: var(--font-serif); font-style: italic;
+            font-size: 0.9rem; line-height: 1.5; resize: none; overflow: hidden;
+            outline: none; min-height: 34px;
+        }
+        body.radio .set-public-note:focus { border-color: var(--accent); }
+        #radio-panel { display: none; }
+        body.radio #radio-panel { display: block; }
+        .radio-sec { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .radio-sec > label {
+            font-size: 0.65rem; font-weight: 500; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--muted2); display: block; margin-bottom: 8px;
+        }
+        #radio-script {
+            width: 100%; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); padding: 14px;
+            font-family: var(--font-serif); font-size: 0.98rem; line-height: 1.65;
+            resize: vertical; min-height: 200px; outline: none;
+        }
+        #radio-script:focus { border-color: var(--accent); }
+        .radio-link-row { display: flex; align-items: baseline; gap: 9px; padding: 5px 2px;
+            font-size: 0.85rem; }
+        .radio-link-row a { color: var(--accent); text-decoration: none; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+        .radio-link-row a:hover { text-decoration: underline; }
+        .radio-link-row button { background: none; border: none; color: var(--muted2);
+            cursor: pointer; font-size: 0.85rem; padding: 0 5px; }
+        .radio-link-row button:hover { color: var(--text); }
+        .radio-addlink { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .radio-addlink input { flex: 1; min-width: 160px; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: var(--radius); color: var(--text);
+            padding: 7px 10px; font-family: var(--font-main); font-size: 0.84rem; outline: none; }
+        .radio-addlink input:focus { border-color: var(--accent); }
+        #radio-tracklist-out {
+            width: 100%; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); padding: 14px;
+            font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6;
+            min-height: 220px; resize: vertical; outline: none; display: none;
+        }
+        #radio-tracklist-out.on { display: block; }
+        .radio-status { font-size: 0.78rem; color: var(--muted); margin-top: 8px;
+            font-family: var(--font-mono); min-height: 1.1em; }
+        .radio-status.ok { color: #9bbf9e; }
+        .radio-status.err { color: #e0a08f; }
+
+        .export-feedback {
+            font-size: 0.78rem;
+            color: var(--accent);
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .export-feedback.visible { opacity: 1; }
+
+        /* ───── Mini player + queue ───── */
+        .set-mini-player {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 10px 18px;
+            display: none;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            z-index: 80;
+        }
+        .set-mini-player.visible { display: flex; }
+        .smp__info {
+            flex: 0 1 320px;
+            min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            font-size: 0.84rem;
+            color: var(--text);
+        }
+        .smp__info .smp__artist { color: var(--muted); }
+        .smp__controls { display: flex; align-items: center; gap: 6px; }
+        .smp__btn {
+            background: none; border: 1px solid var(--border);
+            color: var(--text); cursor: pointer;
+            width: 32px; height: 32px; border-radius: 50%;
+            font-size: 0.9rem; line-height: 1;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .smp__btn:hover { border-color: var(--accent); color: var(--accent); }
+        .smp__btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .smp__btn.play { width: 36px; height: 36px; }
+        .smp__time { font-size: 0.72rem; color: var(--muted); min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+        .smp__scrub { flex: 1; height: 4px; cursor: pointer; min-width: 100px; }
+        .smp__autoplay { font-size: 0.72rem; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+        .smp__qbtn {
+            background: none; border: 1px solid var(--border);
+            color: var(--text); cursor: pointer;
+            padding: 5px 10px; border-radius: var(--radius);
+            font-size: 0.78rem; line-height: 1;
+        }
+        .smp__qbtn:hover { border-color: var(--accent); color: var(--accent); }
+        .smp__close {
+            background: none; border: none; color: var(--muted2);
+            font-size: 0.95rem; cursor: pointer; padding: 4px 8px;
+        }
+        .smp__close:hover { color: var(--text); }
+        .smp__qpop {
+            position: absolute; right: 18px; bottom: 100%;
+            margin-bottom: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-width: 280px; max-width: 380px;
+            max-height: 300px; overflow-y: auto;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+            z-index: 90;
+            padding: 4px 0;
+            display: none;
+        }
+        .smp__qpop.visible { display: block; }
+        .smp__qpop__row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px; cursor: pointer;
+            font-size: 0.8rem; color: var(--text);
+            border-bottom: 1px solid var(--border);
+        }
+        .smp__qpop__row:hover { background: var(--surface2); }
+        .smp__qpop__row.active { background: rgba(120,188,150,0.10); color: var(--accent); }
+        .smp__qpop__head {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.7rem; color: var(--muted2);
+            letter-spacing: 0.08em; text-transform: uppercase;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .smp__qpop__clear {
+            background: none; border: none; color: var(--muted2);
+            cursor: pointer; font-size: 0.7rem; padding: 0;
+            text-transform: none; letter-spacing: 0;
+        }
+        .set-track-row__play {
+            background: none; border: none; color: var(--muted2);
+            cursor: pointer; font-size: 0.95rem; padding: 0 8px;
+        }
+        .set-track-row__play:hover { color: var(--accent); }
+        .set-track-row__play.playing { color: var(--accent); }
+        /* Keep page content above the mini-player when visible */
+        body.has-mini-player { padding-bottom: 70px; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets" class="active">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="floor-sheet" style="max-width: 900px; margin: 40px auto; padding: 36px 32px 56px;">
+
+    <!-- SET HEADER -->
+    <div class="set-header">
+        <h1 id="set-title-display" onclick="startEditTitle()" style="cursor:pointer;" title="Click to edit">—</h1>
+        <span class="set-type-badge" id="set-type-badge" onclick="cycleSetType()" title="Click to toggle set type">—</span>
+        <div class="set-meta-bar" id="set-meta-bar">
+            <!-- populated by JS -->
+        </div>
+    </div>
+
+    <!-- DURATION SUMMARY -->
+    <div class="set-duration-bar" id="duration-bar">
+        <span>Duration</span>
+        <span class="set-duration-total" id="duration-total">—</span>
+        <span id="duration-tracks" style="font-size:0.78rem;"></span>
+    </div>
+
+    <!-- TRACK LIST -->
+    <div class="set-track-list" id="set-track-list">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <!-- RECORDINGS — takes of this set (record here, or upload a file) -->
+    <div class="set-recordings" id="set-recordings" style="margin-top:34px;">
+        <h3 style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            Recordings
+            <button class="btn" id="rec-toggle" onclick="toggleRecording()" title="Record (microphone)">● record</button>
+            <label class="btn" style="cursor:pointer;">upload
+                <input type="file" id="rec-upload" accept="audio/*" style="display:none;" onchange="uploadRecording(this)">
+            </label>
+            <span id="rec-status" style="font-size:.78rem; color:var(--muted);"></span>
+        </h3>
+        <div id="rec-list"><span style="color:var(--muted); font-size:.85rem;">No recordings yet.</span></div>
+    </div>
+
+    <!-- ADD TRACKS PANEL -->
+    <div class="track-picker-panel" id="picker-panel" style="display:none;">
+        <h3>Add tracks</h3>
+        <input type="text" class="picker-search-inline" id="picker-search"
+               placeholder="Search library..." oninput="searchPicker(this.value)">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span id="picker-count" style="font-size:0.78rem; color:var(--muted);"></span>
+            <span id="picker-selected-count" style="font-size:0.78rem; color:var(--accent);"></span>
+        </div>
+        <div class="picker-list-inline" id="picker-list"></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+            <button class="btn btn--ghost btn--small" onclick="closePicker()">Cancel</button>
+            <button class="btn btn--primary btn--small" onclick="addSelectedTracks()">Add to set</button>
+        </div>
+    </div>
+
+    <!-- RESEARCH / NOTES -->
+    <div class="research-area">
+        <label>Research &amp; Context</label>
+        <textarea id="research-area" placeholder="Reference mixes, inspiration, notes on this set..."></textarea>
+    </div>
+
+    <!-- RADIO SHOW APPARATUS (set_type='radio' only) -->
+    <div id="radio-panel">
+        <div class="radio-sec">
+            <label>Script</label>
+            <textarea id="radio-script" placeholder="The show, in your words — talk breaks, timings, whatever you need in front of you."></textarea>
+        </div>
+        <div class="radio-sec">
+            <label>Links</label>
+            <div id="radio-links"></div>
+            <div class="radio-addlink">
+                <input type="url" id="radio-link-url" placeholder="paste a link">
+                <input type="text" id="radio-link-title" placeholder="what to call it">
+                <button class="btn btn--ghost btn--small" onclick="addShowLink()">＋ add</button>
+            </div>
+        </div>
+        <div class="radio-sec">
+            <label>Published tracklist</label>
+            <p style="font-size:0.8rem; color:var(--muted); margin-bottom:10px;">
+                Built from the running order + each track's <em>published tracklist</em> note
+                (the gold-edged box under a track). Artist links come along automatically.
+                Copy it into Substack or anywhere.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn--ghost btn--small" onclick="buildTracklist()">Build the tracklist</button>
+                <button class="btn btn--ghost btn--small" id="radio-copy-btn" onclick="copyTracklist()" style="display:none;">copy it</button>
+            </div>
+            <textarea id="radio-tracklist-out" readonly></textarea>
+        </div>
+        <div class="radio-sec">
+            <label>The show folder</label>
+            <p style="font-size:0.8rem; color:var(--muted); margin-bottom:10px;">
+                One folder with everything: the audio as numbered <em>copies</em> (your library
+                is never touched), a playlist file, the tracklist, script and research.
+                Take it to rekordbox, a DAW, anywhere.</p>
+            <button class="btn btn--ghost btn--small" onclick="exportShowFolder()">Make the show folder</button>
+            <div class="radio-status" id="radio-status"></div>
+        </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="export-row">
+        <span>Export</span>
+        <button class="btn btn--ghost btn--small" onclick="exportRekordbox()">Rekordbox XML</button>
+        <button class="btn btn--ghost btn--small" onclick="exportEngine()" title="Engine DJ / SC Live 4 — unzip to USB root">Engine DJ</button>
+        <span class="export-feedback" id="export-feedback">Saved to Downloads</span>
+    </div>
+
+</div>
+
+<!-- ───── Mini player (queue-aware) ───── -->
+<div class="set-mini-player" id="set-mini-player">
+    <div class="smp__info">
+        <span class="smp__artist" id="smp-artist">—</span> · <span id="smp-title">—</span>
+    </div>
+    <div class="smp__controls">
+        <button class="smp__btn" id="smp-prev" onclick="smpPrev()" title="Previous">⏮</button>
+        <button class="smp__btn play" id="smp-playpause" onclick="smpTogglePlay()">▶</button>
+        <button class="smp__btn" id="smp-next" onclick="smpNext()" title="Next">⏭</button>
+    </div>
+    <input type="range" class="smp__scrub" id="smp-scrub" min="0" max="100" value="0" step="0.1" oninput="smpSeek(this.value)">
+    <span class="smp__time" id="smp-time">0:00 / 0:00</span>
+    <label class="smp__autoplay" title="Auto-advance when track ends">
+        <input type="checkbox" id="smp-autoplay" checked
+               onchange="smpAutoplay = this.checked;"
+               style="accent-color:var(--accent);width:12px;height:12px;margin:0;">
+        autoplay
+    </label>
+    <button class="smp__qbtn" id="smp-qbtn" onclick="smpToggleQueue()">☰ <span id="smp-qcount"></span></button>
+    <button class="smp__close" onclick="smpClose()" title="Close player">✕</button>
+    <div class="smp__qpop" id="smp-qpop"></div>
+</div>
+<audio id="smp-audio" preload="metadata"></audio>
+
+<script>
+const SET_ID = {{ set.id }};
+let setData   = null;
+let setTracks = [];
+
+let pickerTracks   = [];
+let pickerSelected = new Set();
+let pickerTimeout  = null;
+let sortable       = null;
+
+// =============================================================
+// LOAD
+// =============================================================
+
+async function loadSet() {
+    const res  = await fetch(`/api/set/${SET_ID}`);
+    const data = await res.json();
+    setData   = data.set;
+    setTracks = data.tracks;
+
+    document.title = `${setData.name} — Music Room`;
+    const navName = document.getElementById('nav-set-name');
+    if (navName) navName.textContent = setData.name;
+    document.getElementById('set-title-display').textContent = setData.name;
+
+    applySetType();
+    renderTypeBadge();
+    renderMetaBar();
+    renderTrackList();
+    updateDuration();
+
+    if (setData.research) {
+        document.getElementById('research-area').value = setData.research;
+    }
+}
+
+function applySetType() {
+    const type = setData?.set_type || 'charted';
+    // set_prep (and legacy freestyle) = the pool layout: no transition notes.
+    // Radio keeps the charted apparatus (order + transitions) and adds its own.
+    document.body.classList.toggle('freestyle', type === 'set_prep' || type === 'freestyle');
+    document.body.classList.toggle('radio', type === 'radio');
+    if (type === 'radio') renderRadioPanel();
+}
+
+const TYPE_LABEL = { charted: 'Charted', set_prep: 'Set prep', radio: 'Radio show' };
+
+function renderTypeBadge() {
+    const badge = document.getElementById('set-type-badge');
+    if (!badge) return;
+    const type = setData?.set_type || 'charted';
+    badge.textContent = TYPE_LABEL[type] || 'Set prep';
+    badge.className = 'set-type-badge' + (type === 'charted' || type === 'radio' ? ' charted' : '');
+}
+
+async function cycleSetType() {
+    const current = setData?.set_type || 'charted';
+    const next = current === 'charted' ? 'set_prep' : (current === 'set_prep' ? 'radio' : 'charted');
+    await fetch(`/api/set/${SET_ID}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({set_type: next}),
+    });
+    setData.set_type = next;
+    applySetType();
+    renderTypeBadge();
+    renderTrackList();
+}
+
+// =============================================================
+// META BAR (date, place, add tracks button)
+// =============================================================
+
+async function renderMetaBar() {
+    const res    = await fetch('/api/places');
+    const places = await res.json();
+
+    const bar = document.getElementById('set-meta-bar');
+    bar.innerHTML = `
+        <div class="set-meta-field">
+            <span>Date</span>
+            <input type="text" id="meta-date" value="${setData.set_date || ''}" placeholder="YYYY-MM-DD"
+                   onchange="saveMeta()">
+        </div>
+        <div class="set-meta-field">
+            <span>Place</span>
+            <select id="meta-place" onchange="saveMeta()">
+                <option value="">—</option>
+                ${places.map(p => `<option value="${p.id}" ${p.id == setData.place_id ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="set-actions">
+            <button class="btn btn--ghost btn--small" onclick="playWholeSet()" title="Play this set in order">▶ Play set</button>
+            <button class="btn btn--ghost btn--small" onclick="togglePicker()">+ Add tracks</button>
+            <button class="btn btn--ghost btn--small" onclick="deleteSet()"
+                    style="color:var(--muted2); border-color:var(--border);">Delete set</button>
+        </div>`;
+}
+
+async function saveMeta() {
+    await fetch(`/api/set/${SET_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            set_date: document.getElementById('meta-date')?.value.trim() || null,
+            place_id: document.getElementById('meta-place')?.value || null,
+        }),
+    });
+}
+
+// Auto-save research
+let researchTimer = null;
+document.getElementById('research-area').addEventListener('input', () => {
+    clearTimeout(researchTimer);
+    researchTimer = setTimeout(async () => {
+        await fetch(`/api/set/${SET_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ research: document.getElementById('research-area').value }),
+        });
+    }, 1200);
+});
+
+// =============================================================
+// TITLE EDITING
+// =============================================================
+
+function startEditTitle() {
+    const el = document.getElementById('set-title-display');
+    const current = el.textContent;
+    const input = document.createElement('input');
+    input.style.cssText = `
+        font-family: var(--font-serif); font-size: 1.8rem; font-style: italic; font-weight: 400;
+        background: none; border: none; border-bottom: 1px solid var(--accent);
+        color: var(--text); width: 100%; outline: none; padding: 0;
+    `;
+    input.value = current;
+    el.replaceWith(input);
+    input.focus(); input.select();
+
+    async function saveTitle() {
+        const newName = input.value.trim() || current;
+        await fetch(`/api/set/${SET_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName }),
+        });
+        const newEl = document.createElement('h1');
+        newEl.id = 'set-title-display';
+        newEl.textContent = newName;
+        newEl.style.cursor = 'pointer';
+        newEl.title = 'Click to edit';
+        newEl.onclick = startEditTitle;
+        input.replaceWith(newEl);
+        const navName = document.getElementById('nav-set-name');
+        if (navName) navName.textContent = newName;
+        document.title = `${newName} — Music Room`;
+    }
+
+    input.addEventListener('blur', saveTitle);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = current; input.blur(); }
+    });
+}
+
+// =============================================================
+// TRACK LIST + DRAG REORDER
+// =============================================================
+
+function formatTime(s) {
+    if (!s || isNaN(s)) return '—';
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+
+function totalDuration() {
+    return setTracks.reduce((sum, t) => sum + (t.duration_sec || 0), 0);
+}
+
+function updateDuration() {
+    const total = totalDuration();
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = Math.floor(total % 60);
+    let str = h > 0
+        ? `${h}h ${m}m ${s}s`
+        : m > 0 ? `${m}m ${s}s` : `${s}s`;
+    document.getElementById('duration-total').textContent = str || '—';
+    document.getElementById('duration-tracks').textContent =
+        `${setTracks.length} track${setTracks.length !== 1 ? 's' : ''}`;
+}
+
+function renderTrackList() {
+    const container = document.getElementById('set-track-list');
+
+    if (!setTracks.length) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding:40px 0;">
+                <p>No tracks yet.</p>
+            </div>` + interludeBlock(0);
+        return;
+    }
+
+    container.innerHTML = setTracks.map((t, i) => {
+        const bpm = t.bpm ? `${t.bpm} BPM` : '';
+        const key = t.key_note ? `${t.key_note}${t.key_scale === 'minor' ? 'm' : ''}` : '';
+        const dur = formatTime(t.duration_sec);
+
+        return `
+        <div class="set-track-wrapper" data-set-track-id="${t.set_track_id}">
+            <div class="set-track-row">
+                <span class="set-track-row__handle">⠿</span>
+                <span class="set-track-row__pos">${i + 1}</span>
+                <div class="set-track-row__info">
+                    <div class="set-track-row__title">${t.title || '<span style="color:var(--muted)">Untitled</span>'}</div>
+                    <div class="set-track-row__artist">${t.artist_name || 'Unknown'}${t.year ? ` · ${t.year}` : ''}</div>
+                </div>
+                <span style="font-size:0.76rem; color:var(--muted2); white-space:nowrap; padding:0 8px;">
+                    ${[bpm, key].filter(Boolean).join(' · ')}
+                </span>
+                <span class="set-track-row__duration">${dur}</span>
+                <div class="set-track-row__actions">
+                    ${t.file_id ? `<button class="set-track-row__play" data-tid="${t.id}"
+                            onclick="playFromSet(${i})" title="Play from here">▶</button>` : ''}
+                    <button class="btn-verify" style="font-size:0.7rem;"
+                            onclick="removeTrack(${t.set_track_id})" title="Remove from set">✕</button>
+                </div>
+            </div>
+            <textarea class="set-transition-note"
+                      rows="1"
+                      placeholder="→ transition note..."
+                      onchange="saveTransition(${t.set_track_id}, this.value)"
+                      onfocus="autoGrow(this)"
+                      oninput="autoGrow(this)"
+            >${t.transition_note || ''}</textarea>
+            <textarea class="set-public-note"
+                      rows="1"
+                      placeholder="for the published tracklist — who made this, why it's in the show…"
+                      onchange="savePublicNote(${t.set_track_id}, this.value)"
+                      onfocus="autoGrow(this)"
+                      oninput="autoGrow(this)"
+            >${t.public_note || ''}</textarea>
+            ${interludeBlock(i + 1)}
+        </div>`;
+    }).join('');
+    container.insertAdjacentHTML('afterbegin', interludeBlock(0));   // before the first track
+
+    // Initialise drag-to-reorder — both Charted and Set prep keep a running order
+    if (sortable) sortable.destroy();
+    sortable = Sortable.create(container, {
+        handle:     '.set-track-row__handle',
+        animation:  140,
+        ghostClass: 'sortable-ghost',
+        onEnd: onReorder,
+    });
+
+    updatePositionNumbers();
+}
+
+function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight) + 'px';
+}
+
+function updatePositionNumbers() {
+    document.querySelectorAll('.set-track-row__pos').forEach((el, i) => {
+        el.textContent = i + 1;
+    });
+}
+
+async function onReorder() {
+    const wrappers = document.querySelectorAll('.set-track-wrapper');
+    const order = Array.from(wrappers).map(w => parseInt(w.dataset.setTrackId));
+    updatePositionNumbers();
+    await fetch(`/api/set/${SET_ID}/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order }),
+    });
+    // Reorder local state to match
+    setTracks = order.map(id => setTracks.find(t => t.set_track_id === id)).filter(Boolean);
+    updateDuration();
+}
+
+async function removeTrack(setTrackId) {
+    await fetch(`/api/set/${SET_ID}/track/${setTrackId}`, { method: 'DELETE' });
+    setTracks = setTracks.filter(t => t.set_track_id !== setTrackId);
+    renderTrackList();
+    updateDuration();
+}
+
+async function saveTransition(setTrackId, note) {
+    await fetch(`/api/set/${SET_ID}/transition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set_track_id: setTrackId, transition_note: note }),
+    });
+}
+
+async function savePublicNote(setTrackId, note) {
+    await fetch(`/api/set/${SET_ID}/public-note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set_track_id: setTrackId, public_note: note }),
+    });
+    const t = setTracks.find(x => x.set_track_id === setTrackId);
+    if (t) t.public_note = note;
+}
+
+// =============================================================
+// RADIO SHOW — script · links · published tracklist · show folder
+// =============================================================
+
+function radioEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function showLinks() {
+    try { const l = JSON.parse(setData?.show_links || '[]'); return Array.isArray(l) ? l : []; }
+    catch (e) { return []; }
+}
+
+function renderRadioPanel() {
+    const scriptEl = document.getElementById('radio-script');
+    if (scriptEl && document.activeElement !== scriptEl)
+        scriptEl.value = setData?.script || '';
+    const box = document.getElementById('radio-links');
+    const links = showLinks();
+    box.innerHTML = links.map((l, i) =>
+        `<div class="radio-link-row">
+            <a href="${radioEsc(l.url)}" target="_blank" rel="noopener">${radioEsc(l.title || l.url)} ↗</a>
+            <button onclick="removeShowLink(${i})" title="remove">✕</button>
+        </div>`).join('') ||
+        `<span style="font-size:0.8rem; color:var(--muted2);">No links yet.</span>`;
+}
+
+let radioScriptTimer = null;
+document.getElementById('radio-script').addEventListener('input', () => {
+    clearTimeout(radioScriptTimer);
+    radioScriptTimer = setTimeout(async () => {
+        const v = document.getElementById('radio-script').value;
+        setData.script = v;
+        await fetch(`/api/set/${SET_ID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ script: v }),
+        });
+    }, 1200);
+});
+
+async function saveShowLinks(links) {
+    setData.show_links = JSON.stringify(links);
+    await fetch(`/api/set/${SET_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_links: setData.show_links }),
+    });
+    renderRadioPanel();
+}
+
+function addShowLink() {
+    const url = document.getElementById('radio-link-url').value.trim();
+    if (!url) { document.getElementById('radio-link-url').focus(); return; }
+    const title = document.getElementById('radio-link-title').value.trim();
+    const links = showLinks();
+    links.push({ url, title });
+    document.getElementById('radio-link-url').value = '';
+    document.getElementById('radio-link-title').value = '';
+    saveShowLinks(links);
+}
+
+function removeShowLink(i) {
+    const links = showLinks();
+    links.splice(i, 1);
+    saveShowLinks(links);
+}
+
+async function buildTracklist() {
+    const st = document.getElementById('radio-status');
+    const r = await fetch(`/api/set/${SET_ID}/radio/tracklist`).then(r => r.json()).catch(() => null);
+    if (!r || !r.ok) {
+        st.textContent = (r && r.error) || 'could not build the tracklist';
+        st.className = 'radio-status err';
+        return;
+    }
+    const out = document.getElementById('radio-tracklist-out');
+    out.value = r.markdown;
+    out.classList.add('on');
+    document.getElementById('radio-copy-btn').style.display = '';
+}
+
+async function copyTracklist() {
+    const out = document.getElementById('radio-tracklist-out');
+    try {
+        await navigator.clipboard.writeText(out.value);
+    } catch (e) {
+        out.focus(); out.select();
+        document.execCommand('copy');
+    }
+    const st = document.getElementById('radio-status');
+    st.textContent = 'copied — paste it wherever the show lives';
+    st.className = 'radio-status ok';
+}
+
+async function exportShowFolder() {
+    const st = document.getElementById('radio-status');
+    st.textContent = 'making the show folder…';
+    st.className = 'radio-status';
+    const r = await fetch(`/api/set/${SET_ID}/radio/export-folder`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+    }).then(r => r.json()).catch(() => null);
+    if (!r || !r.ok) {
+        st.textContent = (r && r.error) || 'could not make the folder';
+        st.className = 'radio-status err';
+        return;
+    }
+    st.textContent = `done — ${r.copied} audio copies` +
+        (r.missing ? ` · ${r.missing} not on this drive` : '') +
+        ` → ${r.folder} (showing it in Finder)`;
+    st.className = 'radio-status ok';
+    fetch('/api/reveal-path', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: r.folder }) }).catch(() => {});
+}
+
+// =============================================================
+// TRACK PICKER
+// =============================================================
+
+function togglePicker() {
+    const panel = document.getElementById('picker-panel');
+    if (panel.style.display === 'none') {
+        panel.style.display = '';
+        loadPickerTracks('');
+        document.getElementById('picker-search').focus();
+    } else {
+        closePicker();
+    }
+}
+
+function closePicker() {
+    document.getElementById('picker-panel').style.display = 'none';
+    pickerSelected.clear();
+}
+
+async function loadPickerTracks(search) {
+    const params = new URLSearchParams({ limit: 500, sort: 'artist_name', order: 'asc' });
+    if (search) params.set('search', search);
+    const res  = await fetch(`/api/tracks?${params}`);
+    const data = await res.json();
+    pickerTracks = data.tracks;
+    document.getElementById('picker-count').textContent = `${pickerTracks.length} tracks`;
+    renderPickerList();
+}
+
+function renderPickerList() {
+    const list = document.getElementById('picker-list');
+    if (!pickerTracks.length) {
+        list.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted); font-size:0.86rem;">Nothing found.</div>`;
+        return;
+    }
+    list.innerHTML = pickerTracks.map(t => {
+        const dur = t.duration_sec ? formatTime(t.duration_sec) : '';
+        const bpm = t.bpm ? `${t.bpm}` : '';
+        return `
+        <div class="picker-item-inline ${pickerSelected.has(t.id) ? 'selected' : ''}"
+             onclick="togglePick(${t.id}, this)">
+            <input type="checkbox" ${pickerSelected.has(t.id) ? 'checked' : ''}
+                   onclick="event.stopPropagation(); togglePick(${t.id}, this.closest('.picker-item-inline'))">
+            <div class="picker-item-inline__info">
+                <div class="picker-item-inline__title">${t.title || '<span style="opacity:0.5">Untitled</span>'}</div>
+                <div class="picker-item-inline__meta">${t.artist_name || 'Unknown'}${t.year ? ' · '+t.year : ''}${dur ? ' · '+dur : ''}${bpm ? ' · '+bpm+' BPM' : ''}</div>
+            </div>
+            <span style="font-size:0.72rem; color:var(--muted2);">${t.file_format || ''}</span>
+        </div>`;
+    }).join('');
+    updatePickerCount();
+}
+
+function togglePick(trackId, el) {
+    if (pickerSelected.has(trackId)) {
+        pickerSelected.delete(trackId);
+        el.classList.remove('selected');
+        el.querySelector('input').checked = false;
+    } else {
+        pickerSelected.add(trackId);
+        el.classList.add('selected');
+        el.querySelector('input').checked = true;
+    }
+    updatePickerCount();
+}
+
+function updatePickerCount() {
+    document.getElementById('picker-selected-count').textContent =
+        pickerSelected.size > 0 ? `${pickerSelected.size} selected` : '';
+}
+
+function searchPicker(val) {
+    clearTimeout(pickerTimeout);
+    pickerTimeout = setTimeout(() => loadPickerTracks(val), 240);
+}
+
+async function addSelectedTracks() {
+    if (!pickerSelected.size) return;
+
+    const res = await fetch(`/api/set/${SET_ID}/tracks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_ids: Array.from(pickerSelected) }),
+    });
+
+    if (res.ok) {
+        closePicker();
+        // Reload the set to get the new tracks with all their data
+        const setRes  = await fetch(`/api/set/${SET_ID}`);
+        const setFull = await setRes.json();
+        setTracks = setFull.tracks;
+        renderTrackList();
+        updateDuration();
+    }
+}
+
+// =============================================================
+// DELETE SET
+// =============================================================
+
+async function deleteSet() {
+    if (!confirm('Delete this set? The tracks themselves won\'t be affected.')) return;
+    await fetch(`/api/set/${SET_ID}`, { method: 'DELETE' });
+    window.location.href = '/sets';
+}
+
+// =============================================================
+// EXPORT
+// =============================================================
+
+async function exportRekordbox() {
+    const res = await fetch(`/api/set/${SET_ID}/download/rekordbox`, {method: 'POST'});
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    const fb = document.getElementById('export-feedback');
+    if (fb) {
+        fb.textContent = `Saved to Downloads — ${data.filename}`;
+        fb.classList.add('visible');
+        setTimeout(() => fb.classList.remove('visible'), 4000);
+    }
+}
+
+function exportEngine() {
+    window.location.href = `/api/set/${SET_ID}/export/engine`;
+}
+
+// =============================================================
+// MINI PLAYER + QUEUE
+// =============================================================
+const smpAudio = document.getElementById('smp-audio');
+// route output to the chosen device where the engine allows it (best-effort)
+if (typeof smpAudio.setSinkId === 'function')
+    fetch('/api/settings').then(r => r.json())
+        .then(s => { if (s.audio_output_id) smpAudio.setSinkId(s.audio_output_id).catch(() => {}); })
+        .catch(() => {});
+let smpQueue    = []; // [{ track_id, file_id, title, artist }]
+let smpIndex    = -1;
+let smpAutoplay = true;
+let smpSeeking  = false;
+
+function smpEsc(s) { if (s == null) return ''; return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// the playable sequence = the set AS WRITTEN: interludes (voice notes /
+// dropped audio) play in their gaps between the tracks
+function smpBuildSequence() {
+    const seq = [];
+    const gap = pos => (setInterludes || []).filter(x => x.after_position === pos)
+        .forEach(x => seq.push({ kind: 'interlude',
+            src: `/api/set/interlude/${x.id}/audio`,
+            title: x.name || 'interlude', artist: 'interlude' }));
+    gap(0);
+    (setTracks || []).forEach((t, i) => {
+        if (t.file_id) seq.push({ kind: 'track', track_id: t.id, file_id: t.file_id,
+            src: `/audio/${t.file_id}`, title: t.title, artist: t.artist_name });
+        gap(i + 1);
+    });
+    return seq;
+}
+
+function playWholeSet() {
+    const seq = smpBuildSequence();
+    if (seq.length) smpStart(seq, 0);
+}
+
+function playFromSet(idx) {
+    const t = (setTracks || [])[idx];
+    if (!t) return;
+    const seq = smpBuildSequence();
+    const qi = seq.findIndex(it => it.kind === 'track' && it.track_id === t.id);
+    if (qi >= 0) smpStart(seq, qi);
+}
+
+function smpStart(seq, qi) {
+    smpQueue = seq;
+    smpIndex = qi;
+    smpPlayAt(qi);
+    document.getElementById('set-mini-player').classList.add('visible');
+    document.body.classList.add('has-mini-player');
+}
+
+function smpPlayAt(idx) {
+    if (idx < 0 || idx >= smpQueue.length) return;
+    smpIndex = idx;
+    const it = smpQueue[idx];
+    if (it.kind === 'track' && it.track_id)        // play tracking (interludes don't count)
+        fetch('/api/play-event', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ track_id: it.track_id, file_id: it.file_id, source: 'set' }) })
+            .catch(() => {});
+    smpAudio.src = it.src || `/audio/${it.file_id}`;
+    smpAudio.load();
+    smpAudio.play().catch(() => {});
+    document.getElementById('smp-title').textContent  = it.title  || 'Untitled';
+    document.getElementById('smp-artist').textContent = it.artist || 'Unknown';
+    document.getElementById('smp-scrub').value = 0;
+    document.getElementById('smp-time').textContent  = '0:00 / 0:00';
+    smpUpdateChrome();
+}
+
+function smpUpdateChrome() {
+    const prev = document.getElementById('smp-prev');
+    const next = document.getElementById('smp-next');
+    const qcount = document.getElementById('smp-qcount');
+    if (prev) prev.disabled = smpIndex <= 0;
+    if (next) next.disabled = smpIndex < 0 || smpIndex >= smpQueue.length - 1;
+    if (qcount) qcount.textContent = smpQueue.length > 1 ? `${smpIndex + 1}/${smpQueue.length}` : '';
+    // Highlight playing row in the set list
+    document.querySelectorAll('.set-track-row__play').forEach(b => {
+        const tid = parseInt(b.dataset.tid);
+        const isPlaying = (smpIndex >= 0 && smpQueue[smpIndex] && smpQueue[smpIndex].track_id === tid && !smpAudio.paused);
+        b.classList.toggle('playing', isPlaying);
+        b.textContent = isPlaying ? '⏸' : '▶';
+    });
+    smpRenderQueuePop();
+}
+
+function smpNext() { if (smpIndex < smpQueue.length - 1) smpPlayAt(smpIndex + 1); }
+function smpPrev() { if (smpIndex > 0) smpPlayAt(smpIndex - 1); }
+
+function smpTogglePlay() {
+    if (!smpAudio.src) return;
+    if (smpAudio.paused) smpAudio.play().catch(() => {});
+    else smpAudio.pause();
+}
+
+function smpSeek(val) {
+    const dur = smpAudio.duration;
+    if (!dur) return;
+    smpSeeking = true;
+    smpAudio.currentTime = (val / 100) * dur;
+    smpSeeking = false;
+}
+
+function smpClose() {
+    smpAudio.pause();
+    smpQueue = []; smpIndex = -1;
+    document.getElementById('set-mini-player').classList.remove('visible');
+    document.body.classList.remove('has-mini-player');
+    smpUpdateChrome();
+}
+
+function smpToggleQueue() {
+    const pop = document.getElementById('smp-qpop');
+    if (!pop) return;
+    if (pop.classList.contains('visible')) pop.classList.remove('visible');
+    else { smpRenderQueuePop(); pop.classList.add('visible'); }
+}
+
+let smpQpopSortable = null;
+
+function smpRenderQueuePop() {
+    const pop = document.getElementById('smp-qpop');
+    if (!pop) return;
+    if (!smpQueue.length) {
+        pop.innerHTML = '';
+        if (smpQpopSortable) { smpQpopSortable.destroy(); smpQpopSortable = null; }
+        return;
+    }
+    const rows = smpQueue.map((it, i) => {
+        const active = i === smpIndex;
+        const main = `${smpEsc(it.artist || 'Unknown')} — ${smpEsc(it.title || 'Untitled')}`;
+        return `<div class="smp__qpop__row ${active ? 'active' : ''}" data-qidx="${i}" style="cursor:grab;"
+            onclick="smpPlayAt(${i}); document.getElementById('smp-qpop').classList.remove('visible');">
+            <span class="smp__qhandle" style="width:14px;flex-shrink:0;color:var(--muted2);font-size:0.75rem;cursor:grab;" title="Drag to reorder">⠿</span>
+            <span style="width:18px;flex-shrink:0;color:var(--muted2);font-size:0.7rem;">${active ? '▶' : (i + 1)}</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${main}</span>
+        </div>`;
+    }).join('');
+    const head = `<div class="smp__qpop__head">
+            <span>Queue · ${smpQueue.length}</span>
+            <button class="smp__qpop__clear" onclick="event.stopPropagation();smpClose();">clear</button>
+        </div>`;
+    pop.innerHTML = head + `<div id="smp-qpop-rows">${rows}</div>`;
+    initSmpQpopSortable();
+}
+
+function initSmpQpopSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const rowsEl = document.getElementById('smp-qpop-rows');
+    if (!rowsEl) return;
+    if (smpQpopSortable) { smpQpopSortable.destroy(); smpQpopSortable = null; }
+    smpQpopSortable = Sortable.create(rowsEl, {
+        animation: 140,
+        handle:    '.smp__qhandle',
+        ghostClass: 'sortable-ghost',
+        onEnd: (evt) => {
+            const from = evt.oldIndex, to = evt.newIndex;
+            if (from === to) return;
+            const [item] = smpQueue.splice(from, 1);
+            smpQueue.splice(to, 0, item);
+            if (smpIndex === from)                          smpIndex = to;
+            else if (from < smpIndex && to >= smpIndex)     smpIndex -= 1;
+            else if (from > smpIndex && to <= smpIndex)     smpIndex += 1;
+            smpRenderQueuePop();
+            smpUpdateChrome();
+        },
+    });
+}
+
+smpAudio.addEventListener('timeupdate', () => {
+    if (smpSeeking) return;
+    const cur = smpAudio.currentTime, dur = smpAudio.duration || 0;
+    document.getElementById('smp-time').textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+    const scrub = document.getElementById('smp-scrub');
+    if (scrub && dur) scrub.value = (cur / dur) * 100;
+});
+smpAudio.addEventListener('play', () => {
+    const b = document.getElementById('smp-playpause');
+    if (b) b.textContent = '⏸';
+    smpUpdateChrome();
+});
+smpAudio.addEventListener('pause', () => {
+    const b = document.getElementById('smp-playpause');
+    if (b) b.textContent = '▶';
+    smpUpdateChrome();
+});
+smpAudio.addEventListener('ended', () => {
+    const b = document.getElementById('smp-playpause');
+    if (b) b.textContent = '▶';
+    if (smpAutoplay && smpIndex >= 0 && smpIndex < smpQueue.length - 1) {
+        smpPlayAt(smpIndex + 1);
+    } else {
+        smpUpdateChrome();
+    }
+});
+
+// Close queue popover on outside click
+document.addEventListener('click', (e) => {
+    const pop = document.getElementById('smp-qpop');
+    const btn = document.getElementById('smp-qbtn');
+    if (!pop || !pop.classList.contains('visible')) return;
+    if (pop.contains(e.target) || (btn && btn.contains(e.target))) return;
+    pop.classList.remove('visible');
+});
+
+// =============================================================
+// INIT
+// =============================================================
+loadSet();
+
+// ── Interludes: audio between tracks (the radio DJ talking between records) ──
+async function mrMicStream() {
+    // honour the chosen microphone (Settings → Audio devices), fall back to default
+    let devId = '';
+    try { devId = ((await fetch('/api/settings').then(r => r.json())) || {}).audio_input_id || ''; } catch (e) {}
+    if (devId) {
+        try { return await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: devId } } }); }
+        catch (e) { /* device unplugged → default */ }
+    }
+    return await navigator.mediaDevices.getUserMedia({ audio: true });
+}
+let setInterludes = [];
+function interludeBlock(pos) {
+    const here = setInterludes.filter(x => x.after_position === pos);
+    const rows = here.map(x => `
+        <div style="display:flex; gap:8px; align-items:center; padding:3px 0 3px 34px;">
+            <span style="font-size:.72rem; color:var(--gold, var(--accent));">🎙</span>
+            <span contenteditable="true" spellcheck="false" style="font-size:.78rem; font-style:italic; outline:none; min-width:60px;"
+                  onblur="renameInterlude(${x.id}, this.innerText)">${escHtml(x.name || 'interlude')}</span>
+            <audio controls preload="none" src="/api/set/interlude/${x.id}/audio" style="height:26px; max-width:220px;"></audio>
+            <button class="btn-verify" style="font-size:.66rem;" onclick="deleteInterlude(${x.id})" title="Remove (audio goes to the Trash)">✕</button>
+        </div>`).join('');
+    return `<div class="set-interlude-gap" data-pos="${pos}">${rows}
+        <div style="padding:0 0 4px 34px;">
+            <button class="btn-verify" style="font-size:.64rem; opacity:.6;" onclick="recordInterlude(${pos}, this)" title="Record a voice interlude here">🎙 record</button>
+            <label class="btn-verify" style="font-size:.64rem; opacity:.6; cursor:pointer;">📁 file
+                <input type="file" accept="audio/*" style="display:none;" onchange="uploadInterlude(${pos}, this)">
+            </label>
+        </div></div>`;
+}
+async function loadInterludes() {
+    setInterludes = await fetch(`/api/set/${SET_ID}/interludes`).then(r => r.json()).catch(() => []);
+    renderTrackList();
+}
+let _intRecorder = null;
+async function recordInterlude(pos, btn) {
+    if (_intRecorder && _intRecorder.state === 'recording') { _intRecorder.stop(); return; }
+    try {
+        const stream = await mrMicStream();
+        const chunks = [];
+        _intRecorder = new MediaRecorder(stream);
+        _intRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        _intRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const fd = new FormData();
+            fd.append('audio', new Blob(chunks, { type: _intRecorder.mimeType || 'audio/webm' }), 'interlude.webm');
+            fd.append('after_position', pos);
+            await fetch(`/api/set/${SET_ID}/interludes`, { method: 'POST', body: fd });
+            _intRecorder = null;
+            loadInterludes();
+        };
+        _intRecorder.start();
+        btn.textContent = '■ stop';
+    } catch (e) { btn.textContent = 'mic unavailable'; setTimeout(() => btn.textContent = '🎙 record', 2000); }
+}
+async function uploadInterlude(pos, input) {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append('audio', f, f.name);
+    fd.append('after_position', pos);
+    await fetch(`/api/set/${SET_ID}/interludes`, { method: 'POST', body: fd });
+    input.value = '';
+    loadInterludes();
+}
+async function renameInterlude(id, name) {
+    await fetch(`/api/set/interlude/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: (name || '').trim() }) });
+}
+async function deleteInterlude(id) {
+    await fetch(`/api/set/interlude/${id}`, { method: 'DELETE' });
+    loadInterludes();
+}
+loadInterludes();
+
+// ── Recordings: takes of this set ────────────────────────────────────────────
+function escHtml(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let _recRecorder = null, _recChunks = [];
+async function loadRecordings() {
+    const recs = await fetch(`/api/set/${SET_ID}/recordings`).then(r => r.json()).catch(() => []);
+    const el = document.getElementById('rec-list');
+    if (!recs.length) { el.innerHTML = '<span style="color:var(--muted); font-size:.85rem;">No recordings yet.</span>'; return; }
+    el.innerHTML = recs.map(r => `
+        <div class="rec-row" data-id="${r.id}" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:9px 0; border-bottom:1px solid var(--border);">
+            <span contenteditable="true" spellcheck="false" style="min-width:90px; outline:none; font-style:italic;"
+                  onblur="renameRecording(${r.id}, this.innerText)">${escHtml(r.name || 'take')}</span>
+            <span style="font-size:.72rem; color:var(--muted);">${(r.recorded_at || '').split(' ')[0]}</span>
+            <audio controls preload="none" src="/api/set/recording/${r.id}/audio" style="height:30px; max-width:240px;"></audio>
+            <button class="btn" onclick="linkRecordingDaw(${r.id})" title="Link the DAW project this set was made/recorded in">${r.daw_project_path ? '🎛 linked' : '🎛 link DAW'}</button>
+            ${r.daw_project_path ? `<button class="btn" onclick="openRecordingDaw(${r.id})" title="Open the DAW project">open</button>` : ''}
+            <button class="btn" onclick="toggleRecordingRoom(${r.id}, ${r.room_track_id ? 'true' : 'false'})"
+                    title="Set recordings stay out of the Music Room unless you add them">${r.room_track_id ? '✓ in the room' : '+ music room'}</button>
+            <button class="btn" onclick="deleteRecording(${r.id})" title="Remove (audio goes to the Trash)">🗑</button>
+        </div>`).join('');
+    window._recsById = Object.fromEntries(recs.map(r => [r.id, r]));
+}
+async function toggleRecording() {
+    const btn = document.getElementById('rec-toggle'), status = document.getElementById('rec-status');
+    if (_recRecorder && _recRecorder.state === 'recording') {
+        _recRecorder.stop();
+        return;
+    }
+    try {
+        const stream = await mrMicStream();
+        _recChunks = [];
+        _recRecorder = new MediaRecorder(stream);
+        _recRecorder.ondataavailable = e => { if (e.data.size) _recChunks.push(e.data); };
+        _recRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            btn.textContent = '● record'; status.textContent = 'saving…';
+            const blob = new Blob(_recChunks, { type: _recRecorder.mimeType || 'audio/webm' });
+            const fd = new FormData();
+            fd.append('audio', blob, 'take.webm');
+            await fetch(`/api/set/${SET_ID}/recordings`, { method: 'POST', body: fd });
+            status.textContent = '';
+            loadRecordings();
+        };
+        _recRecorder.start();
+        btn.textContent = '■ stop'; status.textContent = 'recording…';
+    } catch (e) {
+        status.textContent = 'microphone unavailable';
+        setTimeout(() => status.textContent = '', 2500);
+    }
+}
+async function uploadRecording(input) {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    const status = document.getElementById('rec-status');
+    status.textContent = 'uploading…';
+    const fd = new FormData();
+    fd.append('audio', f, f.name);
+    await fetch(`/api/set/${SET_ID}/recordings`, { method: 'POST', body: fd });
+    input.value = ''; status.textContent = '';
+    loadRecordings();
+}
+async function renameRecording(id, name) {
+    await fetch(`/api/set/recording/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: (name || '').trim() }) });
+}
+async function linkRecordingDaw(id) {
+    const r = await fetch('/api/choose-path', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'file', prompt: 'Choose the DAW project for this recording' }) }).then(x => x.json());
+    if (r && r.path) {
+        await fetch(`/api/set/recording/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ daw_project_path: r.path }) });
+        loadRecordings();
+    }
+}
+async function openRecordingDaw(id) {
+    const rec = (window._recsById || {})[id];
+    if (rec && rec.daw_project_path)
+        fetch('/api/reveal-path', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: rec.daw_project_path }) });
+}
+async function toggleRecordingRoom(id, inRoom) {
+    await fetch(`/api/set/recording/${id}/${inRoom ? 'from-room' : 'to-room'}`, { method: 'POST' });
+    loadRecordings();
+}
+async function deleteRecording(id) {
+    await fetch(`/api/set/recording/${id}`, { method: 'DELETE' });
+    loadRecordings();
+}
+loadRecordings();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

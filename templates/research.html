@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research — Music Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+<link rel="stylesheet" href="/static/css/explore-theme.css">
+<link rel="stylesheet" href="/static/css/record_fonts.css">
+<style>
+  /* The research desk — a self-contained dark surface so the look holds even
+     before explore-theme settles. Artists/labels/venues/genres as pages AND
+     connectable cards; the prose is the curator's running log. */
+  /* the one COOL room of Listen — a stone reading room, the ruled index at the
+     back of the codex. Surfaces are desaturated toward warm-stone (less orange than
+     the warm sections); muted stays warm so it never tips spreadsheet-cold. */
+  .research-body{ --rs-bg:#14130e; --rs-surface:#1c1a15; --rs-surface2:#26231a;
+    --rs-ink:#efe6cf; --rs-muted:#a8946f; --rs-gold:#f5e6b0; --rs-line:rgba(232,226,205,.11);
+    background:var(--rs-bg); color:var(--rs-ink); }
+  .rs-lensbar{ display:flex; align-items:center; gap:14px; height:39px; padding:0 18px;
+    border-bottom:1px solid var(--rs-line); background:rgba(0,0,0,.18); }
+  .rs-lensbar__title{ font-family:var(--font-celtic,var(--font-serif),serif); font-size:1.06rem; }
+  .rs-lens{ display:flex; gap:4px; }
+  .rs-lens a{ padding:5px 14px; border-radius:100px; font-size:.8rem; text-decoration:none;
+    color:var(--rs-muted); border:1px solid transparent; transition:all .15s ease; }
+  .rs-lens a.active{ background:var(--rs-gold); color:#1d160d; }
+  .rs-lens a:not(.active):hover{ color:var(--rs-ink); border-color:var(--rs-muted); }
+  .rs-lensbar__hint{ font-family:var(--font-serif),serif; font-style:italic; font-size:.78rem;
+    color:var(--rs-muted); margin-left:auto; }
+
+  .rs{ display:grid; grid-template-columns:280px minmax(0,1fr); height:calc(100vh - 95px); }
+  .rs-left{ border-right:1px solid var(--rs-line); overflow-y:auto; padding:14px 12px 40px; }
+  .rs-search{ width:100%; box-sizing:border-box; background:var(--rs-surface); color:var(--rs-ink);
+    border:1px solid var(--rs-line); border-radius:100px; padding:8px 14px; font-family:inherit;
+    font-size:.84rem; outline:none; margin-bottom:14px; }
+  .rs-search::placeholder{ color:var(--rs-muted); }
+  .rs-kind__h{ display:flex; align-items:center; justify-content:space-between; margin:16px 4px 5px;
+    font-family:"JetBrains Mono",monospace; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--rs-gold); }
+  .rs-add{ appearance:none; cursor:pointer; background:transparent; border:1px solid var(--rs-line);
+    color:var(--rs-muted); border-radius:100px; width:20px; height:20px; line-height:1; font-size:.9rem;
+    display:grid; place-items:center; transition:all .15s ease; }
+  .rs-add:hover{ color:#1d160d; background:var(--rs-gold); border-color:var(--rs-gold); }
+  .rs-item{ display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:9px; cursor:pointer;
+    color:var(--rs-ink); transition:background .12s ease; }
+  .rs-item:hover{ background:var(--rs-surface); }
+  .rs-item.active{ background:var(--rs-surface2); box-shadow:inset 2px 0 0 var(--rs-gold); }
+  .rs-item__dot{ width:26px; height:26px; border-radius:7px; flex:0 0 auto; background-size:cover;
+    background-position:center; display:grid; place-items:center; font-family:var(--font-serif),serif;
+    color:#1d160d; font-size:.8rem; }
+  .rs-item__name{ flex:1; min-width:0; font-size:.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rs-item__c{ font-family:"JetBrains Mono",monospace; font-size:.6rem; color:var(--rs-muted); }
+  .rs-kind__empty{ color:var(--rs-muted); font-size:.76rem; font-style:italic; padding:2px 9px 4px; }
+  /* collapsible sections + counts */
+  .rs-collapsible{ cursor:default; }
+  .rs-caret{ cursor:pointer; display:inline-block; width:12px; color:var(--rs-muted); font-size:.62rem; user-select:none; }
+  .rs-kind__lbl{ cursor:pointer; flex:1; }
+  .rs-kind__h{ display:flex; align-items:center; gap:6px; }
+  .rs-kind__n{ font-family:"JetBrains Mono",monospace; font-size:.58rem; color:var(--rs-muted); }
+  .rs-dot-res{ color:var(--rs-gold); font-size:.6rem; vertical-align:middle; }
+  /* projects */
+  .rs-proj .rs-item__dot{ color:#1d160d; }
+  .rs-item.rs-drop{ outline:2px dashed var(--rs-gold); outline-offset:-2px; background:rgba(245,230,176,.08); }
+  /* multi-select: ⌘/ctrl-click rows to gather several, then drag them onto a project */
+  .rs-item.rs-sel{ background:rgba(245,230,176,.12); box-shadow:inset 2px 0 0 var(--rs-gold); }
+  #rs-selhint{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60;
+    display:flex; align-items:center; gap:10px; padding:7px 8px 7px 14px; border-radius:100px;
+    background:rgba(20,16,10,.94); border:1px solid var(--rs-gold); color:var(--rs-ink);
+    font-family:"JetBrains Mono",monospace; font-size:.66rem; box-shadow:0 6px 22px rgba(0,0,0,.45); }
+  #rs-selhint button{ appearance:none; cursor:pointer; background:transparent; border:none; color:var(--rs-muted);
+    font-size:.8rem; line-height:1; padding:2px 4px; }
+  #rs-selhint button:hover{ color:var(--rs-gold); }
+  .rs-scopehead{ display:flex; align-items:center; gap:10px; padding:6px 4px 10px; margin-bottom:4px;
+    border-bottom:1px solid var(--rs-line); }
+  .rs-back{ appearance:none; cursor:pointer; background:transparent; border:1px solid var(--rs-line);
+    color:var(--rs-ink); border-radius:8px; width:28px; height:26px; font-size:.9rem; }
+  .rs-back:hover{ border-color:var(--rs-gold); color:var(--rs-gold); }
+  .rs-scopehead__t{ font-family:var(--font-serif),serif; font-style:italic; font-size:1.05rem; color:var(--rs-gold);
+    flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rs-item{ position:relative; }
+  .rs-item__rm{ position:absolute; right:6px; top:50%; transform:translateY(-50%); appearance:none; border:none;
+    background:transparent; color:var(--rs-muted); cursor:pointer; font-size:.72rem; opacity:0; transition:opacity .12s; }
+  .rs-item:hover .rs-item__rm{ opacity:1; }
+  .rs-item__rm:hover{ color:#d98a6a; }
+  /* folders inside a project */
+  .rs-folder{ display:flex; align-items:center; gap:5px; padding:6px 9px; border-radius:8px; color:var(--rs-ink); }
+  .rs-folder:hover{ background:var(--rs-surface); }
+  .rs-folder.rs-drop, .rs-scopehead.rs-drop{ outline:2px dashed var(--rs-gold); outline-offset:-2px; background:rgba(245,230,176,.08); border-radius:8px; }
+  .rs-folder__ic{ cursor:pointer; }
+  .rs-folder__name{ flex:1; min-width:0; cursor:pointer; font-size:.86rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rs-folder__act{ display:none; gap:1px; }
+  .rs-folder:hover .rs-folder__act{ display:inline-flex; }
+  .rs-folder__act button{ appearance:none; border:none; background:transparent; color:var(--rs-muted); cursor:pointer; font-size:.72rem; padding:0 3px; }
+  .rs-folder__act button:hover{ color:var(--rs-gold); }
+  .rs-folder__act button[data-a="del"]:hover{ color:#d98a6a; }
+  /* listening notes in the detail */
+  .rs-notes{ display:flex; flex-direction:column; gap:8px; }
+  .rs-note{ display:flex; gap:11px; padding:9px 10px; background:var(--rs-surface); border:1px solid var(--rs-line);
+    border-radius:9px; cursor:pointer; transition:border-color .12s ease; }
+  .rs-note:hover{ border-color:var(--rs-gold); }
+  .rs-note__art{ width:38px; height:38px; flex:0 0 auto; border-radius:6px; background-size:cover; background-position:center; }
+  .rs-note__b{ min-width:0; flex:1; }
+  .rs-note__txt{ font-family:var(--font-serif),serif; font-size:.98rem; line-height:1.4; color:var(--rs-ink); }
+  .rs-note__meta{ font-size:.72rem; color:var(--rs-muted); margin-top:3px; }
+  .rs-note__ts{ font-family:"JetBrains Mono",monospace; color:var(--rs-gold); }
+
+  .rs-main{ overflow-y:auto; padding:30px 40px 80px; }
+  .rs-empty{ color:var(--rs-muted); font-style:italic; font-family:var(--font-serif),serif;
+    font-size:1.05rem; padding:60px 6px; max-width:560px; }
+  .rs-doc{ max-width:760px; }
+  .rs-head{ display:flex; gap:20px; align-items:flex-start; }
+  .rs-img{ width:104px; height:104px; flex:0 0 auto; border-radius:11px; background:var(--rs-surface2);
+    background-size:cover; background-position:center; cursor:pointer; display:grid; place-items:center;
+    color:var(--rs-muted); font-size:.66rem; text-align:center; border:1px solid var(--rs-line); overflow:hidden; }
+  .rs-img span{ pointer-events:none; padding:6px; }
+  .rs-headmain{ flex:1; min-width:0; }
+  .rs-kindbadge{ font-family:"JetBrains Mono",monospace; font-size:.6rem; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--rs-gold); }
+  .rs-name{ font-family:var(--font-serif),serif; font-style:italic; font-size:2rem; line-height:1.1;
+    color:var(--rs-ink); outline:none; margin:3px 0 6px; }
+  .rs-name:focus{ box-shadow:0 2px 0 var(--rs-gold); }
+  .rs-meta{ display:flex; flex-wrap:wrap; gap:7px; }
+  .rs-mchip{ font-size:.78rem; color:var(--rs-ink); background:var(--rs-surface); border:1px solid var(--rs-line);
+    border-radius:100px; padding:3px 11px; outline:none; min-width:30px; }
+  .rs-mchip:empty:before{ content:attr(data-ph); color:var(--rs-muted); font-style:italic; }
+  .rs-mchip:focus{ border-color:var(--rs-gold); }
+  .rs-del{ appearance:none; cursor:pointer; background:transparent; border:1px solid var(--rs-line);
+    color:var(--rs-muted); border-radius:100px; font-size:.72rem; padding:3px 11px; }
+  .rs-del:hover{ color:#d98a6a; border-color:#d98a6a; }
+
+  .rs-sec{ margin-top:30px; }
+  .rs-sec__h{ font-family:"JetBrains Mono",monospace; font-size:.62rem; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--rs-muted); margin-bottom:10px; display:flex; align-items:center; gap:10px; }
+  /* denser than Notes' generous reading leaf — reference pages, roman, a tight
+     measure: the catalogue description, not the essay. */
+  .rs-log{ width:100%; box-sizing:border-box; min-height:150px; max-width:62ch; background:transparent; color:var(--rs-ink);
+    border:none; outline:none; resize:vertical; font-family:var(--font-serif),"EB Garamond",serif;
+    font-size:0.98rem; line-height:1.55; }
+  .rs-log::placeholder{ color:var(--rs-muted); font-style:italic; }
+
+  .rs-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .rs-chip{ display:inline-flex; align-items:center; gap:7px; background:var(--rs-surface);
+    border:1px solid var(--rs-line); border-radius:100px; padding:5px 6px 5px 11px; font-size:.82rem;
+    cursor:pointer; transition:border-color .12s ease; }
+  .rs-chip:hover{ border-color:var(--rs-gold); }
+  .rs-chip__rel{ font-family:"JetBrains Mono",monospace; font-size:.58rem; color:var(--rs-gold);
+    text-transform:uppercase; letter-spacing:.06em; }
+  .rs-chip__x{ appearance:none; border:none; background:transparent; color:var(--rs-muted); cursor:pointer;
+    font-size:.8rem; line-height:1; padding:0 2px; }
+  .rs-chip__x:hover{ color:#d98a6a; }
+  .rs-chip--note{ font-style:italic; color:var(--rs-ink); }
+  .rs-addbtn{ appearance:none; cursor:pointer; background:transparent; border:1px dashed var(--rs-line);
+    color:var(--rs-muted); border-radius:100px; padding:5px 13px; font-family:inherit; font-size:.78rem;
+    transition:all .15s ease; }
+  .rs-addbtn:hover{ color:var(--rs-gold); border-color:var(--rs-gold); }
+
+  .rs-mat{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .rs-matcard{ background:var(--rs-surface); border:1px solid var(--rs-line); border-radius:10px; overflow:hidden;
+    cursor:pointer; position:relative; }
+  .rs-matcard img{ width:100%; height:96px; object-fit:cover; display:block; }
+  .rs-matcard__b{ padding:8px 10px; }
+  .rs-matcard__t{ font-size:.78rem; line-height:1.25; max-height:2.6em; overflow:hidden; }
+  .rs-matcard__s{ font-family:"JetBrains Mono",monospace; font-size:.56rem; color:var(--rs-muted);
+    text-transform:uppercase; margin-top:4px; }
+  .rs-matcard__kind{ position:absolute; top:6px; right:6px; background:rgba(20,15,8,.82); color:var(--rs-gold);
+    font-family:"JetBrains Mono",monospace; font-size:.54rem; padding:2px 6px; border-radius:5px; }
+  .rs-matcard__x{ position:absolute; top:6px; left:6px; background:rgba(20,15,8,.82); color:var(--rs-muted);
+    border:none; border-radius:5px; cursor:pointer; font-size:.7rem; padding:1px 6px; opacity:0; }
+  .rs-matcard:hover .rs-matcard__x{ opacity:1; }
+
+  .rs-tracks{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:9px; }
+  .rs-tk{ aspect-ratio:1; border-radius:7px; background-size:cover; background-position:center; cursor:pointer;
+    position:relative; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+  .rs-tk__t{ position:absolute; inset:auto 0 0 0; font-size:.56rem; padding:3px 4px; background:linear-gradient(transparent,rgba(0,0,0,.8));
+    color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .12s; }
+  .rs-tk:hover .rs-tk__t{ opacity:1; }
+
+  /* connect popover */
+  .rs-pop{ position:fixed; z-index:120; width:320px; background:var(--rs-surface); border:1px solid var(--rs-line);
+    border-radius:12px; padding:13px; box-shadow:0 18px 50px rgba(0,0,0,.5); display:none; }
+  .rs-pop.open{ display:block; }
+  .rs-pop input, .rs-pop select{ width:100%; box-sizing:border-box; background:var(--rs-bg); color:var(--rs-ink);
+    border:1px solid var(--rs-line); border-radius:8px; padding:7px 10px; font-family:inherit; font-size:.82rem;
+    outline:none; margin-bottom:8px; }
+  .rs-pop__matches{ max-height:180px; overflow-y:auto; margin:-2px 0 8px; }
+  .rs-pop__m{ padding:6px 9px; border-radius:7px; cursor:pointer; font-size:.82rem; display:flex; justify-content:space-between; gap:8px; }
+  .rs-pop__m:hover{ background:var(--rs-surface2); }
+  .rs-pop__m .k{ font-family:"JetBrains Mono",monospace; font-size:.56rem; color:var(--rs-muted); text-transform:uppercase; }
+  .rs-pop__go{ width:100%; appearance:none; cursor:pointer; background:var(--rs-gold); color:#1d160d; border:none;
+    border-radius:8px; padding:8px; font-family:inherit; font-weight:600; font-size:.82rem; }
+  .rs-pop__lbl{ font-family:"JetBrains Mono",monospace; font-size:.56rem; color:var(--rs-muted);
+    text-transform:uppercase; letter-spacing:.08em; margin:4px 0 5px; }
+</style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="research-body">
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen" class="active">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="rs-lensbar">
+    <span class="rs-lensbar__title">Listen</span>
+    <div class="rs-lens">
+        <a href="/listen">Notes</a>
+        <a href="/listen/canvas">Mind map</a>
+        <a href="/listen/compose">Compose</a>
+        <a class="active" href="/research">Research</a>
+    </div>
+    <span class="rs-lensbar__hint">Artists, labels, venues &amp; genres — what you know, and how it all connects.</span>
+</div>
+
+<div class="rs">
+    <aside class="rs-left">
+        <input type="text" class="rs-search" id="rs-search" placeholder="Search your research…">
+        <div id="rs-kinds"></div>
+    </aside>
+    <main class="rs-main" id="rs-main">
+        <div class="rs-empty">Pick something you’re researching on the left, or start a new card — an artist, a label, a venue, a genre. Write what you know, connect it to the rest, and it ties back to the records in your library.</div>
+    </main>
+</div>
+
+<!-- connect popover -->
+<div class="rs-pop" id="rs-pop">
+    <div class="rs-pop__lbl">Connect to</div>
+    <input type="text" id="rs-pop-search" placeholder="Search artists, labels, venues, genres…" autocomplete="off">
+    <div class="rs-pop__matches" id="rs-pop-matches"></div>
+    <div class="rs-pop__lbl">…or make a new one</div>
+    <input type="text" id="rs-pop-new" placeholder="Name">
+    <select id="rs-pop-kind">
+        <option value="artist">Artist</option><option value="label">Label</option>
+        <option value="venue">Venue</option><option value="genre">Genre</option>
+    </select>
+    <div class="rs-pop__lbl">Relationship (optional)</div>
+    <input type="text" id="rs-pop-rel" placeholder="e.g. signed to · played at · sampled · influenced by">
+    <button class="rs-pop__go" id="rs-pop-go">Connect</button>
+</div>
+
+<input type="file" id="rs-file" accept="image/*,.pdf" style="display:none;">
+<input type="file" id="rs-imgfile" accept="image/*" style="display:none;">
+
+<script>
+const KINDS = [['artist','Artists'],['label','Labels'],['venue','Venues'],['genre','Genres']];
+const KIND_ONE = { artist:'Artist', label:'Label', venue:'Venue', genre:'Genre' };
+let roster = { artist:[], label:[], genre:[], venue:[] };  // library-populated, merged w/ research
+let rsMaps = [];             // saved canvas maps (also pieces of research)
+let projects = [];           // research projects (curated subsets)
+let scope = null;            // the open project (full) when scoped to one, else null
+let cur = null;              // open entity (full)
+let searchText = '';
+let dragItem = null;         // the thing being dragged into a project (the grabbed row)
+let dragItems = null;        // the whole batch a drag carries (multi-selection, or just the one)
+const selected = new Map();  // multi-selected roster rows: key → drag payload
+function selKey(p){ return (p.kind||'entity')+':'+(p.entity_kind||'')+':'+(p.entity_id!=null?p.entity_id:(p.ref_id!=null?p.ref_id:p.name)); }
+function toggleSel(key, payload, row){
+  if (selected.has(key)){ selected.delete(key); row && row.classList.remove('rs-sel'); }
+  else { selected.set(key, payload); row && row.classList.add('rs-sel'); }
+  updateSelHint();
+}
+function clearSel(){ selected.clear(); document.querySelectorAll('.rs-item.rs-sel').forEach(r=>r.classList.remove('rs-sel')); updateSelHint(); }
+function startDrag(payload, key, ev){    // a multi-selected row drags the whole selection; any other row drags itself
+  dragItem = payload;
+  dragItems = (key && selected.has(key)) ? [...selected.values()] : [payload];
+  try{ ev.dataTransfer.setData('text/plain', payload.name || ''); }catch(_){}
+}
+function activeBatch(){ return (dragItems && dragItems.length) ? dragItems : (dragItem ? [dragItem] : []); }
+function clearDrag(){ dragItem = null; dragItems = null; clearSel(); }
+function updateSelHint(){
+  let h = document.getElementById('rs-selhint');
+  const n = selected.size;
+  if (!n){ if (h) h.remove(); return; }
+  if (!h){ h = document.createElement('div'); h.id='rs-selhint'; document.body.appendChild(h); }
+  h.innerHTML = `<span>${n} selected — drag onto a project</span><button id="rs-selclear" title="Clear (Esc)">✕</button>`;
+  h.querySelector('#rs-selclear').onclick = clearSel;
+}
+document.addEventListener('keydown', e=>{ if (e.key==='Escape' && selected.size) clearSel(); });
+let collapsed;               // collapsed rail sections (by key), remembered
+try { const s = localStorage.getItem('mr_research_collapsed');
+      collapsed = s ? new Set(JSON.parse(s)) : new Set(['artist','label','genre','venue']); }
+catch(_){ collapsed = new Set(['artist','label','genre','venue']); }
+function saveCollapsed(){ try { localStorage.setItem('mr_research_collapsed', JSON.stringify([...collapsed])); } catch(_){} }
+let expandedFolders = new Set();   // open folders inside a project
+try { expandedFolders = new Set(JSON.parse(localStorage.getItem('mr_research_folders_open') || '[]')); } catch(_){}
+function saveFoldersOpen(){ try { localStorage.setItem('mr_research_folders_open', JSON.stringify([...expandedFolders])); } catch(_){} }
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const initial = s => (String(s||'?').trim()[0]||'?').toUpperCase();
+const colourFor = s => { let h=0; for(const c of String(s||'')) h=(h*31+c.charCodeAt(0))>>>0; return `hsl(${h%360},42%,62%)`; };
+const api = (m,p,b) => fetch(p,{method:m,headers:b?{'Content-Type':'application/json'}:undefined,body:b?JSON.stringify(b):undefined}).then(r=>r.json());
+
+async function loadRoster(){
+  const [r, maps, projs] = await Promise.all([
+    fetch('/api/research/roster').then(x=>x.json()).catch(()=>({})),
+    fetch('/api/research/maps').then(x=>x.json()).catch(()=>[]),
+    fetch('/api/research/projects').then(x=>x.json()).catch(()=>[]),
+  ]);
+  roster = { artist:r.artist||[], label:r.label||[], genre:r.genre||[], venue:r.venue||[] };
+  rsMaps = maps || []; projects = projs || [];
+  if (scope) scope = await fetch('/api/research/project/'+scope.id).then(x=>x.json()).catch(()=>null);
+  renderRail();
+}
+async function newMap(){
+  const title = prompt('New map — a piece of research (e.g. "Bristol dub lineage"):');
+  if (!title || !title.trim()) return;
+  const m = await api('POST','/api/research/maps',{ title: title.trim() });
+  location.href = '/listen/canvas?map=' + m.id;
+}
+function sectionHeader(box, key, label, count, addFn){
+  const open = !collapsed.has(key) || !!searchText;
+  const h = document.createElement('div'); h.className = 'rs-kind__h rs-collapsible' + (open?'':' is-collapsed');
+  h.innerHTML = `<span class="rs-caret">${open?'▾':'▸'}</span><span class="rs-kind__lbl">${label}</span>${count!=null?`<span class="rs-kind__n">${count}</span>`:''}`;
+  const toggle = ()=>{ if(collapsed.has(key)) collapsed.delete(key); else collapsed.add(key); saveCollapsed(); renderRail(); };
+  h.querySelector('.rs-caret').onclick = toggle; h.querySelector('.rs-kind__lbl').onclick = toggle;
+  if (addFn){ const add=document.createElement('button'); add.className='rs-add'; add.textContent='+';
+    add.onclick=(ev)=>{ev.stopPropagation(); addFn();}; h.appendChild(add); }
+  box.appendChild(h);
+  return open;
+}
+function entityRow(it, inProject){
+  const id = it.entity_id != null ? it.entity_id : it.id;
+  const name = it.name, img = it.image_path || it.image_url;
+  const row = document.createElement('div');
+  row.className = 'rs-item' + (cur && id && cur.id===id ? ' active' : '');
+  row.draggable = true;
+  const cnt = it.record_count ? `<div class="rs-item__c">${it.record_count}</div>`
+            : (it.conn_count ? `<div class="rs-item__c">${it.conn_count}</div>` : '');
+  row.innerHTML = `<div class="rs-item__dot" style="${img?`background-image:url('${esc(img)}')`:`background:${colourFor(name)}`}">${img?'':initial(name)}</div>
+    <div class="rs-item__name">${esc(name)}${it.has_research?' <span class="rs-dot-res" title="you have research here">●</span>':''}</div>${cnt}`;
+  const payload = { kind:'entity', name, entity_kind: it.kind, entity_id: id || null, ref_id: id || null };
+  const key = selKey(payload);
+  if (selected.has(key)) row.classList.add('rs-sel');
+  row.onclick = (ev)=>{ if (ev.metaKey || ev.ctrlKey){ ev.preventDefault(); toggleSel(key, payload, row); return; } openRosterItem(it); };
+  row.addEventListener('dragstart', ev=> startDrag(payload, key, ev));
+  if (inProject){ const x=document.createElement('button'); x.className='rs-item__rm'; x.textContent='✕'; x.title='Remove from project';
+    x.onclick=(ev)=>{ev.stopPropagation(); removeFromProject('entity', id);}; row.appendChild(x); }
+  return row;
+}
+function mapRow(m, inProject){
+  const row = document.createElement('div'); row.className='rs-item'; row.draggable = true;
+  row.innerHTML = `<div class="rs-item__dot" style="background:#5b7da8; font-size:.9rem">🗺</div><div class="rs-item__name">${esc(m.title)}</div><div class="rs-item__c">${m.node_count}</div>`;
+  const payload = { kind:'map', ref_id:m.id, name:m.title };
+  const key = selKey(payload);
+  if (selected.has(key)) row.classList.add('rs-sel');
+  row.onclick = (ev)=>{ if (ev.metaKey || ev.ctrlKey){ ev.preventDefault(); toggleSel(key, payload, row); return; } location.href='/listen/canvas?map='+m.id; };
+  row.addEventListener('dragstart', ev=> startDrag(payload, key, ev));
+  if (inProject){ const x=document.createElement('button'); x.className='rs-item__rm'; x.textContent='✕'; x.title='Remove from project';
+    x.onclick=(ev)=>{ev.stopPropagation(); removeFromProject('map', m.id);}; row.appendChild(x); }
+  return row;
+}
+function renderRail(){
+  const box = document.getElementById('rs-kinds'); box.innerHTML='';
+  const q = searchText.toLowerCase();
+
+  if (scope){
+    // a project is open — its own folders + things, as a tree
+    const head = document.createElement('div'); head.className='rs-scopehead';
+    head.innerHTML = `<button class="rs-back" id="rs-back" title="Back to the full desk">←</button>`
+      + `<div class="rs-scopehead__t">${esc(scope.name)}</div>`
+      + `<button class="rs-add" id="rs-newfolder" title="New folder">📁＋</button>`;
+    head.querySelector('#rs-back').onclick = exitProject;
+    head.querySelector('#rs-newfolder').onclick = ()=> newFolder(null);
+    head.addEventListener('dragover', ev=>{ ev.preventDefault(); head.classList.add('rs-drop'); });   // drop here = move to root
+    head.addEventListener('dragleave', ()=> head.classList.remove('rs-drop'));
+    head.addEventListener('drop', async ev=>{ ev.preventDefault(); head.classList.remove('rs-drop'); await dropToRoot(); });
+    box.appendChild(head);
+
+    const folders = scope.folders || [];
+    const childFolders = {};
+    folders.forEach(f => { const p = f.parent_id || 0; (childFolders[p] = childFolders[p] || []).push(f); });
+    const allItems = [
+      ...(scope.entities||[]).map(e => ({ ...e, _it:'entity', ref_id:e.id })),
+      ...(scope.maps||[]).map(m => ({ ...m, _it:'map', ref_id:m.id, name:m.title })),
+    ];
+    const itemsByFolder = {};
+    allItems.forEach(it => { const f = it.folder_id || 0; (itemsByFolder[f] = itemsByFolder[f] || []).push(it); });
+
+    (childFolders[0]||[]).forEach(f => renderFolderNode(box, f, 0, childFolders, itemsByFolder, q));
+    (itemsByFolder[0]||[]).filter(it => !q || (it.name||'').toLowerCase().includes(q)).forEach(it => box.appendChild(projItemRow(it, 0)));
+
+    if (!folders.length && !allItems.length){
+      const e=document.createElement('div'); e.className='rs-kind__empty';
+      e.innerHTML='Empty — go back (←) and <b>drag</b> artists, labels, venues or maps onto this project, or make a 📁 folder.'; box.appendChild(e);
+    }
+    return;
+  }
+
+  // ── the full desk ──
+  if (sectionHeader(box,'projects','Projects',projects.length,newProject)){
+    if (!projects.length){ const e=document.createElement('div'); e.className='rs-kind__empty'; e.textContent='no projects — ＋ to start one, then drag things in'; box.appendChild(e); }
+    projects.filter(p=>!q||p.name.toLowerCase().includes(q)).forEach(p=>{
+      const row=document.createElement('div'); row.className='rs-item rs-proj';
+      row.innerHTML=`<div class="rs-item__dot" style="background:#7a6a3a">▣</div><div class="rs-item__name">${esc(p.name)}</div><div class="rs-item__c">${p.item_count}</div>`;
+      row.onclick=()=> enterProject(p.id);
+      row.addEventListener('dragover', ev=>{ ev.preventDefault(); row.classList.add('rs-drop'); });
+      row.addEventListener('dragleave', ()=> row.classList.remove('rs-drop'));
+      row.addEventListener('drop', async ev=>{ ev.preventDefault(); row.classList.remove('rs-drop'); await dropOnProject(p.id); });
+      box.appendChild(row);
+    });
+  }
+  KINDS.forEach(([k,label])=>{
+    const items = roster[k].filter(it=>!q||it.name.toLowerCase().includes(q));
+    if (!sectionHeader(box,k,label,items.length,()=>newEntity(k))) return;
+    if (!items.length){ const e=document.createElement('div'); e.className='rs-kind__empty'; e.textContent=q?'no match':'nothing yet'; box.appendChild(e); return; }
+    const shown = q ? items : items.slice(0,150);
+    shown.forEach(it=> box.appendChild(entityRow(it)));
+    if (!q && items.length>shown.length){ const e=document.createElement('div'); e.className='rs-kind__empty'; e.textContent=`+${items.length-shown.length} more — search to find them`; box.appendChild(e); }
+  });
+  if (sectionHeader(box,'maps','Maps',rsMaps.length,newMap)){
+    const ms = rsMaps.filter(m=>!q||(m.title||'').toLowerCase().includes(q));
+    if (!ms.length){ const e=document.createElement('div'); e.className='rs-kind__empty'; e.textContent=q?'no match':'no maps yet'; box.appendChild(e); }
+    else ms.forEach(m=> box.appendChild(mapRow(m)));
+  }
+}
+async function openRosterItem(it){
+  let id = it.entity_id != null ? it.entity_id : it.id;
+  if (!id){ const e = await api('POST','/api/research/entities',{kind:it.kind, name:it.name}); id = e.id; await loadRoster(); }
+  openEntity(id);
+}
+async function newEntity(kind){
+  const name = prompt('New '+KIND_ONE[kind].toLowerCase()+' — name:'); if(!name||!name.trim()) return;
+  const e = await api('POST','/api/research/entities',{kind, name:name.trim()});
+  await loadRoster(); openEntity(e.id);
+}
+async function openEntity(id){
+  cur = await fetch('/api/research/entity/'+id).then(r=>r.json());
+  renderRail(); renderDoc();
+}
+// ── projects ─────────────────────────────────────────────────────────────────
+async function enterProject(id){
+  scope = await fetch('/api/research/project/'+id).then(r=>r.json());
+  cur = null; renderRail();
+  document.getElementById('rs-main').innerHTML = `<div class="rs-empty">${esc(scope.name)} — pick something in this project, or go back (←) to the full desk and drag more in.</div>`;
+}
+function exitProject(){ scope = null; renderRail();
+  document.getElementById('rs-main').innerHTML = '<div class="rs-empty">Pick something on the left, or start a new card.</div>'; }
+async function newProject(){
+  const name = prompt('New project — a slice of the desk you’re exploring:'); if(!name||!name.trim()) return;
+  const p = await api('POST','/api/research/projects',{ name:name.trim() });
+  await loadRoster(); enterProject(p.id);
+}
+async function dropOnProject(pid){
+  const batch = activeBatch(); if (!batch.length) return;
+  for (const di of batch){
+    let item;
+    if (di.kind === 'map') item = { kind:'map', ref_id: di.ref_id };
+    else {
+      let id = di.entity_id;
+      if (!id){ const e = await api('POST','/api/research/entities',{kind:di.entity_kind, name:di.name}); id = e.id; }
+      item = { kind:'entity', ref_id: id };
+    }
+    await api('POST','/api/research/project/'+pid+'/items', item);
+  }
+  clearDrag();
+  await loadRoster();
+}
+async function removeFromProject(kind, refId){
+  if (!scope) return;
+  await fetch('/api/research/project/'+scope.id+'/items', { method:'DELETE', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind, ref_id: refId }) });
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json());
+  renderRail();
+}
+// ── nested folders inside a project ──────────────────────────────────────────
+function projItemRow(it, depth){
+  const row = it._it === 'map' ? mapRow(it, true) : entityRow({ ...it, entity_id: it.id }, true);
+  row.style.paddingLeft = (8 + depth*13) + 'px';
+  return row;
+}
+function renderFolderNode(box, folder, depth, childFolders, itemsByFolder, q){
+  const expanded = expandedFolders.has(folder.id) || !!q;
+  const h = document.createElement('div'); h.className = 'rs-folder'; h.style.paddingLeft = (4 + depth*13) + 'px';
+  h.innerHTML = `<span class="rs-caret">${expanded?'▾':'▸'}</span><span class="rs-folder__ic">📁</span>`
+    + `<span class="rs-folder__name">${esc(folder.name)}</span>`
+    + `<span class="rs-folder__act"><button data-a="sub" title="New sub-folder">＋</button>`
+    + `<button data-a="ren" title="Rename">✎</button><button data-a="del" title="Delete folder">✕</button></span>`;
+  const toggle = ()=>{ if (expandedFolders.has(folder.id)) expandedFolders.delete(folder.id); else expandedFolders.add(folder.id); saveFoldersOpen(); renderRail(); };
+  h.querySelector('.rs-caret').onclick = toggle; h.querySelector('.rs-folder__ic').onclick = toggle;
+  h.querySelector('.rs-folder__name').onclick = toggle;
+  h.querySelector('[data-a="sub"]').onclick = ev=>{ ev.stopPropagation(); newFolder(folder.id); };
+  h.querySelector('[data-a="ren"]').onclick = ev=>{ ev.stopPropagation(); renameFolder(folder); };
+  h.querySelector('[data-a="del"]').onclick = ev=>{ ev.stopPropagation(); deleteFolder(folder); };
+  h.addEventListener('dragover', ev=>{ ev.preventDefault(); h.classList.add('rs-drop'); });
+  h.addEventListener('dragleave', ()=> h.classList.remove('rs-drop'));
+  h.addEventListener('drop', async ev=>{ ev.preventDefault(); ev.stopPropagation(); h.classList.remove('rs-drop'); await dropOnFolder(folder.id); });
+  h.draggable = true;
+  h.addEventListener('dragstart', ev=>{ ev.stopPropagation(); const payload = { kind:'folder', folder_id: folder.id, name: folder.name }; dragItem = payload; dragItems = [payload]; try{ev.dataTransfer.setData('text/plain', folder.name);}catch(_){} });
+  box.appendChild(h);
+  if (expanded){
+    (childFolders[folder.id]||[]).forEach(f => renderFolderNode(box, f, depth+1, childFolders, itemsByFolder, q));
+    (itemsByFolder[folder.id]||[]).filter(it => !q || (it.name||'').toLowerCase().includes(q)).forEach(it => box.appendChild(projItemRow(it, depth+1)));
+  }
+}
+async function newFolder(parentId){
+  if (!scope) return;
+  const name = prompt('Folder name:'); if (!name || !name.trim()) return;
+  await api('POST','/api/research/project/'+scope.id+'/folders', { name:name.trim(), parent_id: parentId || null });
+  if (parentId) expandedFolders.add(parentId);
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json()); renderRail();
+}
+async function renameFolder(folder){
+  const name = prompt('Rename folder:', folder.name); if (name == null) return;
+  await api('PATCH','/api/research/folder/'+folder.id, { name: name.trim() || folder.name });
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json()); renderRail();
+}
+async function deleteFolder(folder){
+  if (!confirm(`Delete folder “${folder.name}”? Its things move up a level — nothing is lost.`)) return;
+  await fetch('/api/research/folder/'+folder.id, { method:'DELETE' });
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json()); renderRail();
+}
+async function dropOnFolder(folderId){
+  const batch = activeBatch(); if (!batch.length || !scope) return;
+  for (const di of batch){
+    if (di.kind === 'folder'){
+      if (di.folder_id !== folderId)
+        await api('PATCH','/api/research/folder/'+di.folder_id, { parent_id: folderId });
+      continue;
+    }
+    let ref = di.ref_id != null ? di.ref_id : di.entity_id;
+    if (ref == null && di.entity_kind){
+      const e = await api('POST','/api/research/entities',{ kind:di.entity_kind, name:di.name }); ref = e.id;
+      await api('POST','/api/research/project/'+scope.id+'/items', { kind:'entity', ref_id:ref });
+    }
+    if (ref != null)
+      await api('POST','/api/research/project/'+scope.id+'/item-folder', { kind:di.kind, ref_id:ref, folder_id:folderId });
+  }
+  clearDrag();
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json()); renderRail();
+}
+async function dropToRoot(){
+  const batch = activeBatch(); if (!batch.length || !scope) return;
+  for (const di of batch){
+    if (di.kind === 'folder'){ await api('PATCH','/api/research/folder/'+di.folder_id, { parent_id: null }); continue; }
+    const ref = di.ref_id != null ? di.ref_id : di.entity_id;
+    if (ref != null) await api('POST','/api/research/project/'+scope.id+'/item-folder', { kind:di.kind, ref_id:ref, folder_id:null });
+  }
+  clearDrag();
+  scope = await fetch('/api/research/project/'+scope.id).then(r=>r.json()); renderRail();
+}
+
+function renderDoc(){
+  const m = document.getElementById('rs-main'); const e = cur; if(!e) return;
+  const img = e.image_path || e.image_url;
+  const conns = (e.connections||[]).filter(c=>!(c.kind==='note' && c.note_kind==='reference'));
+  const mats  = (e.connections||[]).filter(c=> c.kind==='note' && c.note_kind==='reference');
+  m.innerHTML = `<div class="rs-doc">
+    <div class="rs-head">
+      <div class="rs-img" id="rs-img" style="${img?`background-image:url('${esc(img)}')`:''}">${img?'':'<span>add image</span>'}</div>
+      <div class="rs-headmain">
+        <div class="rs-kindbadge">${KIND_ONE[e.kind]||e.kind}</div>
+        <div class="rs-name" id="rs-name" contenteditable="true" spellcheck="false">${esc(e.name)}</div>
+        <div class="rs-meta">
+          <span class="rs-mchip" id="rs-city" contenteditable="true" data-ph="city">${esc(e.city||'')}</span>
+          <span class="rs-mchip" id="rs-country" contenteditable="true" data-ph="country">${esc(e.country||'')}</span>
+          <span class="rs-mchip" id="rs-founded" contenteditable="true" data-ph="founded / era">${esc(e.founded||'')}</span>
+          <button class="rs-del" id="rs-delete">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rs-sec">
+      <div class="rs-sec__h">Research</div>
+      <textarea class="rs-log" id="rs-log" placeholder="What do you know about ${esc(e.name)}? Write it in your own words — it grows as you go.">${esc(e.body||'')}</textarea>
+    </div>
+
+    <div class="rs-sec">
+      <div class="rs-sec__h">Connections <button class="rs-addbtn" id="rs-connect">＋ connect</button></div>
+      <div class="rs-chips" id="rs-conns">${conns.length?conns.map(connChip).join(''):'<span class="rs-kind__empty">Nothing connected yet.</span>'}</div>
+    </div>
+
+    <div class="rs-sec">
+      <div class="rs-sec__h">Material
+        <button class="rs-addbtn" id="rs-link">＋ link a URL</button>
+        <button class="rs-addbtn" id="rs-upload">＋ upload PDF / photo</button>
+      </div>
+      ${mats.length?`<div class="rs-mat" id="rs-mats">${mats.map(matCard).join('')}</div>`:'<span class="rs-kind__empty">No clippings yet — paste a link or upload a PDF/photo.</span>'}
+    </div>
+
+    ${(e.notes&&e.notes.length)?`<div class="rs-sec">
+      <div class="rs-sec__h">Listening notes <span class="rs-item__c">${e.notes.length}</span></div>
+      <div class="rs-notes">${e.notes.map(noteRow).join('')}</div></div>`:''}
+
+    ${(e.tracks&&e.tracks.length)?`<div class="rs-sec">
+      <div class="rs-sec__h">In your library <span class="rs-item__c">${e.record_count!=null?e.record_count:e.tracks.length} records</span></div>
+      <div class="rs-tracks">${e.tracks.map(trackTile).join('')}</div></div>`:''}
+  </div>`;
+  wireDoc();
+}
+function noteRow(n){
+  const art = n.artwork_path ? `/api/artwork/${n.track_id}?s=192` : '';
+  const ts = (n.timestamp_sec!=null) ? (Math.floor(n.timestamp_sec/60)+':'+String(Math.round(n.timestamp_sec%60)).padStart(2,'0')) : '';
+  return `<div class="rs-note" data-track="${n.track_id}">
+    <div class="rs-note__art" style="${art?`background-image:url('${art}')`:'background:#2a2014'}"></div>
+    <div class="rs-note__b"><div class="rs-note__txt">${esc(n.note_text||'')}</div>
+      <div class="rs-note__meta">${ts?`<span class="rs-note__ts">${ts}</span> `:''}${esc(n.track_artist||'')} — ${esc(n.track_title||'')}${n.note_category?' · '+esc(n.note_category):''}</div></div></div>`;
+}
+function connChip(c){
+  if (c.kind==='entity')
+    return `<span class="rs-chip" data-open="${c.id}">${c.label?`<span class="rs-chip__rel">${esc(c.label)}</span>`:''}${esc(c.name)}<button class="rs-chip__x" data-unlink="${c.link_id}">✕</button></span>`;
+  const t = c.track_title ? `${esc(c.track_artist||'')} — ${esc(c.track_title)}` : esc(c.name);
+  return `<span class="rs-chip rs-chip--note">${c.label?`<span class="rs-chip__rel">${esc(c.label)}</span>`:''}${t}<button class="rs-chip__x" data-unlink="${c.link_id}">✕</button></span>`;
+}
+function matCard(c){
+  const img = c.ref_image_url || (/(\.png|\.jpg|\.jpeg|\.gif|\.webp)$/i.test(c.ref_file_path||'')?c.ref_file_path:'');
+  const href = c.ref_url || c.ref_file_path || '#';
+  const kind = c.ref_file_path && /\.pdf$/i.test(c.ref_file_path) ? 'PDF' : (c.ref_url?'LINK':'FILE');
+  return `<div class="rs-matcard" data-href="${esc(href)}">
+    ${img?`<img src="${esc(img)}" alt="">`:''}
+    <span class="rs-matcard__kind">${kind}</span>
+    <button class="rs-matcard__x" data-unlink="${c.link_id}" title="Remove">✕</button>
+    <div class="rs-matcard__b"><div class="rs-matcard__t">${esc(c.ref_title||c.name||'Untitled')}</div>
+      ${c.ref_source?`<div class="rs-matcard__s">${esc(c.ref_source)}</div>`:''}</div></div>`;
+}
+function trackTile(t){
+  const art = t.artwork_path ? `/api/artwork/${t.id}?s=192` : '';
+  const bg = art ? `background-image:url('${art}')` : `background:${t.colour_code||t.art_colour||'#2a2014'}`;
+  return `<div class="rs-tk" style="${bg}" title="${esc((t.artist_name||'')+' — '+(t.title||''))}" data-track="${t.id}">
+    <div class="rs-tk__t">${esc(t.title||'')}</div></div>`;
+}
+
+function wireDoc(){
+  const e = cur;
+  document.getElementById('rs-img').onclick = ()=>document.getElementById('rs-imgfile').click();
+  document.getElementById('rs-delete').onclick = async ()=>{
+    if(!confirm('Delete this research card? Its connections go too (the notes/tracks stay).')) return;
+    await fetch('/api/research/entity/'+e.id,{method:'DELETE'}); cur=null;
+    document.getElementById('rs-main').innerHTML='<div class="rs-empty">Pick something on the left, or start a new card.</div>';
+    loadList();
+  };
+  const save = (field, val)=>api('PATCH','/api/research/entity/'+e.id,{[field]:val}).then(()=>{ e[field]=val; });
+  bindBlur('rs-name','name'); bindBlur('rs-city','city'); bindBlur('rs-country','country'); bindBlur('rs-founded','founded');
+  function bindBlur(id, field){ const el=document.getElementById(id); if(!el) return;
+    el.addEventListener('blur', ()=>{ const v=el.textContent.trim(); if(v!==(e[field]||'')) save(field,v); });
+    el.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); el.blur(); }}); }
+  const log = document.getElementById('rs-log');
+  log.addEventListener('blur', ()=>{ if(log.value!==(e.body||'')) save('body', log.value); });
+  document.getElementById('rs-connect').onclick = openConnect;
+  document.getElementById('rs-link').onclick = addUrl;
+  document.getElementById('rs-upload').onclick = ()=>document.getElementById('rs-file').click();
+  // chips + cards
+  document.querySelectorAll('[data-open]').forEach(c=>c.addEventListener('click', ev=>{
+    if(ev.target.closest('[data-unlink]')) return; openEntity(+c.dataset.open); }));
+  document.querySelectorAll('[data-unlink]').forEach(b=>b.addEventListener('click', async ev=>{
+    ev.stopPropagation(); await fetch('/api/research/link/'+b.dataset.unlink,{method:'DELETE'}); openEntity(e.id); }));
+  document.querySelectorAll('.rs-matcard').forEach(c=>c.addEventListener('click', ev=>{
+    if(ev.target.closest('[data-unlink]')) return;
+    const h=c.dataset.href; if(h&&h!=='#') fetch('/api/open-url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:h})}).catch(()=>window.open(h,'_blank')); }));
+  document.querySelectorAll('[data-track]').forEach(t=>t.addEventListener('click', ()=>{
+    location.href='/place/1?track='+t.dataset.track; }));
+}
+
+// image upload
+document.getElementById('rs-imgfile').addEventListener('change', async ev=>{
+  const f=ev.target.files[0]; if(!f||!cur) return; const fd=new FormData(); fd.append('file',f);
+  await fetch('/api/research/entity/'+cur.id+'/image',{method:'POST',body:fd}); ev.target.value=''; openEntity(cur.id);
+});
+// upload a PDF/photo as material → reference note linked to the entity
+document.getElementById('rs-file').addEventListener('change', async ev=>{
+  const f=ev.target.files[0]; if(!f||!cur) return; const fd=new FormData(); fd.append('file',f); fd.append('title',f.name);
+  const ref = await fetch('/api/listen/reference/upload',{method:'POST',body:fd}).then(r=>r.json());
+  ev.target.value='';
+  if(ref&&ref.id){ await api('POST','/api/research/links',{from_kind:'entity',from_id:cur.id,to_kind:'note',to_id:ref.id}); openEntity(cur.id); }
+});
+async function addUrl(){
+  const url = prompt('Paste a URL (an article, a video, a discogs page…):'); if(!url||!url.trim()) return;
+  const title = prompt('A short title for it:', '') || url.trim();
+  const ref = await api('POST','/api/listen/reference',{url:url.trim(), title:title.trim()||url.trim()});
+  if(ref&&ref.id){ await api('POST','/api/research/links',{from_kind:'entity',from_id:cur.id,to_kind:'note',to_id:ref.id}); openEntity(cur.id); }
+}
+
+// ── connect popover ──────────────────────────────────────────────────────────
+const pop = document.getElementById('rs-pop');
+function openConnect(ev){
+  const r = ev.target.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth-340)+'px';
+  pop.style.top  = Math.min(r.bottom+6, window.innerHeight-360)+'px';
+  pop.classList.add('open');
+  document.getElementById('rs-pop-search').value=''; document.getElementById('rs-pop-new').value='';
+  document.getElementById('rs-pop-rel').value=''; renderMatches('');
+  setTimeout(()=>document.getElementById('rs-pop-search').focus(),0);
+}
+function closeConnect(){ pop.classList.remove('open'); }
+function renderMatches(q){
+  const box=document.getElementById('rs-pop-matches'); q=q.toLowerCase();
+  const list = entities.filter(e=>e.id!==cur.id && (!q || e.name.toLowerCase().includes(q))).slice(0,40);
+  box.innerHTML = list.map(e=>`<div class="rs-pop__m" data-id="${e.id}"><span>${esc(e.name)}</span><span class="k">${e.kind}</span></div>`).join('') || '<div class="rs-kind__empty">no match — make a new one below</div>';
+  box.querySelectorAll('[data-id]').forEach(d=>d.onclick=()=>doConnect(+d.dataset.id));
+}
+document.getElementById('rs-pop-search').addEventListener('input', e=>renderMatches(e.target.value));
+async function doConnect(targetId){
+  const rel = document.getElementById('rs-pop-rel').value.trim();
+  await api('POST','/api/research/links',{from_kind:'entity',from_id:cur.id,to_kind:'entity',to_id:targetId,label:rel||null});
+  closeConnect(); await loadList(); openEntity(cur.id);
+}
+document.getElementById('rs-pop-go').onclick = async ()=>{
+  const name=document.getElementById('rs-pop-new').value.trim();
+  if(!name){ const first=document.querySelector('#rs-pop-matches [data-id]'); if(first) doConnect(+first.dataset.id); return; }
+  const kind=document.getElementById('rs-pop-kind').value;
+  const e=await api('POST','/api/research/entities',{kind,name});
+  doConnect(e.id);
+};
+document.addEventListener('click', e=>{ if(pop.classList.contains('open') && !pop.contains(e.target) && !e.target.closest('#rs-connect')) closeConnect(); });
+
+document.getElementById('rs-search').addEventListener('input', e=>{ searchText=e.target.value.trim(); renderRail(); });
+loadRoster().then(()=>{
+  const params = new URLSearchParams(location.search);
+  const wantProject = parseInt(params.get('project'));
+  if (wantProject) enterProject(wantProject);
+  const want = parseInt(params.get('open'));           // ?open=<id> (e.g. from a canvas card) auto-opens it
+  if (want) openEntity(want);
+});
+</script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

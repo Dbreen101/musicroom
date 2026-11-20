@@ -1,0 +1,40 @@
+# Music Room — Python dependencies
+# Install:  python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+# Versions pinned to a known-good set (Python 3.11+). Loosen with care.
+
+# --- Web server ---
+Flask==3.1.3
+
+# --- Audio metadata + analysis ---
+mutagen==1.47.0          # read/write tags (mp3, flac, …)
+librosa==0.11.0          # BPM / key / spectral analysis
+soundfile==0.13.1        # audio I/O backend for librosa; also the recorder's WAV writer
+sounddevice==0.5.5        # PortAudio capture for the recorder (sample system output via a loopback device)
+audioread==3.1.0         # fallback decoder (ffmpeg) for awkward FLACs
+numpy==2.4.4
+scipy==1.17.1
+numba==0.65.1            # librosa JIT dependency
+
+# --- Server-side player (Seinnteoir) ---
+pygame==2.6.1            # in-process audio playback that survives navigation
+
+# --- Images / exports ---
+Pillow==12.2.0           # artwork handling
+openpyxl==3.1.5          # research-library .xlsx export
+
+# --- Green Room (campus borrow server + borrowed-file lock) ---
+cryptography==50.0.2     # AES-CTR for borrowed-file encryption (gr_server.py + the app's borrow playback)
+
+# --- HTTP + misc ---
+requests==2.34.1
+tqdm==4.67.3             # importer progress bars
+
+# --- Desktop app shell (optional; only needed to run the native window) ---
+pywebview==6.2.1
+
+# --- Native build only (build.sh stages its static ffmpeg to native/bin/;
+#     the app itself never imports this package) ---
+imageio-ffmpeg==0.6.0
+
+# --- Optional, NOT pinned here (lazy-imported, degrades gracefully) ---
+# openai-whisper          # voice-note transcription; large. `pip install openai-whisper` if wanted.

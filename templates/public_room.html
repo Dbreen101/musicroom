@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/record_fonts.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <style>
+        /* The default structure of a public room. A room's design JSON sets
+           the tokens; its own CSS (code mode) can restyle any of this; a full
+           HTML design replaces it entirely (sandboxed). */
+        /* a room's defaults follow the viewer's app theme; the owner's design overrides them */
+        :root{ --pr-bg:var(--gr-bg,#12100c); --pr-ink:var(--gr-ink,#eee6d2); --pr-muted:var(--gr-muted,rgba(238,230,210,.62)); --pr-accent:var(--gr-accent,#e6c97a);
+               --pr-font-title:'EB Garamond', serif; --pr-font-body:Inter, system-ui, sans-serif; }
+        html, body{ background:var(--pr-bg); color:var(--pr-ink); font-family:var(--pr-font-body); }
+        body::before{ display:none; }
+        .pr-bar{ position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:14px;
+            padding:10px 18px; background:rgba(0,0,0,.35); backdrop-filter:blur(10px);
+            font-size:.82rem; color:var(--pr-muted); }
+        .pr-bar a, .pr-bar button{ color:var(--pr-ink); background:none; border:1px solid rgba(255,255,255,.18);
+            border-radius:999px; padding:5px 12px; font-family:inherit; font-size:.8rem; cursor:pointer; text-decoration:none; }
+        .pr-bar a:hover, .pr-bar button:hover{ border-color:var(--pr-accent); color:var(--pr-accent); }
+        .pr-bar .sp{ flex:1; }
+        .pr{ max-width:1100px; margin:0 auto; padding:28px 24px 90px; }
+        .pr-head{ display:flex; gap:26px; align-items:flex-end; margin-bottom:34px; }
+        .pr-head__img{ width:180px; height:180px; border-radius:10px; object-fit:cover; flex:none;
+            background:rgba(255,255,255,.05); }
+        .pr-kind{ font-family:var(--font-mono, monospace); font-size:.64rem; letter-spacing:.12em;
+            text-transform:uppercase; color:var(--pr-accent); }
+        .pr-name{ font-family:var(--pr-font-title); font-size:2.6rem; line-height:1.05; margin:6px 0 8px; font-weight:400; }
+        .pr-tag{ font-family:var(--pr-font-title); font-style:italic; font-size:1.15rem; color:var(--pr-muted); }
+        .pr-bio{ font-size:.95rem; line-height:1.65; max-width:62ch; margin:14px 0 0; color:var(--pr-ink); white-space:pre-line; }
+        .pr-links{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+        .pr-links a{ color:var(--pr-accent); text-decoration:none; font-size:.84rem; border-bottom:1px solid rgba(230,201,122,.35); }
+        .pr-sec{ margin-top:38px; }
+        .pr-sec h2{ font-family:var(--pr-font-title); font-weight:400; font-style:italic; font-size:1.35rem; margin-bottom:14px; }
+        .pr-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:20px 16px; }
+        .pr-rec{ display:flex; flex-direction:column; gap:8px; }
+        .pr-rec__cov{ width:100%; aspect-ratio:1; border-radius:6px; object-fit:cover; background:#16120b;
+            box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; }
+        .pr-rec__cov span{ font-family:var(--pr-font-title); font-style:italic; font-size:2.2rem; color:var(--pr-accent); }
+        .pr-rec__t{ font-size:.92rem; line-height:1.25; }
+        .pr-rec__s{ font-size:.76rem; color:var(--pr-muted); }
+        .pr-rec__act{ display:flex; gap:6px; flex-wrap:wrap; margin-top:2px; }
+        .pr-btn{ appearance:none; cursor:pointer; font-family:inherit; font-size:.74rem; padding:4px 10px;
+            border-radius:999px; border:1px solid rgba(255,255,255,.2); background:none; color:var(--pr-ink); text-decoration:none; }
+        .pr-btn:hover{ border-color:var(--pr-accent); color:var(--pr-accent); }
+        .pr-btn--on{ background:var(--pr-accent); color:#1d160d; border-color:var(--pr-accent); }
+        .pr-btn--quiet{ border-color:rgba(255,255,255,.1); color:var(--pr-muted); }
+        .pr-btn[disabled]{ opacity:.5; cursor:default; }
+        .pr-picks{ display:flex; flex-direction:column; gap:10px; max-width:70ch; }
+        .pr-pick{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+        .pr-pick__t{ font-size:.95rem; }
+        .pr-pick__s{ font-size:.78rem; color:var(--pr-muted); }
+        .pr-pick__n{ font-family:var(--pr-font-title); font-style:italic; margin-top:4px; color:var(--pr-ink); }
+        .pr-pick a{ color:var(--pr-accent); text-decoration:none; font-size:.8rem; }
+        .pr-empty{ color:var(--pr-muted); font-size:.88rem; }
+        .pr-note{ color:var(--pr-muted); font-size:.78rem; margin-top:20px; }
+        .pr-frame{ position:fixed; inset:0; width:100%; height:100%; border:none; background:#000; }
+        /* one of the room's public grúpaí, opened: a sheet from the right, with its own way out */
+        /* (it starts under the room's own bar — measured, --pr-bar-h — so its ✕ is never behind it) */
+        .pr-gsheet{ position:fixed; top:var(--pr-bar-h, 54px); right:0; bottom:0; width:min(620px, 100vw); z-index:30; box-sizing:border-box; overflow-y:auto; visibility:hidden;
+            overscroll-behavior:contain; background:var(--bg, var(--pr-bg)); color:var(--text, var(--pr-ink));
+            border-left:1px solid var(--text, var(--pr-ink)); box-shadow:-24px 0 60px rgba(0,0,0,.28);
+            transform:translateX(103%); transition:transform .3s ease; padding:58px 30px 120px; }
+        .pr-gsheet:not(.on){ box-shadow:none; }
+        .pr-gsheet.on{ transform:none; visibility:visible; }
+        .pr-gsheet__x{ position:absolute; right:16px; top:14px; width:32px; height:32px; appearance:none; cursor:pointer; background:none;
+            border:1px solid var(--border2, rgba(128,128,128,.5)); color:inherit; font:inherit; font-size:.8rem; }
+        .pr-gsheet__x:hover{ background:var(--text, var(--pr-ink)); color:var(--bg, var(--pr-bg)); }
+        body.has-bar .pr-frame{ inset:44px 0 0 0; height:calc(100% - 44px); }
+    </style>
+    <link rel="stylesheet" href="/static/css/grupa.css">
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page {{ 'has-bar' if overlay else '' }}">
+{% if overlay %}
+<div class="pr-bar">
+    <button onclick="prClose()" title="Back to your room">✕</button>
+    <span id="pr-bar-name"></span>
+    <span class="sp"></span>
+    <button id="pr-keep" onclick="prKeep(this)" title="Add this room to one or more of your grúpaí" style="display:none">＋ grúpa</button>
+    <button id="pr-report" onclick="MRReport.open({ what: 'room', ref: ROOM.handle, title: ROOM.name }, this)" title="Tell the Music Room something is wrong with this room" style="display:none">report</button>
+    <a href="/explore3d?view=rooms" onclick="prExploreMore(event)">explore more music rooms →</a>
+</div>
+{% else %}
+<div class="pr-bar">
+    <a href="/explore3d?view=rooms">← music rooms</a>
+    <span id="pr-bar-name"></span>
+    <span class="sp"></span>
+    <button id="pr-keep" onclick="prKeep(this)" title="Add this room to one or more of your grúpaí" style="display:none">＋ grúpa</button>
+    <button id="pr-report" onclick="MRReport.open({ what: 'room', ref: ROOM.handle, title: ROOM.name }, this)" title="Tell the Music Room something is wrong with this room" style="display:none">report</button>
+    <a href="/room">my room</a>
+</div>
+{% endif %}
+<script>
+// this page has its own bar and none of the app's: no room is kept for one, and what
+// opens under the bar is told the bar's real height
+document.documentElement.classList.add('no-nav');
+(function(){
+    const bar = document.querySelector('.pr-bar'); if (!bar) return;
+    const set = () => document.documentElement.style.setProperty('--pr-bar-h', Math.ceil(bar.getBoundingClientRect().height) + 'px');
+    set(); addEventListener('resize', set); addEventListener('load', set);
+    if (window.ResizeObserver) new ResizeObserver(set).observe(bar);     // fonts arriving change its height
+})();
+</script>
+<style id="pr-css"></style>
+<div class="pr" id="pr"></div>
+<aside class="pr-gsheet" id="pr-gsheet"><button class="pr-gsheet__x" onclick="prGrupaClose()" title="Close" aria-label="Close">✕</button><div id="pr-gsheet-in"></div></aside>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/room_blocks.js"></script>
+<script src="/static/js/grupa_ui.js"></script>
+<script src="/static/js/wish_note.js"></script>
+<script src="/static/js/report.js"></script>
+<script>
+const HANDLE = {{ handle|tojson }};
+const DESIGN_ID = {{ design_id|tojson }};
+const OVERLAY = {{ 'true' if overlay else 'false' }};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = c => '€' + ((c || 0) / 100).toFixed(2);
+const mmss = s => { if (!s) return ''; s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let ROOM = null;
+
+function prClose(){
+    try { window.parent.postMessage({ type: 'mr-tool-closed' }, '*'); } catch (_) {}
+    if (window.parent === window) history.length > 1 ? history.back() : (location.href = '/room');
+}
+function prExploreMore(e){ e.preventDefault(); try { window.top.location.href = '/explore3d?view=rooms'; } catch (_) { location.href = '/explore3d?view=rooms'; } }
+
+function applyDesign(d){
+    const t = Object.assign({}, d, d.theme || {});      // theme may be nested (new) or flat (older designs)
+    const r = document.documentElement.style;
+    if (t.bg)         { r.setProperty('--pr-bg', t.bg); r.setProperty('--gr-bg', t.bg); }
+    if (t.ink)        { r.setProperty('--pr-ink', t.ink); r.setProperty('--gr-ink', t.ink); }
+    if (t.accent)     r.setProperty('--pr-accent', t.accent);
+    if (t.font_title) r.setProperty('--pr-font-title', t.font_title);
+    if (t.font_body)  r.setProperty('--pr-font-body', t.font_body);
+}
+
+function recordHtml(t){
+    const cov = t.has_art ? `<img class="pr-rec__cov" src="/api/gr/art/${t.id}?v=${t.art_v || 0}" alt="" loading="lazy">`
+                          : `<div class="pr-rec__cov"><span>${esc((t.title || '♪').trim().charAt(0).toUpperCase())}</span></div>`;
+    let act = '';
+    if (t.purchased)      act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
+    else if (t.borrow_id) act += `<button class="pr-btn pr-btn--on" disabled>borrowed ✓</button>`
+                               + `<button class="pr-btn" onclick="prBuy(${t.id}, this)" title="Buy outright — this month's credit comes off the price">buy ${euro(t.buy_now_cents)}</button>`
+                               + `<button class="pr-btn pr-btn--quiet" onclick="prBasket(${t.id}, this, 'buy')" title="Set it aside in your basket, to buy">+ basket</button>`;
+    else {
+        act += `<button class="pr-btn" onclick="prBorrow(${t.id}, this)">borrow</button>`
+             + `<button class="pr-btn" onclick="prBuy(${t.id}, this)">buy ${euro(t.price_cents)}</button>`
+             + `<button class="pr-btn pr-btn--quiet" onclick="prBasket(${t.id}, this)" title="Set it aside in your basket">+ basket</button>`;
+    }
+    // a record that isn't yours can be noted for later, with a line of why (it goes on the wishlist)
+    if (!t.purchased && window.WishNote) act += `<button class="pr-btn pr-btn--quiet" onclick="prNote(${t.id}, this)" title="Keep its name and why you liked it on your wishlist">note it</button>`;
+    if (t.buy_url) act += `<a class="pr-btn" href="#" data-open="${esc(t.buy_url)}">outside ↗</a>`;   // (never a link inside an onclick: the page would run it)
+    return `<div class="pr-rec">${cov}
+        <div><div class="pr-rec__t">${esc(t.title || 'Untitled')}</div>
+        <div class="pr-rec__s">${[t.artist, t.album, mmss(t.duration_s)].filter(Boolean).map(esc).join(' · ')}</div></div>
+        <div class="pr-rec__act">${act}</div></div>`;
+}
+
+function recordsHtml(tracks){
+    if (!tracks || !tracks.length) return `<div class="pr-empty">No records here yet.</div>`;
+    return `<div class="pr-grid">${tracks.map(recordHtml).join('')}</div>`;
+}
+
+function render(){
+    const d = ROOM.design || {};
+    applyDesign(d);
+    document.getElementById('pr-css').textContent = ROOM.css || '';
+    document.getElementById('pr-bar-name').textContent = ROOM.name || '';
+    const el = document.getElementById('pr');
+    if (ROOM.html) {
+        // code mode, whole page: sandboxed, no scripts; records drop in at <!--records-->
+        const f = document.createElement('iframe');
+        f.className = 'pr-frame'; f.setAttribute('sandbox', '');
+        f.srcdoc = ROOM.html.replace('<!--records-->', recordsHtml(ROOM.tracks));
+        el.replaceWith(f);
+        return;
+    }
+    // the room is a stack of blocks (room_blocks.js); older flat designs
+    // become the default stack on the fly
+    const html = RoomBlocks.render(d, {
+        room: ROOM, tracks: ROOM.tracks || [], css: ROOM.css || '',
+        assetUrl: id => `/api/gr/asset/${id}`,
+        recordHtml: (t) => recordHtml(t),
+        grupai: ROOM.grupai || [],                       // the grúpaí its owner has made public
+        grupaCover: g => GrupaUI.coverHtml(g),
+    });
+    el.innerHTML = html || `<div class="pr-empty">This room is still empty.</div>`;
+    el.querySelectorAll('[data-grupa]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); prGrupaOpen(+a.dataset.grupa); }));
+    { const k = document.getElementById('pr-keep'); if (k) k.style.display = (!ROOM.mine && ROOM.handle) ? '' : 'none'; }
+    { const k = document.getElementById('pr-report'); if (k) k.style.display = (!ROOM.mine && ROOM.handle && window.MRReport) ? '' : 'none'; }
+    if (ROOM.hidden) el.insertAdjacentHTML('afterbegin', `<div class="pr-note" style="border-color:var(--red,#c9412f)">The Music Room has taken this room down${ROOM.hidden.note ? ': ' + esc(ROOM.hidden.note) : ''}. ${ROOM.mine ? 'Only you can see it. Change it, then say so with the feedback button.' : ''}</div>`);
+    if ((ROOM.tracks || []).length) el.insertAdjacentHTML('beforeend', `<div class="pr-note">Borrowed records play only inside the Music Room. Bought records are yours — a plain file, forever.</div>`);
+    el.querySelectorAll('[data-open]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); prOpen(a.dataset.open); }));
+    reveal();
+}
+
+// arrive: the name settles in, then the records, one after another
+function reveal(){
+    // no motion for a hidden tab (rAF is paused there — content would sit invisible) or when asked not to
+    if (!window.gsap || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    tl.from('.rb-eyebrow, .rb-name, .rb-tag, .rb-bio, .rb-hero .rb-links', { y: 22, opacity: 0, duration: .8, stagger: .07 })
+      .from('.rb-hero__img', { scale: .96, opacity: 0, duration: .9 }, 0.1)
+      .from('.rb-h', { opacity: 0, y: 10, duration: .5, stagger: .1 }, '-=.5')
+      .from('.pr-rec, .rb-pick, .rb-place, .rb-image img, .rb-gallery__row img, .rb-body', { y: 26, opacity: 0, duration: .7, stagger: { each: .045, from: 'start' } }, '-=.4');
+}
+
+async function load(){
+    const r = await fetch('/api/gr/rooms/' + encodeURIComponent(HANDLE) + (DESIGN_ID ? '?design=' + encodeURIComponent(DESIGN_ID) : ''));
+    const d = await r.json();
+    if (!r.ok) { document.getElementById('pr').innerHTML = `<div class="pr-empty">${esc(d.error || "this room can't be opened")}</div>`; return; }
+    ROOM = d; render();
+}
+
+function prGoSubscribe(){
+    // first borrow → the subscription page, then straight back here
+    const here = location.pathname + location.search;
+    const url = '/subscribe?next=' + encodeURIComponent(here);
+    try { if (window.parent !== window) { window.top.location.href = url; return; } } catch (_) {}
+    location.href = url;
+}
+async function prBorrow(trackId, btn){
+    btn.disabled = true; btn.textContent = 'borrowing…';
+    const r = await fetch('/api/gr/borrow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId }) });
+    const d = await r.json();
+    if (!r.ok) {
+        btn.disabled = false; btn.textContent = 'borrow';
+        if (/subscription/i.test(d.error || '')) { prGoSubscribe(); return; }
+        alert(d.error || 'the borrow failed'); return;
+    }
+    load();
+}
+async function prBasket(trackId, btn, mode){
+    btn.disabled = true;
+    const r = await fetch('/api/gr/basket', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId, mode: mode || 'borrow' }) });
+    btn.textContent = r.ok ? 'in basket ✓' : '+ basket';
+    if (!r.ok) btn.disabled = false;
+    try { if (window.parent !== window && window.parent.grNavCount) window.parent.grNavCount(); } catch (_) {}
+}
+async function prBuy(trackId, btn){
+    if (!confirm('Buy this record? Play money — it arrives as a plain file that is yours.')) return;
+    btn.disabled = true; btn.textContent = 'buying…';
+    const r = await fetch('/api/gr/buy-track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId }) });
+    const d = await r.json();
+    if (!r.ok) { btn.disabled = false; btn.textContent = 'buy'; alert(d.error || 'the buy failed'); return; }
+    load();
+}
+// one of the room's public grúpaí: what is in it, and what of it can be played here
+async function prNote(trackId, btn){
+    const t = ((ROOM && ROOM.tracks) || []).find(x => x.id === trackId); if (!t || !window.WishNote) return;
+    const out = await WishNote.open(btn, { record: t, found: (ROOM.name ? ROOM.name + '’s' : 'a') + ' music room' });
+    if (out && out.ok) btn.textContent = 'noted ✓';
+}
+let prGrupaApi = null;
+function prGrupaOpen(id){
+    const sheet = document.getElementById('pr-gsheet');
+    if (prGrupaApi) prGrupaApi.destroy();
+    prGrupaApi = GrupaUI.publicPanel(document.getElementById('pr-gsheet-in'), id, {
+        // a record that lives in someone else's room: go there (this page becomes that room)
+        openRoom: handle => { location.href = '/rooms/' + encodeURIComponent(handle) + (OVERLAY ? '?overlay=1' : ''); },
+    });
+    sheet.classList.add('on'); sheet.scrollTop = 0;
+}
+function prGrupaClose(){
+    document.getElementById('pr-gsheet').classList.remove('on');
+    if (prGrupaApi){ prGrupaApi.destroy(); prGrupaApi = null; }
+}
+addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('pr-gsheet').classList.contains('on') && !document.querySelector('.gp-pick')) prGrupaClose(); });
+// keep this room in a grúpa of your own
+function prKeep(btn){
+    if (!ROOM || !ROOM.handle) return;
+    GrupaUI.addTo({ kind: 'room', ref_key: ROOM.handle, title: ROOM.name || ROOM.handle, subtitle: (ROOM.kind || 'listener') + ' · music room' }, btn);
+}
+function prOpen(url){ fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }); }
+
+load();
+</script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <script src="/static/js/room_transition.js"></script>
+    <style>
+        .usb-wrap { max-width: 760px; margin: 36px auto 80px; padding: 32px 36px 40px; }
+        .usb-wrap h1 { font-family: var(--font-celtic); font-size: 1.6rem; margin-bottom: 6px; }
+        .usb-sec { margin-top: 28px; }
+        .usb-sec h2 { font-family: var(--font-serif); font-style: italic; font-weight: 400;
+            font-size: 1.15rem; margin-bottom: 6px; }
+        .usb-sec p { font-size: 0.84rem; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+        .usb-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+        .usb-row select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+            background: var(--surface2); color: var(--text); font-family: var(--font-main); min-width: 230px; }
+        .usb-btn { padding: 8px 18px; border-radius: var(--radius); border: 1px solid var(--accent);
+            color: var(--accent); background: none; cursor: pointer; font-family: var(--font-main); font-size: 0.86rem; }
+        .usb-btn:hover { background: var(--accent-dim); }
+        .usb-btn--quiet { border-color: var(--border); color: var(--muted); }
+        .usb-btn--quiet:hover { color: var(--text); background: none; }
+        .usb-meta { font-size: 0.78rem; color: var(--muted2); }
+        .usb-progress { display: none; margin-top: 12px; font-family: var(--font-mono); font-size: 0.8rem;
+            color: var(--text); }
+        .usb-progress.on { display: block; }
+        .usb-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin: 8px 0; }
+        .usb-bar i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width 0.4s ease; }
+        label.usb-check { font-size: 0.8rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/tools" class="active">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="usb-wrap floor-sheet">
+    <h1>Export</h1>
+    <p class="usb-meta">Move any part of your library out — to a folder on this laptop, a USB stick,
+       or rekordbox / Engine for the booth. Hidden tracks (no title, or recorded sets) stay home unless included.</p>
+
+    <div class="usb-sec">
+        <h2>A place, pile or structure — to this laptop or a USB</h2>
+        <p>Copies one place, pile or structure into <em>Music Room/&lt;its name&gt;/</em> — a plain folder
+           on this laptop, or onto a stick where it also
+           rebuilds the stick's catalogue: a rekordbox XML pointing at the stick AND an
+           Engine DJ database — plug straight into an SC&nbsp;Live&nbsp;/&nbsp;SC6000, or import the XML
+           anywhere. Several places/piles can share one stick; each is a playlist.
+           Re-exporting first shows what's new and what you've dropped since.</p>
+        <div class="usb-row">
+            <select id="usb-scope"></select>
+            <select id="usb-vol2"></select>
+            <label class="usb-check"><input type="checkbox" id="usb-engine" checked> Engine DJ database</label>
+        </div>
+        <div class="usb-row" id="usb-gauge-row" style="display:none; flex-direction:column; align-items:stretch; gap:6px;">
+            <div class="usb-bar" style="height:10px;"><i id="usb-gauge-i" style="transition:width .5s ease;"></i></div>
+            <div class="usb-meta" id="usb-gauge-text"></div>
+            <div class="usb-meta" id="usb-missing-warn" style="display:none; color:var(--danger, #d4756a);"></div>
+        </div>
+        <div class="usb-row" id="usb-scope-acts" style="display:none;">
+            <button class="usb-btn" id="usb-copy-keep" onclick="startScoped(false)"></button>
+            <button class="usb-btn" id="usb-copy-mirror" onclick="startScoped(true)" style="display:none;"></button>
+        </div>
+        <div class="usb-row" id="usb-folder-row" style="display:none; flex-direction:column; align-items:flex-start; gap:6px;">
+            <button class="usb-btn usb-btn--quiet" id="usb-folder-btn" onclick="exportToFolder()">↓ Copy to a folder on this laptop</button>
+            <span class="usb-meta" id="usb-folder-out">Into your export folder — audio + an .m3u8 playlist, no stick needed.</span>
+        </div>
+    </div>
+
+    <div class="usb-sec">
+        <h2>Everything onto a USB</h2>
+        <p>Copies every playable, titled track into a flat <em>Music Room</em> folder on the stick
+           (browsable on a Denon in folder mode), then writes <code>musicroom_library.xml</code>
+           beside it pointing at those copies — import that one file in rekordbox or Engine on any
+           laptop and the whole collection arrives with BPM, key and cue points. Re-running resumes:
+           files already on the stick are skipped.</p>
+        <div class="usb-row">
+            <select id="usb-vol"></select>
+            <button class="usb-btn usb-btn--quiet" onclick="loadVolumes()">↻ rescan</button>
+            <label class="usb-check"><input type="checkbox" id="usb-hidden"> include hidden tracks</label>
+        </div>
+        <div class="usb-row">
+            <button class="usb-btn" id="usb-go" onclick="startExport()">Export to this USB</button>
+            <button class="usb-btn usb-btn--quiet" id="usb-stop" style="display:none" onclick="stopExport()">Stop</button>
+            <span class="usb-meta" id="usb-need"></span>
+        </div>
+        <div class="usb-progress" id="usb-prog">
+            <div class="usb-bar"><i id="usb-bar-i"></i></div>
+            <div id="usb-prog-text"></div>
+        </div>
+    </div>
+
+    <div class="usb-sec">
+        <h2>Export to rekordbox</h2>
+        <p>Rewrites the rekordbox XML at its fixed <strong>local</strong> home (kept with the Music Room's
+           own data, so it's always here even with the drive unplugged) — your whole collection, with
+           <strong>every place and every structure as playlists</strong>, and your <strong>genres, tags
+           and colours</strong> on each track (genres → Genre, tags/colours → Comments). BPM &amp; key are
+           left to rekordbox to analyse. It's then <strong>backed up to your drive</strong> alongside the
+           database, the same way your music and metadata are. Point rekordbox → Preferences → Advanced →
+           rekordbox xml at the local file once, then re-run to refresh.</p>
+        <div class="usb-row" style="margin-bottom:4px;">
+            <label class="usb-check"><input type="checkbox" id="usb-seed-cues"> Bring memory cues from timestamped notes
+                — <strong>new tracks only</strong> (cues you've adjusted in rekordbox stay safe)</label>
+        </div>
+        <div class="usb-row" style="margin-bottom:8px; margin-left:22px;">
+            <label class="usb-check"><input type="checkbox" id="usb-seed-all"> …for <strong>all tracks</strong> — re-seed everything (use once when building a fresh rekordbox collection)</label>
+        </div>
+        <div class="usb-meta" id="usb-xml-warn" style="display:none; color:var(--danger, #d4756a); font-weight:600; margin-bottom:6px;"></div>
+        <div class="usb-row">
+            <button class="usb-btn" id="usb-xml" onclick="saveXml()">Update rekordbox XML</button>
+            <span class="usb-meta" id="usb-xml-out"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadVolumes() {
+    const d = await fetch('/api/usb/volumes').then(r => r.json()).catch(() => ({volumes: []}));
+    const opts = (d.volumes || []).map(v =>
+        `<option value="${v.path}">${v.name}${v.free_gb != null ? ` — ${v.free_gb} GB free` : ''}</option>`
+    ).join('') || '<option value="">no writable volumes mounted</option>';
+    document.getElementById('usb-vol').innerHTML = opts;
+    document.getElementById('usb-vol2').innerHTML = opts;
+    document.getElementById('usb-need').textContent =
+        d.tracks ? `${d.tracks.toLocaleString()} tracks · needs ~${d.needed_gb} GB` : '';
+    refreshPreview();
+}
+
+// ── scoped export: one place/pile, sized against the stick ──────────────
+let lastPreview = null;
+async function loadScopes() {
+    const d = await fetch('/api/usb/scopes').then(r => r.json()).catch(() => null);
+    if (!d) return;
+    const sel = document.getElementById('usb-scope');
+    const opt = (kind, r) => `<option value="${kind}:${r.id}">${kind === 'pile' ? '▤ ' : ''}${r.name} · ${r.n}</option>`;
+    sel.innerHTML = '<option value="">choose a place, pile or structure…</option>'
+        + d.places.filter(p => p.n).map(p => opt('place', p)).join('')
+        + d.piles.filter(p => p.n).map(p => opt('pile', p)).join('')
+        + (d.structures || []).filter(p => p.n).map(p => opt('structure', p)).join('');
+    // deep link from the room: /usb?scope=pile:3
+    const want = new URLSearchParams(location.search).get('scope');
+    if (want && sel.querySelector(`option[value="${want}"]`)) { sel.value = want; refreshPreview(); }
+}
+async function refreshPreview() {
+    const scope = document.getElementById('usb-scope').value;
+    const vol = document.getElementById('usb-vol2').value;
+    const gaugeRow = document.getElementById('usb-gauge-row');
+    const acts = document.getElementById('usb-scope-acts');
+    // the laptop-folder export needs only a scope (no stick), so offer it as soon as one's picked
+    document.getElementById('usb-folder-row').style.display = scope ? 'flex' : 'none';
+    lastPreview = null;
+    if (!scope || !vol) { gaugeRow.style.display = 'none'; acts.style.display = 'none'; return; }
+    const [st, sid] = scope.split(':');
+    const p = await fetch('/api/usb/preview', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: vol, scope_type: st, scope_id: +sid,
+                               include_hidden: document.getElementById('usb-hidden').checked }) })
+        .then(r => r.json()).catch(() => null);
+    if (!p || p.error) { gaugeRow.style.display = 'none'; acts.style.display = 'none'; return; }
+    lastPreview = p;
+    gaugeRow.style.display = '';
+    const budget = (p.free_gb || 0) + (p.scope_gb - p.gb_to_copy);   // free + already aboard
+    const pct = budget > 0 ? Math.min(100, Math.round(100 * p.scope_gb / budget)) : 0;
+    const bar = document.getElementById('usb-gauge-i');
+    bar.style.width = pct + '%';
+    bar.style.background = p.fits ? 'var(--accent)' : 'var(--danger, #9c3b2c)';
+    document.getElementById('usb-gauge-text').textContent =
+        `${p.scope_name}: ${p.tracks.toLocaleString()} tracks · ${p.scope_gb} GB` +
+        (p.free_gb != null ? ` — stick has ${p.free_gb} GB free` : '') +
+        ` · ${p.new} new (${p.gb_to_copy} GB to copy)` +
+        (p.kept ? ` · ${p.kept} already aboard` : '') +
+        (p.fits ? '' : ' — DOES NOT FIT');
+    const warn = document.getElementById('usb-missing-warn');
+    if (p.missing) {
+        warn.style.display = '';
+        warn.textContent = `⚠ ${p.missing} track${p.missing === 1 ? '' : 's'} skipped — not on this drive, so they won't make the stick`
+            + (p.missing_names && p.missing_names.length ? `: ${p.missing_names.slice(0, 4).join(', ')}${p.missing > 4 ? '…' : ''}` : '');
+        warn.title = (p.missing_names || []).join('\n');
+    } else { warn.style.display = 'none'; }
+    acts.style.display = '';
+    document.getElementById('usb-copy-keep').textContent =
+        p.new ? `Copy ${p.new} new` : 'Refresh the stick catalogue';
+    const mir = document.getElementById('usb-copy-mirror');
+    if (p.dropped) {
+        mir.style.display = '';
+        mir.textContent = `Copy new + remove ${p.dropped} dropped`;
+        mir.title = (p.dropped_names || []).join(', ');
+    } else mir.style.display = 'none';
+}
+async function exportToFolder() {
+    const scope = document.getElementById('usb-scope').value;
+    if (!scope) return;
+    const [st, sid] = scope.split(':');
+    const btn = document.getElementById('usb-folder-btn');
+    const out = document.getElementById('usb-folder-out');
+    btn.disabled = true; const was = btn.textContent; btn.textContent = '↓ copying…';
+    const r = await fetch('/api/export/folder', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope_type: st, scope_id: +sid,
+                               include_hidden: document.getElementById('usb-hidden').checked }) })
+        .then(r => r.json()).catch(() => null);
+    btn.disabled = false; btn.textContent = was;
+    if (!r || !r.ok) { out.textContent = (r && r.error) || 'could not export'; return; }
+    out.innerHTML = `✓ ${r.copied} file${r.copied === 1 ? '' : 's'} → <code>${r.folder}</code>`
+        + (r.failed ? ` · ${r.failed} failed` : '')
+        + (r.missing ? ` · ⚠ ${r.missing} not on this drive` : '');
+    out.title = (r.missing_names || []).join('\n');
+}
+async function startScoped(removeDropped) {
+    const scope = document.getElementById('usb-scope').value;
+    const vol = document.getElementById('usb-vol2').value;
+    if (!scope || !vol || !lastPreview) return;
+    const [st, sid] = scope.split(':');
+    const r = await fetch('/api/usb/export', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: vol, scope_type: st, scope_id: +sid,
+                               remove_dropped: removeDropped,
+                               write_engine: document.getElementById('usb-engine').checked,
+                               include_hidden: document.getElementById('usb-hidden').checked }) })
+        .then(r => r.json()).catch(() => null);
+    if (!r || !r.ok) { document.getElementById('usb-prog-text').textContent = (r && r.error) || 'could not start'; return; }
+    document.getElementById('usb-prog').classList.add('on');
+    document.getElementById('usb-stop').style.display = '';
+    poll(); pollT = setInterval(poll, 1200);
+}
+document.getElementById('usb-scope').addEventListener('change', refreshPreview);
+document.getElementById('usb-vol2').addEventListener('change', refreshPreview);
+let pollT = null;
+async function startExport() {
+    const vol = document.getElementById('usb-vol').value;
+    if (!vol) return;
+    const r = await fetch('/api/usb/export', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: vol, include_hidden: document.getElementById('usb-hidden').checked }) })
+        .then(r => r.json()).catch(() => null);
+    if (!r || !r.ok) { document.getElementById('usb-prog-text').textContent = (r && r.error) || 'could not start'; return; }
+    document.getElementById('usb-go').disabled = true;
+    document.getElementById('usb-stop').style.display = '';
+    document.getElementById('usb-prog').classList.add('on');
+    poll();
+    pollT = setInterval(poll, 1200);
+}
+async function poll() {
+    const s = await fetch('/api/usb/export-status').then(r => r.json()).catch(() => null);
+    if (!s) return;
+    const pct = s.total ? Math.round(100 * s.done / s.total) : 0;
+    document.getElementById('usb-bar-i').style.width = pct + '%';
+    document.getElementById('usb-prog-text').textContent =
+        `${s.done}/${s.total} · ${s.copied_gb.toFixed(1)} GB` +
+        (s.failed ? ` · ${s.failed} failed` : '') +
+        (s.running ? ` · ${s.current}` : '') +
+        (s.stop_reason ? ` — ${s.stop_reason}` : '') +
+        (!s.running && s.xml_path ? ` — done. XML: ${s.xml_path}. Synced — safe to eject.` : '');
+    if (!s.running && pollT) {
+        clearInterval(pollT); pollT = null;
+        document.getElementById('usb-go').disabled = false;
+        document.getElementById('usb-stop').style.display = 'none';
+        refreshPreview();                       // the stick changed — re-read it
+    }
+}
+function stopExport() { fetch('/api/usb/export-stop', { method: 'POST' }); }
+// A drive-unplugged export writes a nearly-empty XML — say so LOUDLY, both
+// before (a standing warning by the button) and after (the result line).
+async function xmlPreflight() {
+    const warn = document.getElementById('usb-xml-warn');
+    const p = await fetch('/api/export/rekordbox/preflight').then(r => r.json()).catch(() => null);
+    if (p && p.skipped > p.present) {
+        warn.style.display = '';
+        warn.textContent = `⚠ Your music drive isn't connected — only ${p.present.toLocaleString()} of ${(p.present + p.skipped).toLocaleString()} tracks would export right now. Plug the drive in first.`;
+    } else if (p && p.skipped) {
+        warn.style.display = '';
+        warn.textContent = `⚠ ${p.skipped.toLocaleString()} track${p.skipped === 1 ? '' : 's'} won't export — files not found on disk.`;
+    } else {
+        warn.style.display = 'none';
+    }
+}
+async function saveXml() {
+    const el = document.getElementById('usb-xml-out');
+    el.textContent = 'building…';
+    const r = await fetch('/api/export/rekordbox/library/save', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_hidden: document.getElementById('usb-hidden').checked,
+                               seed_cues: document.getElementById('usb-seed-cues').checked
+                                          || document.getElementById('usb-seed-all').checked,
+                               seed_all: document.getElementById('usb-seed-all').checked }) })
+        .then(r => r.json()).catch(() => null);
+    if (r && r.ok && r.skipped > r.tracks) {
+        el.style.color = 'var(--danger, #d4756a)';
+        el.textContent = `⚠ only ${r.tracks.toLocaleString()} of ${(r.tracks + r.skipped).toLocaleString()} tracks made the XML — your music drive isn't connected. Plug it in and export again.`;
+    } else {
+        el.style.color = '';
+        el.textContent = r && r.ok
+            ? `${r.tracks} tracks → ${r.path}${r.skipped ? ` (${r.skipped} missing skipped)` : ''}`
+              + (r.cues_seeded ? ` · seeded cues for ${r.cues_seeded} new track${r.cues_seeded === 1 ? '' : 's'}` : '')
+              + (r.backed_up_to ? ` · backing up to the drive` : ` · saved locally (drive not mounted — will back up when plugged in)`)
+            : 'failed';
+    }
+    xmlPreflight();
+}
+loadScopes();
+loadVolumes();
+poll();
+xmlPreflight();
+</script>
+
+<script>window.MR_TIP = { key:'export', title:'Export', steps:[
+  { title:'Getting music OUT is the point',
+    body:'This page turns what you\u2019ve built here into things other software understands \u2014 rekordbox playlists, or a plain folder of files.' },
+  { title:'One button does the lot',
+    body:'<b>Update rekordbox XML</b> writes your whole collection. Every place, structure and set-prep arrives in rekordbox as a playlist. Your genres land in rekordbox\u2019s Genre field, your tags in Comments. BPM and key are left for rekordbox to analyse fresh \u2014 it\u2019s better at its own grid.' },
+  { title:'Cues, if you want them',
+    body:'Tick the box and your timestamped notes become memory cues. \u201cNew tracks only\u201d is the safe one \u2014 it never touches cues you\u2019ve already adjusted in rekordbox.',
+    link:'/help#export', linkText:'the round-trip, explained' },
+  { title:'Your files stay put',
+    body:'The XML just points at your music where it already is. Nothing is moved, copied or changed. If records would be skipped because a drive isn\u2019t plugged in, this page warns you loudly first.' },
+]};</script>
+<script src="/static/js/mr_tips.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

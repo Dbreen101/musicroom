@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        .track-page { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        .track-page-header {
+            margin-bottom: 36px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .track-page-header h1 {
+            font-family: var(--font-serif);
+            font-size: 2rem;
+            font-weight: 400;
+            font-style: italic;
+        }
+
+        .track-page-header .artist {
+            font-size: 0.95rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .section-heading {
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 14px;
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 32px;
+        }
+
+        .file-table th {
+            text-align: left;
+            padding: 6px 10px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .file-table td {
+            padding: 10px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .file-table tr:last-child td { border-bottom: none; }
+
+        .primary-badge {
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .fmt-badge {
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .file-path {
+            font-size: 0.74rem;
+            color: var(--muted2);
+            font-family: var(--font-mono);
+            word-break: break-all;
+            max-width: 400px;
+        }
+
+        .file-actions { display: flex; gap: 6px; align-items: center; }
+
+        .btn--trash {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted2);
+            padding: 3px 8px;
+            font-size: 0.74rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn--trash:hover { border-color: var(--danger); color: var(--danger); }
+
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            backdrop-filter: blur(3px);
+        }
+
+        .confirm-overlay.open { display: flex; }
+
+        .confirm-box {
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+        }
+
+        .confirm-box h2 {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.15rem;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+
+        .confirm-box p { font-size: 0.86rem; color: var(--muted); line-height: 1.6; }
+
+        .confirm-detail {
+            font-size: 0.8rem;
+            color: var(--muted);
+            background: var(--surface2);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+            margin: 12px 0 16px;
+            font-family: var(--font-mono);
+            word-break: break-all;
+        }
+
+        .btn--danger-confirm {
+            background: none;
+            border: 1px solid #6b2020;
+            border-radius: var(--radius);
+            color: var(--danger);
+            padding: 6px 14px;
+            font-size: 0.84rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn--danger-confirm:hover { background: rgba(192,112,112,0.1); border-color: var(--danger); }
+
+        .audio-player-block {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-bottom: 8px;
+        }
+
+        .audio-player-block audio { width: 100%; margin-top: 6px; }
+
+        .player-label { font-size: 0.76rem; color: var(--muted); font-family: var(--font-mono); }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="track-page floor-sheet">
+
+    <div class="track-page-header">
+        <h1 id="page-title">—</h1>
+        <div class="artist" id="page-artist">—</div>
+    </div>
+
+    <!-- FILE VERSIONS -->
+    <div class="section-heading">File versions</div>
+    <table class="file-table" id="file-table">
+        <thead>
+            <tr>
+                <th>Format</th>
+                <th>Path</th>
+                <th>Size</th>
+                <th>Duration</th>
+                <th>Quality</th>
+                <th>BPM</th>
+                <th>Key</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="file-tbody">
+            <tr><td colspan="8" class="loading" style="padding:24px;">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    <!-- AUDIO PLAYERS -->
+    <div class="section-heading">Preview</div>
+    <div id="players-container">
+        <div style="font-size:0.84rem; color:var(--muted); padding:8px 0;">Loading...</div>
+    </div>
+
+    <div style="margin-top:40px; padding-top:20px; border-top:1px solid var(--border);">
+        <div class="section-heading" style="color:#6b2020;">Remove</div>
+        <button class="btn--danger-confirm" onclick="confirmDeleteTrack()" style="margin-top:4px;">
+            Delete from library →
+        </button>
+        <p style="font-size:0.76rem; color:var(--muted2); margin-top:8px; line-height:1.5;">
+            All versions moved to Trash. Notes and tags are removed. Not recoverable from within Music Room.
+        </p>
+    </div>
+
+</div>
+
+<!-- Confirm Modal -->
+<div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+        <h2 id="confirm-title">Are you sure?</h2>
+        <p id="confirm-msg"></p>
+        <div class="confirm-detail" id="confirm-detail"></div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn btn--ghost btn--small" onclick="closeConfirm()">Cancel</button>
+            <button class="btn--danger-confirm" id="confirm-ok">Move to Trash</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const TRACK_ID   = {{ track.id }};
+let confirmCb    = null;
+let trackData    = null;
+let filesData    = [];
+
+// =============================================================
+// LOAD
+// =============================================================
+
+async function loadTrack() {
+    const res  = await fetch(`/api/track/${TRACK_ID}`);
+    const data = await res.json();
+    trackData = data.track;
+    filesData = data.files;
+
+    const title  = trackData.title  || 'Untitled';
+    const artist = trackData.artist_name || 'Unknown';
+
+    document.title = `${title} — Music Room`;
+    // Guard each optional element — the nav no longer carries nav-track-name /
+    // nav-back, and a missing one used to throw here and abort the whole page
+    // (file versions + preview stuck on "Loading…").
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('page-title', title);
+    setText('page-artist', artist);
+    setText('nav-track-name', title);
+
+    // Back link — first non-well place this track lives in
+    if (data.places.length) {
+        const place = data.places.find(p => !p.is_well) || data.places[0];
+        const navBack = document.getElementById('nav-back');
+        if (navBack) navBack.innerHTML = `<a href="/place/${place.id}">${place.name}</a>`;
+    }
+
+    renderFiles(filesData);
+    renderPlayers(filesData);
+}
+
+// =============================================================
+// FILES
+// =============================================================
+
+function fmt(f) { return (f.file_format || '?').toUpperCase(); }
+
+function quality(f) {
+    const parts = [];
+    if (f.bit_depth)    parts.push(`${f.bit_depth}-bit`);
+    if (f.sample_rate)  parts.push(`${(f.sample_rate/1000).toFixed(1)}kHz`);
+    if (f.bitrate_kbps) parts.push(`${f.bitrate_kbps}kbps`);
+    return parts.join(' · ') || '—';
+}
+
+function formatTime(s) {
+    if (!s || isNaN(s)) return '—';
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+
+function renderFiles(files) {
+    const tbody = document.getElementById('file-tbody');
+    if (!files.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:20px; color:var(--muted); font-style:italic;">No files found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = files.map(f => {
+        const isPrimary = f.is_primary;
+        const bpm = f.bpm ? `${f.bpm}` : '—';
+        const key = f.key_note ? `${f.key_note}${f.key_scale === 'minor' ? 'm' : ''}` : '—';
+        const pathShort = (f.file_path || '').split('/').slice(-3).join('/');
+
+        return `<tr>
+            <td>
+                <span class="fmt-badge">${fmt(f)}</span>
+                ${isPrimary ? `<span class="primary-badge" style="margin-left:6px;">primary</span>` : ''}
+            </td>
+            <td><span class="file-path" title="${f.file_path || ''}">…/${pathShort}</span></td>
+            <td style="color:var(--muted); font-size:0.82rem; white-space:nowrap;">${f.file_size_mb ? f.file_size_mb + ' MB' : '—'}</td>
+            <td style="font-family:var(--font-mono); font-size:0.82rem;">${formatTime(f.duration_sec)}</td>
+            <td style="color:var(--muted); font-size:0.78rem; white-space:nowrap;">${quality(f)}</td>
+            <td style="font-family:var(--font-mono); font-size:0.82rem;">${bpm}</td>
+            <td style="font-family:var(--font-mono); font-size:0.82rem;">${key}</td>
+            <td>
+                <div class="file-actions">
+                    ${!isPrimary ? `<button class="btn-verify btn--small" onclick="setPrimary(${f.id})" title="Set as primary">★ Primary</button>` : ''}
+                    <button class="btn--trash" onclick="confirmDeleteFile(${f.id}, '${fmt(f)}', '${pathShort}')" title="Move to Trash">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderPlayers(files) {
+    const el = document.getElementById('players-container');
+    if (!files.length) {
+        el.innerHTML = `<div style="font-size:0.84rem; color:var(--muted);">No files to preview.</div>`;
+        return;
+    }
+    el.innerHTML = files.map(f => `
+        <div class="audio-player-block">
+            <div class="player-label">${fmt(f)} · ${f.file_size_mb ? f.file_size_mb+' MB' : ''} · ${formatTime(f.duration_sec)}</div>
+            <audio controls preload="none" src="/audio/${f.id}"></audio>
+        </div>`).join('');
+}
+
+// =============================================================
+// ACTIONS
+// =============================================================
+
+async function setPrimary(fileId) {
+    const res = await fetch(`/api/file/${fileId}/set_primary`, { method: 'POST' });
+    if (res.ok) { await loadTrack(); }
+}
+
+// =============================================================
+// CONFIRM
+// =============================================================
+
+function openConfirm({ title, msg, detail, label, onConfirm }) {
+    document.getElementById('confirm-title').textContent  = title;
+    document.getElementById('confirm-msg').textContent    = msg;
+    document.getElementById('confirm-detail').textContent = detail;
+    document.getElementById('confirm-ok').textContent     = label || 'Move to Trash';
+    confirmCb = onConfirm;
+    document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+    document.getElementById('confirm-overlay').classList.remove('open');
+    confirmCb = null;
+}
+
+document.getElementById('confirm-ok').addEventListener('click', () => {
+    if (confirmCb) confirmCb();
+    closeConfirm();
+});
+
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeConfirm();
+});
+
+function confirmDeleteFile(fileId, fmtStr, pathShort) {
+    openConfirm({
+        title: 'Delete this file?',
+        msg:   'The file will be moved to your Trash and can be recovered from there.',
+        detail: `${fmtStr} · …/${pathShort}`,
+        label: 'Move to Trash',
+        onConfirm: async () => {
+            const res  = await fetch(`/api/file/${fileId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                if (!data.promoted_primary_id && filesData.length <= 1) {
+                    // Track deleted too
+                    window.location.href = '/';
+                } else {
+                    await loadTrack();
+                }
+            }
+        },
+    });
+}
+
+function confirmDeleteTrack() {
+    const title  = trackData?.title || 'Untitled';
+    const nFiles = filesData.length;
+    openConfirm({
+        title: 'Delete from library?',
+        msg:   `All ${nFiles} file${nFiles !== 1 ? 's' : ''} will be moved to Trash. Notes, tags and placements will be removed permanently.`,
+        detail: title,
+        label: 'Move to Trash',
+        onConfirm: async () => {
+            const res = await fetch(`/api/track/${TRACK_ID}`, { method: 'DELETE' });
+            if (res.ok) window.location.href = '/';
+        },
+    });
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeConfirm();
+});
+
+// =============================================================
+// INIT
+// =============================================================
+loadTrack();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+/* deck_fonts.css — the two faces of the working document (David's deck, Oct 2026).
+   Instrument Serif is registered in record_fonts.css; IBM Plex Mono lives here.
+   Both SIL OFL 1.1 — see static/fonts/ibmplexmono/OFL.txt. */
+@font-face{ font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; src:url("/static/fonts/ibmplexmono/IBMPlexMono-Regular.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"IBM Plex Mono"; font-style:italic; font-weight:400; src:url("/static/fonts/ibmplexmono/IBMPlexMono-Italic.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; src:url("/static/fonts/ibmplexmono/IBMPlexMono-Medium.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"IBM Plex Mono"; font-style:normal; font-weight:600; src:url("/static/fonts/ibmplexmono/IBMPlexMono-SemiBold.woff2") format("woff2"); font-display:swap; }

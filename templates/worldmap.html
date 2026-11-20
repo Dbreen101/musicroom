@@ -1,0 +1,445 @@
+{# -- The Map -- the collection on a 3D realistic-Earth globe (VISION §4.15) -- #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Room — The Map</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/record_fonts.css">
+  <style>
+    :root{ --gold:#f5e6b0; --ink:#efe6cf; --muted:#9a8c6c; }
+    html,body{ margin:0; height:100%; overflow:hidden; background:#05070d; color:var(--ink);
+      font-family:var(--font-main, system-ui, sans-serif); }
+    #map-canvas{ position:fixed; inset:0; z-index:1; cursor:grab; }
+    #map-canvas:active{ cursor:grabbing; }
+    /* nav (matches the other p1 pages) */
+    nav.nav{ position:fixed; top:0; left:0; right:0; z-index:30; display:flex; align-items:center;
+      gap:20px; padding:14px 22px; background:linear-gradient(180deg, rgba(5,7,13,.92), rgba(5,7,13,0));
+      pointer-events:none; }
+    nav.nav a{ pointer-events:auto; }
+    .nav__logo{ color:var(--gold); font-family:var(--font-serif,serif); font-style:italic; font-size:1.25rem;
+      text-decoration:none; }
+    .nav__links{ list-style:none; display:flex; gap:18px; margin:0; padding:0; }
+    .nav__links a{ color:var(--muted); text-decoration:none; font-size:.92rem; padding:4px 10px; border-radius:8px;
+      transition:all .2s; }
+    .nav__links a:hover, .nav__links a.active{ color:#1d160d; background:var(--gold); }
+    /* title + readout */
+    .map-head{ position:fixed; left:22px; bottom:22px; z-index:20; max-width:340px; }
+    .map-head h1{ margin:0; font-family:var(--font-serif,serif); font-style:italic; font-weight:400;
+      font-size:1.5rem; color:var(--gold); }
+    .map-head p{ margin:4px 0 0; font-size:.8rem; color:var(--muted); line-height:1.4; }
+    .map-head__hint{ font-size:.72rem; color:var(--muted); opacity:.8; margin-top:8px;
+      font-family:var(--font-mono,monospace); }
+    /* search */
+    .map-search{ position:fixed; top:14px; right:22px; z-index:30; }
+    .map-search input{ width:230px; padding:8px 13px; border-radius:10px; font-family:inherit; font-size:.84rem;
+      color:var(--ink); background:rgba(16,18,26,.85); border:1px solid rgba(245,230,176,.22); outline:none; }
+    .map-search input:focus{ border-color:rgba(245,230,176,.5); }
+    /* country detail panel */
+    .map-panel{ position:fixed; top:0; right:0; bottom:0; width:min(380px,90vw); z-index:25;
+      background:rgba(10,12,18,.96); border-left:1px solid rgba(245,230,176,.16);
+      box-shadow:-24px 0 60px rgba(0,0,0,.6); transform:translateX(102%); transition:transform .32s cubic-bezier(.2,.7,.2,1);
+      display:flex; flex-direction:column; }
+    .map-panel.open{ transform:none; }
+    .map-panel__head{ display:flex; align-items:baseline; gap:10px; padding:20px 20px 12px;
+      border-bottom:1px solid rgba(245,230,176,.12); }
+    .map-panel__country{ font-family:var(--font-serif,serif); font-style:italic; font-size:1.4rem; color:var(--gold); flex:1; }
+    .map-panel__count{ font-size:.78rem; color:var(--muted); font-family:var(--font-mono,monospace); }
+    .map-panel__x{ cursor:pointer; background:none; border:1px solid rgba(245,230,176,.2); color:var(--muted);
+      width:30px; height:30px; border-radius:50%; font-size:1rem; }
+    .map-panel__x:hover{ color:var(--ink); }
+    .map-panel__body{ overflow-y:auto; padding:8px 0 20px; }
+    .map-trow{ padding:9px 20px; border-bottom:1px solid rgba(255,255,255,.05); }
+    .map-trow__t{ font-size:.9rem; color:var(--ink); }
+    .map-trow__a{ font-size:.74rem; color:var(--muted); margin-top:2px; }
+    /* the cmd+drag marquee box */
+    #map-marquee{ position:fixed; z-index:22; border:1.5px solid var(--gold);
+      background:rgba(245,230,176,.10); pointer-events:none; display:none; border-radius:2px; }
+    #map-loading{ position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+      background:#05070d; color:var(--muted); font-style:italic; font-family:var(--font-serif,serif); }
+    /* Everything of the map's own starts UNDER the top bar. Its filter box used to sit on the bar's links
+       (it was written for a bar whose right side was empty), and the country panel began behind the bar, so
+       its ✕ could not be pressed. Its title leaves the bottom-left corner, where the deck lives. */
+    .map-search{ top:calc(var(--nav-h, 56px) + 14px); }
+    .map-panel{ top:calc(var(--nav-h, 56px) + 62px); border-top:1px solid rgba(245,230,176,.12); }   /* under the filter box, which stays above it */
+    .map-head{ top:calc(var(--nav-h, 56px) + 16px); bottom:auto; }
+    @media (max-width:760px){ .map-head{ top:calc(var(--nav-h, 56px) + 62px); } }   /* narrow: under the filter box, not beside it */
+  </style>
+  {# the map keeps its own dark look (it is not themed), but in the trial it is still a trial page: the same
+     top bar, the same deck (the one with the speaker line and the grúpa key) #}
+  {% if is_gr %}<script>window.MR_GR = true; document.documentElement.classList.add('is-gr');</script>{% endif %}
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+      <li><a href="/forest3d">The Forest</a></li>
+      <li><a href="/sets">Sets</a></li>
+      <li><a href="/explore3d">Explore</a></li>
+      <li><a href="/listen">Listen</a></li>
+      <li><a href="/tools">Tools</a></li>
+    </ul>
+    {% endif %}
+  </nav>
+
+  <div id="map-canvas"></div>
+  <div id="map-marquee"></div>
+
+  <div class="map-search"><input id="map-q" placeholder="filter — a genre, a tag, a word…"></div>
+
+  <div class="map-head">
+    <h1>The Map</h1>
+    <p id="map-sub">Your collection, by where it's from.</p>
+    <div class="map-head__hint">drag to spin · scroll to zoom · ⌘-drag a box to fly in</div>
+  </div>
+
+  <aside class="map-panel" id="map-panel">
+    <div class="map-panel__head">
+      <span class="map-panel__country" id="map-panel-country">—</span>
+      <span class="map-panel__count" id="map-panel-count"></span>
+      <button class="map-panel__x" id="map-panel-x">✕</button>
+    </div>
+    <div class="map-panel__body" id="map-panel-body"></div>
+  </aside>
+
+  <div id="map-loading">drawing the world…</div>
+
+  <script type="importmap">
+  { "imports": {
+    "three": "/static/vendor/three/three.module.js",
+    "three/addons/": "/static/vendor/three/addons/"
+  } }
+  </script>
+  <script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  // three-globe is a UMD bundle that externalises THREE as a global — expose it,
+  // then load the bundle and read window.ThreeGlobe. (All vendored; runs offline.)
+  window.THREE = THREE;
+  function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src=src; s.onload=res; s.onerror=()=>rej(new Error('load '+src)); document.head.appendChild(s); }); }
+
+  const GLOBE_R = 100;
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  (async function(){
+    await loadScript('/static/vendor/map/three-globe.min.js');
+    const ThreeGlobe = window.ThreeGlobe;
+
+    // ── data: country counts (from the API) + world geometry (Natural Earth) ──
+    let counts = {}, names = {}, maxCount = 1, totals = {placed:0,total:0};
+    async function loadCounts(q){
+      const d = await fetch('/api/map/countries' + (q?('?q='+encodeURIComponent(q)):'')).then(r=>r.json());
+      counts = {}; names = {}; maxCount = 1;
+      (d.countries||[]).forEach(c=>{ counts[c.code]=c.count; names[(c.name||'').toLowerCase()]=c.code;
+        if(c.count>maxCount) maxCount=c.count; });
+      totals = { placed: d.total_placed||0, total: d.total_tracks||0 };
+    }
+    // town/village markers — artists placed to their birthplace (Wikidata lat/lon)
+    let points = [], pointsMax = 1;
+    async function loadPoints(q){
+      const d = await fetch('/api/map/points' + (q?('?q='+encodeURIComponent(q)):'')).then(r=>r.json()).catch(()=>null);
+      points = (d && d.points) || [];
+      pointsMax = points.reduce((m,p)=>Math.max(m,p.count||0), 1);
+    }
+    await loadCounts('');
+    await loadPoints('');
+    const world = await fetch('/static/vendor/map/ne_110m_countries.json').then(r=>r.json());
+
+    // join a Natural Earth feature → our ISO-2 code (NE marks some as "-99")
+    const codeOf = f => {
+      const p = f.properties || {};
+      const a2 = (p.ISO_A2 || p.ISO_A2_EH || '').toUpperCase();
+      if (a2 && a2 !== '-99') return a2;
+      return names[(p.NAME||p.NAME_LONG||'').toLowerCase()] || null;
+    };
+    const countOf = f => { const c = codeOf(f); return c ? (counts[c]||0) : 0; };
+
+    // ── the globe ────────────────────────────────────────────────────────────
+    // Each country's visual centre — the average of its largest outline,
+    // computed once. The orbs sit here (rough is fine: it only has to read).
+    const centroids = {};
+    for (const f of world.features){
+      const g = f.geometry; if (!g) continue;
+      const polys = g.type==='Polygon' ? [g.coordinates] : g.type==='MultiPolygon' ? g.coordinates : [];
+      let best = null;
+      for (const poly of polys){ if (poly[0] && (!best || poly[0].length > best.length)) best = poly[0]; }
+      if (!best) continue;
+      let sx=0, sy=0; for (const [x,y] of best){ sx+=x; sy+=y; }
+      const code = codeOf(f); if (code) centroids[code] = { lng: sx/best.length, lat: sy/best.length };
+    }
+    // Countries with music glow as ORBS, not raised slabs (David, 2026-07-07:
+    // "I hate the raised countries"). Orb size follows how much of the
+    // collection comes from there; a slow gold pulse keeps it alive.
+    function countryOrbs(){
+      const orbs = [];
+      for (const [code, n] of Object.entries(counts)){
+        const c = centroids[code]; if (!c || !n) continue;
+        orbs.push({ lat: c.lat, lon: c.lng, count: n, code });
+      }
+      return orbs;
+    }
+
+    const globe = new ThreeGlobe({ animateIn: false })
+      .globeImageUrl('/static/vendor/map/earth.jpg')
+      .showAtmosphere(true).atmosphereColor('#9fb6d6').atmosphereAltitude(0.16)
+      // countries lie FLAT — just a faint wash + outline where music lives
+      .polygonsData(world.features)
+      .polygonAltitude(0.004)
+      .polygonCapColor(f => countOf(f)>0 ? 'rgba(245,230,176,0.10)' : 'rgba(120,130,150,0.04)')
+      .polygonSideColor(() => 'rgba(0,0,0,0)')
+      .polygonStrokeColor(f => countOf(f)>0 ? 'rgba(245,230,176,0.4)' : 'rgba(150,160,180,0.12)')
+      .polygonsTransitionDuration(300)
+      // one point layer, two scales: country ORBS far out, town/village dots
+      // once you zoom in (the same swap as before, orbs now the far view)
+      .pointsData([])
+      .pointLat('lat').pointLng('lon')
+      .pointColor(() => 'rgba(248,224,150,0.95)')
+      .pointAltitude(0.006)
+      .pointRadius(p => p.code
+        ? 0.45 + Math.sqrt((p.count||1)/maxCount)*1.7          // country orb
+        : 0.18 + Math.sqrt((p.count||1)/pointsMax)*0.55)       // town dot
+      .pointsMerge(false).pointsTransitionDuration(0);
+    // the glow: a slow gold pulse ring under each orb (skips silently if the
+    // vendored three-globe predates ringsData)
+    function syncRings(orbs){
+      if (typeof globe.ringsData !== 'function') return;
+      globe.ringsData(orbs)
+        .ringLat('lat').ringLng('lon')
+        .ringColor(() => t => `rgba(245,230,176,${(0.45*(1-t)).toFixed(2)})`)
+        .ringMaxRadius(p => 1.6 + Math.sqrt((p.count||1)/maxCount)*4.5)
+        .ringPropagationSpeed(0.9)
+        .ringRepeatPeriod(2600);
+    }
+    globe.pointsData(countryOrbs());
+    syncRings(countryOrbs());
+
+    // ── scene / camera / renderer ──────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.add(globe);
+    // three-globe bundles its OWN three.js, so OUR raycaster can't intersect its
+    // meshes. Raycast this invisible same-instance sphere (globe radius 100 at
+    // origin, matching three-globe) and convert the hit via globe.toGeoCoords.
+    const pickSphere = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_R, 48, 48),
+      new THREE.MeshBasicMaterial({ visible:false }));
+    scene.add(pickSphere);
+    scene.add(new THREE.AmbientLight(0xc8d6f0, 1.7));                 // bright base so every country reads
+    const sun = new THREE.DirectionalLight(0xfff0d8, 1.1); sun.position.set(1, 0.6, 1); scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xbcd0ff, 0.7); fill.position.set(-1, -0.2, -0.7); scene.add(fill);
+    scene.add(new THREE.HemisphereLight(0xdce8ff, 0x10141e, 0.85));
+
+    const host = document.getElementById('map-canvas');
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 4000);   // aspect set by resize()
+    camera.position.set(0, 60, 320);
+    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    host.appendChild(renderer.domElement);
+    // robust sizing — innerWidth/innerHeight can be 0 at module load (the camera
+    // aspect would go NaN, killing every raycast), so size from the host element
+    // and re-run whenever it actually gets a size.
+    function resize(){
+      const W = host.clientWidth || innerWidth || 1, H = host.clientHeight || innerHeight || 1;
+      camera.aspect = W/H; camera.updateProjectionMatrix(); renderer.setSize(W, H);
+    }
+    resize();
+    addEventListener('resize', resize);
+    try { new ResizeObserver(resize).observe(host); } catch(_){}
+    // screen point → normalised device coords, off the CANVAS rect (not innerWidth)
+    function ndc(clientX, clientY){
+      const r = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((clientX - r.left)/r.width)*2 - 1;
+      mouse.y = -((clientY - r.top)/r.height)*2 + 1;
+    }
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+    controls.minDistance = 120; controls.maxDistance = 600; controls.rotateSpeed = 0.5;
+    controls.autoRotate = true; controls.autoRotateSpeed = 0.18;
+
+    document.getElementById('map-loading').style.display = 'none';
+    setSub();
+    function setSub(){ document.getElementById('map-sub').textContent =
+      `Your collection, by where it's from — ${totals.placed} of ${totals.total} tracks placed.`; }
+
+    // ── filter search → recolour the globe ─────────────────────────────────────
+    let _qT=null;
+    document.getElementById('map-q').addEventListener('input', e=>{
+      clearTimeout(_qT); const q=e.target.value.trim();
+      _qT=setTimeout(async()=>{ await Promise.all([loadCounts(q), loadPoints(q)]);
+        globe.polygonsData(world.features);
+        const orbs = countryOrbs();
+        globe.pointsData(pointsShown ? points : orbs); syncRings(orbs);
+        setSub(); }, 220);
+    });
+
+    // ── click a country → its tracks ───────────────────────────────────────────
+    const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+    // point-in-polygon (ray casting) over the GeoJSON — deterministic, doesn't
+    // rely on three-globe internals
+    function pointInRing(lng, lat, ring){
+      let inside=false;
+      for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+        const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+        if(((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside=!inside;
+      }
+      return inside;
+    }
+    function featureAt(lng, lat){
+      for(const f of world.features){
+        const g=f.geometry; if(!g) continue;
+        const polys = g.type==='Polygon' ? [g.coordinates] : g.type==='MultiPolygon' ? g.coordinates : [];
+        for(const poly of polys){
+          if(poly.length && pointInRing(lng,lat,poly[0])){
+            let inHole=false; for(let h=1;h<poly.length;h++){ if(pointInRing(lng,lat,poly[h])){ inHole=true; break; } }
+            if(!inHole) return f;
+          }
+        }
+      }
+      return null;
+    }
+    function pickCountry(clientX, clientY){
+      ndc(clientX, clientY);
+      ray.setFromCamera(mouse, camera);
+      const hit = ray.intersectObject(pickSphere)[0];
+      if(!hit) return null;
+      const gc = globe.toGeoCoords(hit.point);          // {lat, lng, altitude}
+      return gc ? featureAt(gc.lng, gc.lat) : null;
+    }
+    async function openCountry(feat){
+      const code = codeOf(feat); if(!code) return;
+      const d = await fetch('/api/map/country/'+code+'/tracks').then(r=>r.json()).catch(()=>null);
+      if(!d) return;
+      document.getElementById('map-panel-country').textContent = d.name || code;
+      document.getElementById('map-panel-count').textContent = (d.count||0)+' tracks';
+      const body = document.getElementById('map-panel-body');
+      body.innerHTML = (d.tracks||[]).map(t=>`<div class="map-trow"><div class="map-trow__t">${esc(t.title||'Untitled')}</div><div class="map-trow__a">${esc(t.artist||'')}</div></div>`).join('')
+        || '<div class="map-trow"><div class="map-trow__a">No tracks.</div></div>';
+      document.getElementById('map-panel').classList.add('open');
+    }
+    document.getElementById('map-panel-x').onclick = ()=> document.getElementById('map-panel').classList.remove('open');
+
+    // ── zoom-gate the town markers: they appear only as you zoom in, so the
+    //    country scale stays clean and the towns are a reward for getting closer ──
+    const SHOW_POINTS_DIST = 250;   // camera distance (from centre) under which towns show
+    let pointsShown = false;
+    function updatePointsVisibility(){
+      const show = camera.position.length() < SHOW_POINTS_DIST && points.length > 0;
+      // zoomed in → towns; zoomed out → the country orbs come back
+      if(show !== pointsShown){ pointsShown = show; globe.pointsData(show ? points : countryOrbs()); }
+    }
+    controls.addEventListener('change', updatePointsVisibility);
+
+    // a marker → that artist's tracks. Project each town to screen, pick the nearest
+    // (front-facing only, so back-of-globe markers don't steal the click).
+    function pickMarker(clientX, clientY){
+      if(!pointsShown || !points.length) return null;
+      const r = renderer.domElement.getBoundingClientRect();
+      let best=null, bestD=15;
+      for(const p of points){
+        const c = globe.getCoords(p.lat, p.lon, 0.02);
+        const wp = new THREE.Vector3(c.x, c.y, c.z);
+        const toCam = camera.position.clone().sub(wp).normalize();
+        if(wp.clone().normalize().dot(toCam) < 0) continue;   // facing away → occluded
+        const v = wp.clone().project(camera);
+        if(v.z > 1) continue;
+        const px = r.left + (v.x*0.5+0.5)*r.width, py = r.top + (-v.y*0.5+0.5)*r.height;
+        const dd = Math.hypot(clientX-px, clientY-py);
+        if(dd < bestD){ bestD=dd; best=p; }
+      }
+      return best;
+    }
+    async function openArtist(p){
+      const d = await fetch('/api/map/artist/'+encodeURIComponent(p.artist)+'/tracks').then(r=>r.json()).catch(()=>null);
+      if(!d) return;
+      document.getElementById('map-panel-country').textContent = p.artist;
+      document.getElementById('map-panel-count').textContent =
+        (d.count||0)+' tracks' + ([p.city,p.country].filter(Boolean).length ? ' · '+[p.city,p.country].filter(Boolean).join(', ') : '');
+      const body = document.getElementById('map-panel-body');
+      body.innerHTML = (d.tracks||[]).map(t=>`<div class="map-trow"><div class="map-trow__t">${esc(t.title||'Untitled')}</div><div class="map-trow__a">${esc(p.artist)}</div></div>`).join('')
+        || '<div class="map-trow"><div class="map-trow__a">No tracks.</div></div>';
+      document.getElementById('map-panel').classList.add('open');
+    }
+
+    // ── ⌘-drag a box → fly into that region ────────────────────────────────────
+    const marquee = document.getElementById('map-marquee');
+    let dragging=false, sx=0, sy=0, didMarquee=false;
+    renderer.domElement.addEventListener('pointerdown', e=>{
+      if(e.button!==0) return;
+      if(e.metaKey || e.ctrlKey){
+        dragging=true; didMarquee=true; sx=e.clientX; sy=e.clientY; controls.enabled=false;
+        marquee.style.display='block'; marquee.style.left=sx+'px'; marquee.style.top=sy+'px';
+        marquee.style.width='0px'; marquee.style.height='0px';
+        e.preventDefault();
+      } else { didMarquee=false; }
+    });
+    addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const x=Math.min(sx,e.clientX), y=Math.min(sy,e.clientY), w=Math.abs(e.clientX-sx), h=Math.abs(e.clientY-sy);
+      marquee.style.left=x+'px'; marquee.style.top=y+'px'; marquee.style.width=w+'px'; marquee.style.height=h+'px';
+    });
+    addEventListener('pointerup', e=>{
+      if(dragging){
+        dragging=false; marquee.style.display='none'; controls.enabled=true;
+        const cx=(sx+e.clientX)/2, cy=(sy+e.clientY)/2;
+        const boxFrac = Math.max(Math.abs(e.clientX-sx)/innerWidth, Math.abs(e.clientY-sy)/innerHeight) || 0.3;
+        // raycast the box centre to the globe → fly the camera there + zoom by box size
+        ndc(cx, cy); ray.setFromCamera(mouse,camera);
+        const hit = ray.intersectObject(pickSphere)[0];
+        if(hit){ controls.autoRotate=false;
+          const targetDist = Math.max(controls.minDistance, GLOBE_R*1.25 + boxFrac*200);
+          flyTo(hit.point.clone(), targetDist);
+        }
+      }
+    });
+    // a click (no marquee, no orbit-drag) opens the country
+    let downX=0, downY=0;
+    renderer.domElement.addEventListener('pointerdown', e=>{ downX=e.clientX; downY=e.clientY; });
+    renderer.domElement.addEventListener('pointerup', e=>{
+      if(didMarquee) return;
+      if(Math.hypot(e.clientX-downX, e.clientY-downY) < 5){
+        const m=pickMarker(e.clientX,e.clientY); if(m){ openArtist(m); return; }
+        const f=pickCountry(e.clientX,e.clientY); if(f) openCountry(f); }
+    });
+
+    // smooth camera fly: aim controls.target at a surface point, ease the distance
+    let fly=null;
+    function flyTo(surfacePoint, dist){
+      const dir = surfacePoint.clone().normalize();
+      const camTarget = dir.clone().multiplyScalar(dist + GLOBE_R*0.0);  // sit `dist` from centre, over the point
+      fly = { t:0, fromCam:camera.position.clone(), toCam:dir.clone().multiplyScalar(dist),
+              fromTgt:controls.target.clone(), toTgt:new THREE.Vector3(0,0,0) };
+    }
+
+    // ── render loop ────────────────────────────────────────────────────────────
+    (function animate(){
+      requestAnimationFrame(animate);
+      if(fly){ fly.t=Math.min(1, fly.t+0.035); const e=1-Math.pow(1-fly.t,3);  // ease-out cubic
+        camera.position.lerpVectors(fly.fromCam, fly.toCam, e);
+        controls.target.lerpVectors(fly.fromTgt, fly.toTgt, e);
+        if(fly.t>=1) fly=null; }
+      controls.update();
+      updatePointsVisibility();
+      renderer.render(scene, camera);
+    })();
+  })().catch(err=>{ console.error(err);
+    document.getElementById('map-loading').textContent = 'The map failed to load: '+err.message; });
+  </script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

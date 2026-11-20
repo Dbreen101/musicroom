@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <style>
+        .show-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 40px;
+            align-items: start;
+        }
+
+        @media (max-width: 800px) {
+            .show-layout { grid-template-columns: 1fr; }
+        }
+
+        /* Recording player */
+        .recording-player {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+
+        .recording-player__label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 12px;
+        }
+
+        .recording-player__controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rec-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.9rem; flex-shrink: 0;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .rec-btn:hover, .rec-btn.playing { border-color: var(--accent); color: var(--accent); }
+
+        .rec-time {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+
+        .rec-scrub {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .rec-scrub::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .recording-player__empty {
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
+        /* Upload zone */
+        .upload-zone {
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.86rem;
+            color: var(--muted);
+            transition: border-color 0.15s, color 0.15s;
+            margin-top: 12px;
+        }
+
+        .upload-zone:hover { border-color: var(--accent); color: var(--text); }
+        .upload-zone input { display: none; }
+
+        /* Sets list */
+        .show-set-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .show-set-row:last-child { border-bottom: none; }
+
+        .show-set-row__info { flex: 1; overflow: hidden; }
+
+        .show-set-row__name {
+            font-size: 0.92rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .show-set-row__meta {
+            font-size: 0.76rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* Sidebar fields */
+        .show-field {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .show-field:last-child { border-bottom: none; }
+
+        .show-field__label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 4px;
+        }
+
+        .show-field__value {
+            font-size: 0.88rem;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            min-height: 22px;
+            transition: background 0.1s;
+            color: var(--text);
+        }
+
+        .show-field__value:hover { background: var(--surface2); }
+        .show-field__value.empty { color: var(--muted); font-style: italic; }
+
+        .show-field__input {
+            background: var(--bg);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 3px 8px;
+            font-size: 0.88rem;
+            font-family: var(--font-main);
+            outline: none;
+            width: 100%;
+        }
+
+        /* URL embed */
+        .embed-player {
+            margin-top: 12px;
+        }
+
+        .embed-player iframe {
+            width: 100%;
+            border: none;
+            border-radius: var(--radius);
+        }
+
+        .url-input-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .url-input-row input {
+            flex: 1;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            font-family: var(--font-main);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .url-input-row input:focus { border-color: var(--accent); }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="floor-sheet" style="max-width: 1000px; margin: 40px auto; padding: 36px 32px 56px;">
+
+    <div style="margin-bottom: 6px;">
+        <a href="/longwave" style="font-size:0.8rem; color:var(--muted);">← The Longwave</a>
+    </div>
+
+    <h1 id="show-title" style="cursor:pointer;" title="Click to edit" onclick="editTitle()">—</h1>
+    <div id="show-series-display" style="font-size:0.82rem; color:var(--muted); margin-bottom:24px;"></div>
+
+    <div class="show-layout">
+
+        <!-- MAIN COLUMN -->
+        <div>
+            <!-- RECORDING PLAYER -->
+            <div class="recording-player" id="recording-section">
+                <div class="recording-player__label">Recording</div>
+                <div id="recording-inner">
+                    <div class="recording-player__empty">No recording yet.</div>
+                </div>
+
+                <!-- File upload -->
+                <label class="upload-zone" id="upload-zone">
+                    <input type="file" id="recording-file" accept="audio/*"
+                           onchange="uploadRecording(this)">
+                    ↑ Upload a recording (MP3, FLAC, WAV...)
+                </label>
+
+                <!-- URL embed -->
+                <div class="url-input-row">
+                    <input type="text" id="recording-url-input"
+                           placeholder="Or paste a Mixcloud / SoundCloud / YouTube URL">
+                    <button class="btn btn--ghost btn--small" onclick="saveRecordingUrl()">Save URL</button>
+                </div>
+            </div>
+
+            <!-- SETS -->
+            <div style="margin-bottom: 12px; display:flex; align-items:baseline; justify-content:space-between;">
+                <h3 style="font-family:var(--font-serif); font-style:italic; font-weight:400; font-size:1.1rem; color:var(--muted);">Sets in this show</h3>
+                <button class="btn btn--ghost btn--small" onclick="openSetPicker()">+ Link a set</button>
+            </div>
+            <div id="show-sets-list">
+                <div class="loading">Loading...</div>
+            </div>
+
+            <!-- DESCRIPTION -->
+            <div style="margin-top:32px;">
+                <label style="font-size:0.65rem; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted2); display:block; margin-bottom:8px;">Description / Notes</label>
+                <textarea id="description-area" rows="4"
+                          style="width:100%; background:var(--surface2); border:1px solid var(--border);
+                                 border-radius:var(--radius); color:var(--text); padding:12px;
+                                 font-family:var(--font-main); font-size:0.88rem; line-height:1.6;
+                                 resize:vertical; outline:none; transition:border-color 0.15s;"
+                          onfocus="this.style.borderColor='var(--accent)'"
+                          onblur="this.style.borderColor='var(--border)'"
+                          placeholder="Notes on this show, theme, context..."></textarea>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px;">
+                <div class="show-field">
+                    <div class="show-field__label">Date</div>
+                    <div class="show-field__value" id="field-date" onclick="startFieldEdit('date', 'show_date')">—</div>
+                </div>
+                <div class="show-field">
+                    <div class="show-field__label">Series</div>
+                    <div class="show-field__value" id="field-series" onclick="startFieldEdit('series', 'series')">—</div>
+                </div>
+                <div class="show-field">
+                    <div class="show-field__label">Episode</div>
+                    <div class="show-field__value" id="field-episode" onclick="startFieldEdit('episode', 'episode_number')">—</div>
+                </div>
+                <div class="show-field" style="padding-top:16px;">
+                    <button class="btn--danger" onclick="deleteShow()"
+                            style="font-size:0.8rem; background:none; border:1px solid #6b2020; border-radius:var(--radius); color:var(--danger); padding:5px 12px; cursor:pointer; width:100%; transition:all 0.15s;"
+                            onmouseover="this.style.background='rgba(192,112,112,0.1)'; this.style.borderColor='var(--danger)'"
+                            onmouseout="this.style.background='none'; this.style.borderColor='#6b2020'">
+                        Delete show
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Set picker modal -->
+<div class="modal-overlay" id="set-picker-modal">
+    <div class="modal" style="max-width:520px;">
+        <h2>Link a set</h2>
+        <input type="text" class="picker-search"
+               style="width:100%; background:var(--bg); border:1px solid var(--border);
+                      border-radius:var(--radius); color:var(--text); padding:9px 12px;
+                      font-size:0.9rem; font-family:var(--font-main); outline:none; margin-bottom:12px;"
+               placeholder="Search sets..." id="set-picker-search" oninput="filterSets(this.value)">
+        <div id="set-picker-list"
+             style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius);">
+        </div>
+        <div class="form-actions" style="margin-top:16px;">
+            <button class="btn btn--ghost" onclick="closeSetPicker()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<audio id="rec-audio" preload="metadata"></audio>
+
+<script>
+const SHOW_ID = {{ show.id }};
+let showData  = null;
+let allSets   = [];
+let recPlaying = false;
+const recAudio = document.getElementById('rec-audio');
+
+// =============================================================
+// LOAD
+// =============================================================
+
+async function load() {
+    const [showRes, setsRes] = await Promise.all([
+        fetch(`/api/show/${SHOW_ID}`),
+        fetch('/api/sets'),
+    ]);
+    const showJson = await showRes.json();
+    allSets = await setsRes.json();
+
+    showData = showJson.show;
+    renderHeader();
+    renderSets(showJson.sets);
+    renderRecording();
+    renderSidebarFields();
+
+    if (showData.description) {
+        document.getElementById('description-area').value = showData.description;
+    }
+    if (showData.recording_url) {
+        document.getElementById('recording-url-input').value = showData.recording_url;
+    }
+    document.title = `${showData.title} — Music Room`;
+}
+
+// =============================================================
+// HEADER
+// =============================================================
+
+function renderHeader() {
+    document.getElementById('show-title').textContent = showData.title;
+    const seriesDisplay = document.getElementById('show-series-display');
+    const parts = [];
+    if (showData.series) parts.push(showData.series);
+    if (showData.episode_number) parts.push(`Ep. ${showData.episode_number}`);
+    if (showData.show_date) parts.push(showData.show_date);
+    seriesDisplay.textContent = parts.join(' · ');
+}
+
+async function editTitle() {
+    const el = document.getElementById('show-title');
+    const current = el.textContent;
+    const input = document.createElement('input');
+    input.style.cssText = `
+        font-family: var(--font-serif); font-size: 1.8rem; font-style: italic; font-weight: 400;
+        background: none; border: none; border-bottom: 1px solid var(--accent);
+        color: var(--text); width: 100%; outline: none; padding: 0;
+    `;
+    input.value = current;
+    el.replaceWith(input);
+    input.focus(); input.select();
+
+    async function save() {
+        const val = input.value.trim() || current;
+        await fetch(`/api/show/${SHOW_ID}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: val }),
+        });
+        showData.title = val;
+        document.title = `${val} — Music Room`;
+        const h = document.createElement('h1');
+        h.id = 'show-title'; h.textContent = val;
+        h.style.cursor = 'pointer'; h.title = 'Click to edit';
+        h.onclick = editTitle;
+        input.replaceWith(h);
+    }
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = current; input.blur(); }
+    });
+}
+
+// =============================================================
+// SIDEBAR FIELDS (inline edit)
+// =============================================================
+
+function renderSidebarFields() {
+    const f = (id, val) => {
+        const el = document.getElementById(`field-${id}`);
+        if (!el) return;
+        if (val) { el.textContent = val; el.classList.remove('empty'); }
+        else     { el.textContent = 'click to add'; el.classList.add('empty'); }
+    };
+    f('date',    showData.show_date);
+    f('series',  showData.series);
+    f('episode', showData.episode_number);
+}
+
+function startFieldEdit(fieldId, apiKey) {
+    const el = document.getElementById(`field-${fieldId}`);
+    const current = el.classList.contains('empty') ? '' : el.textContent.trim();
+    const input = document.createElement('input');
+    input.className = 'show-field__input';
+    input.value = current;
+    el.replaceWith(input);
+    input.focus(); input.select();
+
+    async function save() {
+        const val = input.value.trim();
+        await fetch(`/api/show/${SHOW_ID}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [apiKey]: val || null }),
+        });
+        showData[apiKey] = val || null;
+        const span = document.createElement('div');
+        span.id        = `field-${fieldId}`;
+        span.className = val ? 'show-field__value' : 'show-field__value empty';
+        span.textContent = val || 'click to add';
+        span.onclick   = () => startFieldEdit(fieldId, apiKey);
+        input.replaceWith(span);
+        renderHeader();
+    }
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = current; input.blur(); }
+    });
+}
+
+// =============================================================
+// RECORDING PLAYER
+// =============================================================
+
+function renderRecording() {
+    const inner = document.getElementById('recording-inner');
+
+    if (showData.recording_path) {
+        // Serve from local recording endpoint
+        inner.innerHTML = localPlayerHtml(`/recording/${SHOW_ID}`, showData.duration_sec);
+        hookAudio(`/recording/${SHOW_ID}`);
+    } else if (showData.recording_url) {
+        // Embed external URL
+        inner.innerHTML = embedHtml(showData.recording_url);
+    } else {
+        inner.innerHTML = `<div class="recording-player__empty">No recording yet.</div>`;
+    }
+}
+
+function localPlayerHtml(src, dur) {
+    const durStr = dur ? formatTime(dur) : '—';
+    return `
+    <div class="recording-player__controls">
+        <button class="rec-btn" id="rec-play-btn" onclick="togglePlay()">▶</button>
+        <span class="rec-time" id="rec-time">0:00 / ${durStr}</span>
+        <input type="range" class="rec-scrub" id="rec-scrub" min="0" max="100"
+               value="0" step="0.1" oninput="seekTo(this.value)">
+    </div>`;
+}
+
+function embedHtml(url) {
+    // Auto-detect Mixcloud / SoundCloud / YouTube
+    if (url.includes('mixcloud.com')) {
+        const encoded = encodeURIComponent(url);
+        return `<div class="embed-player">
+            <iframe height="60" src="https://www.mixcloud.com/widget/iframe/?hide_cover=1&mini=1&feed=${encoded}"></iframe>
+        </div>`;
+    }
+    if (url.includes('soundcloud.com')) {
+        const encoded = encodeURIComponent(url);
+        return `<div class="embed-player">
+            <iframe height="166" scrolling="no" frameborder="no"
+                    src="https://w.soundcloud.com/player/?url=${encoded}&color=%237eb8a4&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>`;
+    }
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        const vid = url.match(/(?:v=|youtu\.be\/)([^&?\/]+)/)?.[1];
+        if (vid) return `<div class="embed-player">
+            <iframe height="200" src="https://www.youtube.com/embed/${vid}" allowfullscreen></iframe>
+        </div>`;
+    }
+    // Generic link
+    return `<div style="font-size:0.86rem; margin-top:4px;">
+        <a href="${url}" target="_blank" style="color:var(--accent);">${url}</a>
+    </div>`;
+}
+
+function hookAudio(src) {
+    recAudio.src = src;
+    recAudio.load();
+    recAudio.addEventListener('timeupdate', () => {
+        const scrub = document.getElementById('rec-scrub');
+        const time  = document.getElementById('rec-time');
+        if (scrub && recAudio.duration)
+            scrub.value = (recAudio.currentTime / recAudio.duration) * 100;
+        if (time)
+            time.textContent = `${formatTime(recAudio.currentTime)} / ${formatTime(recAudio.duration)}`;
+    });
+    recAudio.addEventListener('ended', () => {
+        recPlaying = false;
+        const btn = document.getElementById('rec-play-btn');
+        if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); }
+    });
+}
+
+function togglePlay() {
+    const btn = document.getElementById('rec-play-btn');
+    if (recAudio.paused) {
+        recAudio.play(); recPlaying = true;
+        btn.textContent = '⏸'; btn.classList.add('playing');
+    } else {
+        recAudio.pause(); recPlaying = false;
+        btn.textContent = '▶'; btn.classList.remove('playing');
+    }
+}
+
+function seekTo(pct) {
+    if (recAudio.duration) recAudio.currentTime = (pct / 100) * recAudio.duration;
+}
+
+function formatTime(s) {
+    if (!s || isNaN(s)) return '0:00';
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+
+// =============================================================
+// UPLOAD RECORDING
+// =============================================================
+
+async function uploadRecording(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const zone = document.getElementById('upload-zone');
+    zone.textContent = '⏳ Uploading...';
+
+    const formData = new FormData();
+    formData.append('recording', file);
+
+    try {
+        const res  = await fetch(`/api/show/${SHOW_ID}/recording`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok) {
+            showData.recording_path = data.path;
+            showData.duration_sec   = data.duration_sec;
+            renderRecording();
+            zone.innerHTML = `<input type="file" id="recording-file" accept="audio/*" onchange="uploadRecording(this)"> ↑ Replace recording`;
+        } else {
+            zone.textContent = '✕ Upload failed. Try again.';
+        }
+    } catch (e) {
+        zone.textContent = '✕ Upload failed. Try again.';
+    }
+}
+
+// =============================================================
+// RECORDING URL
+// =============================================================
+
+async function saveRecordingUrl() {
+    const url = document.getElementById('recording-url-input').value.trim();
+    await fetch(`/api/show/${SHOW_ID}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recording_url: url || null }),
+    });
+    showData.recording_url = url || null;
+    if (!showData.recording_path) renderRecording();
+    showToast(url ? 'URL saved' : 'URL cleared');
+}
+
+// =============================================================
+// SETS
+// =============================================================
+
+function renderSets(sets) {
+    const list = document.getElementById('show-sets-list');
+    if (!sets.length) {
+        list.innerHTML = `<div style="font-size:0.86rem; color:var(--muted); padding:12px 0;">No sets linked yet.</div>`;
+        return;
+    }
+    list.innerHTML = sets.map(s => `
+    <div class="show-set-row">
+        <div class="show-set-row__info">
+            <div class="show-set-row__name">
+                <a href="/set/${s.id}" style="color:var(--text); text-decoration:none;">${s.name}</a>
+            </div>
+            <div class="show-set-row__meta">
+                ${s.set_date ? s.set_date + ' · ' : ''}${s.track_count} tracks${s.place_name ? ' · ' + s.place_name : ''}
+            </div>
+        </div>
+        <button class="btn-verify" style="font-size:0.7rem;" title="Unlink"
+                onclick="removeSet(${s.show_set_id})">✕</button>
+    </div>`).join('');
+}
+
+async function removeSet(showSetId) {
+    await fetch(`/api/show/${SHOW_ID}/set/${showSetId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/show/${SHOW_ID}`);
+    const data = await res.json();
+    renderSets(data.sets);
+}
+
+// =============================================================
+// SET PICKER
+// =============================================================
+
+let filteredSets = [];
+
+function openSetPicker() {
+    filteredSets = allSets;
+    renderSetPickerList(allSets);
+    document.getElementById('set-picker-modal').classList.add('open');
+    document.getElementById('set-picker-search').focus();
+}
+
+function closeSetPicker() {
+    document.getElementById('set-picker-modal').classList.remove('open');
+    document.getElementById('set-picker-search').value = '';
+}
+
+function filterSets(q) {
+    const s = q.toLowerCase();
+    filteredSets = allSets.filter(st =>
+        (st.name || '').toLowerCase().includes(s) ||
+        (st.place_name || '').toLowerCase().includes(s));
+    renderSetPickerList(filteredSets);
+}
+
+function renderSetPickerList(sets) {
+    const list = document.getElementById('set-picker-list');
+    if (!sets.length) {
+        list.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted); font-size:0.86rem;">No sets found.</div>`;
+        return;
+    }
+    list.innerHTML = sets.map(s => `
+    <div style="display:flex; align-items:center; gap:10px; padding:10px 12px;
+                border-bottom:1px solid var(--border); cursor:pointer; font-size:0.88rem;
+                transition:background 0.1s;"
+         onmouseover="this.style.background='var(--surface2)'"
+         onmouseout="this.style.background=''"
+         onclick="addSet(${s.id})">
+        <div style="flex:1; overflow:hidden;">
+            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.name}</div>
+            <div style="font-size:0.76rem; color:var(--muted);">${s.set_date || ''}${s.place_name ? ' · ' + s.place_name : ''}${s.track_count ? ' · ' + s.track_count + ' tracks' : ''}</div>
+        </div>
+    </div>`).join('');
+}
+
+async function addSet(setId) {
+    closeSetPicker();
+    await fetch(`/api/show/${SHOW_ID}/sets`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set_id: setId }),
+    });
+    const res  = await fetch(`/api/show/${SHOW_ID}`);
+    const data = await res.json();
+    renderSets(data.sets);
+}
+
+// =============================================================
+// DESCRIPTION AUTO-SAVE
+// =============================================================
+
+let descTimer = null;
+document.getElementById('description-area').addEventListener('input', () => {
+    clearTimeout(descTimer);
+    descTimer = setTimeout(async () => {
+        await fetch(`/api/show/${SHOW_ID}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: document.getElementById('description-area').value }),
+        });
+    }, 1200);
+});
+
+// =============================================================
+// DELETE
+// =============================================================
+
+async function deleteShow() {
+    if (!confirm('Delete this show? The linked sets won\'t be affected.')) return;
+    await fetch(`/api/show/${SHOW_ID}`, { method: 'DELETE' });
+    window.location.href = '/longwave';
+}
+
+// =============================================================
+// TOAST + MODAL CLOSE
+// =============================================================
+
+function showToast(message) {
+    const t = document.createElement('div');
+    t.textContent = message;
+    t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+        background:var(--surface2);border:1px solid var(--accent);color:var(--text);
+        padding:10px 20px;border-radius:var(--radius);font-size:0.86rem;z-index:999;
+        pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.4);`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+
+// (Set picker — backdrop click intentionally does NOT close. Use × or Cancel.
+//  ESC still closes.)
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSetPicker();
+});
+
+// =============================================================
+// INIT
+// =============================================================
+load();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        .fix-layout {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 32px 24px 100px;
+        }
+
+        .fix-header {
+            margin-bottom: 28px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .fix-header h1 {
+            font-family: var(--font-serif);
+            font-size: 2.1rem;
+            font-weight: 400;
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .fix-header p {
+            color: var(--muted);
+            font-size: 0.86rem;
+            font-family: var(--font-serif);
+            font-style: italic;
+            max-width: 540px;
+        }
+
+        /* Stats */
+        .fix-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(110px, 1fr));
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .fix-stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 12px 14px;
+            text-align: center;
+        }
+
+        .fix-stat__value {
+            font-family: var(--font-mono);
+            font-size: 1.35rem;
+            color: var(--text);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .fix-stat__value.done { color: var(--accent); }
+        .fix-stat__value.warn { color: var(--warning); }
+
+        .fix-stat__label {
+            font-size: 0.65rem;
+            color: var(--muted2);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        /* Progress */
+        .fix-progress {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 14px 18px;
+            margin-bottom: 22px;
+        }
+
+        .fix-progress-track {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .fix-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        .fix-progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .fix-progress-label .pct {
+            font-family: var(--font-mono);
+            color: var(--accent);
+        }
+
+        /* Toolbar */
+        .fix-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 18px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .fix-tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 3px;
+        }
+
+        .fix-tab {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.82rem;
+            padding: 5px 14px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .fix-tab:hover { color: var(--text); }
+        .fix-tab.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .fix-search {
+            flex: 1;
+            min-width: 200px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.86rem;
+            padding: 7px 12px;
+            border-radius: var(--radius);
+            transition: border-color var(--transition);
+        }
+
+        .fix-search:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .fix-source-filter {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.78rem;
+            padding: 6px 10px;
+            border-radius: var(--radius);
+            cursor: pointer;
+        }
+
+        .fix-source-filter:focus { outline: none; border-color: var(--accent); }
+
+        /* Table */
+        .fix-table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: clip;
+        }
+
+        .fix-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 0.85rem;
+        }
+
+        .fix-table thead th {
+            background: var(--surface2);
+            color: var(--muted2);
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 500;
+            text-align: left;
+            padding: 10px 10px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 53px;
+            z-index: 5;
+        }
+
+        .fix-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background var(--transition), opacity 0.6s ease;
+        }
+
+        .fix-table tbody tr:hover {
+            background: rgba(106,171,138,0.03);
+        }
+
+        .fix-table tbody tr.dirty {
+            background: rgba(196,154,74,0.05);
+        }
+
+        .fix-table tbody tr.cleaned {
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .fix-table tbody tr.unknown td.cell-input input {
+            color: var(--muted2);
+        }
+
+        .fix-table td {
+            padding: 4px 6px;
+            vertical-align: middle;
+        }
+
+        .cell-input input {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.86rem;
+            padding: 6px 8px;
+            border-radius: var(--radius);
+            width: 100%;
+            transition: all var(--transition);
+        }
+
+        .cell-input input:hover {
+            border-color: var(--border);
+        }
+
+        .cell-input input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .cell-input.dirty input {
+            border-color: var(--warning);
+            background: rgba(196,154,74,0.05);
+        }
+
+        .cell-path {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--muted2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .cell-source select {
+            width: 100%; min-width: 0;          /* it used to be as wide as its longest choice, and lay over the path beside it */
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.72rem;
+            padding: 4px 6px;
+            border-radius: var(--radius);
+            cursor: pointer;
+        }
+        .cell-source select:focus {
+            outline: none;
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        /* The five keys stay a table cell and wrap inside it. (As a flex row that could not wrap, the last
+           ones — "done", "skip" — ran off the edge of the table on any window narrower than about 1500px
+           and could not be pressed.) */
+        .fix-table td.cell-actions {
+            white-space: normal;
+            text-align: right;
+            line-height: 1;
+        }
+        .cell-actions .row-btn { margin: 2px 0 2px 2px; }
+
+        .row-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted2);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 3px 7px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .row-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .row-btn.save:hover { color: var(--accent); border-color: var(--accent); }
+        .row-btn.write:hover { color: var(--accent); border-color: var(--accent); }
+        .row-btn.done:hover { color: var(--accent); border-color: var(--accent); }
+        .row-btn.skip:hover { color: var(--warning); border-color: var(--warning); }
+        .row-btn.lookup:hover { color: var(--text); border-color: var(--text); }
+
+        .row-btn.dirty {
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        /* Loading */
+        .fix-loading {
+            padding: 50px 24px;
+            text-align: center;
+            color: var(--muted2);
+            font-style: italic;
+            font-family: var(--font-serif);
+        }
+
+        .fix-load-more {
+            padding: 16px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 500;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            color: var(--text);
+            padding: 10px 16px;
+            border-radius: var(--radius);
+            font-size: 0.82rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 220px;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.error  { border-left-color: var(--danger); }
+        .toast.warn   { border-left-color: var(--warning); }
+
+        /* Lookup modal */
+        .lookup-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+
+        .lookup-modal.show { display: flex; }
+
+        .lookup-body {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 540px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 22px;
+        }
+
+        .lookup-body h2 {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+        }
+
+        .lookup-body p { color: var(--muted); font-size: 0.84rem; margin-bottom: 12px; }
+
+        .lookup-link {
+            display: inline-block;
+            background: var(--accent);
+            color: #f8f1dc;
+            padding: 8px 14px;
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="fix-layout floor-sheet">
+
+    <div class="fix-header">
+        <div>
+            <h1>Fix</h1>
+            <p>Mending the records that lost their labels. Tab between cells, Enter to save and advance, Esc to revert.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="fix-stats">
+        <div class="fix-stat">
+            <div class="fix-stat__value" id="stat-total">—</div>
+            <div class="fix-stat__label">Total tracks</div>
+        </div>
+        <div class="fix-stat">
+            <div class="fix-stat__value warn" id="stat-unknown">—</div>
+            <div class="fix-stat__label">Unknown</div>
+        </div>
+        <div class="fix-stat">
+            <div class="fix-stat__value warn" id="stat-needs">—</div>
+            <div class="fix-stat__label">Needs review</div>
+        </div>
+        <div class="fix-stat">
+            <div class="fix-stat__value done" id="stat-clean">—</div>
+            <div class="fix-stat__label">Clean</div>
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="fix-progress">
+        <div class="fix-progress-track">
+            <div class="fix-progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="fix-progress-label">
+            <span id="progress-text">Loading…</span>
+            <span class="pct" id="progress-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="fix-toolbar">
+        <div class="fix-tabs">
+            <button class="fix-tab active" data-filter="unknown" onclick="setFilter('unknown')">Unknown</button>
+            <button class="fix-tab" data-filter="needs_review" onclick="setFilter('needs_review')">Needs review</button>
+            <button class="fix-tab" data-filter="all" onclick="setFilter('all')">All</button>
+        </div>
+        <input type="text" class="fix-search" id="search-input" placeholder="Search title, artist, album…" />
+        <select class="fix-source-filter" id="hide-source" title="Hide tracks already marked as">
+            <option value="">Show every source</option>
+            <option value="hide_non_commercial">Hide samples / own work / field recordings</option>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="fix-table-wrap">
+        <table class="fix-table">
+            <thead>
+                <tr>
+                    <th style="width:17%">Title</th>
+                    <th style="width:13%">Artist</th>
+                    <th style="width:13%">Album</th>
+                    <th style="width:6%">Year</th>
+                    <th style="width:9%">Label</th>
+                    <th style="width:11%">Source</th>
+                    <th style="width:12%">Path</th>
+                    <th style="width:19%; text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="fix-tbody">
+                <tr><td colspan="8"><div class="fix-loading">Loading library…</div></td></tr>
+            </tbody>
+        </table>
+        <div class="fix-load-more" id="load-more-wrap" style="display:none">
+            <button class="btn btn--ghost btn--small" id="btn-load-more" onclick="loadMore()">Load more</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Lookup modal -->
+<div class="lookup-modal" id="lookup-modal" onclick="closeLookup(event)">
+    <div class="lookup-body" onclick="event.stopPropagation()">
+        <h2 id="lookup-title">Discogs lookup</h2>
+        <p id="lookup-query"></p>
+        <p>Opens Discogs in a new tab. Copy a result back into the row and press Enter to save.</p>
+        <a class="lookup-link" id="lookup-link" target="_blank" rel="noopener">Open Discogs search</a>
+        <button class="btn btn--ghost btn--small" style="margin-left:8px" onclick="closeLookup()">Close</button>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    const BATCH_SIZE = 500;
+    const SOURCE_OPTIONS = [
+        { value: '',                   label: '—' },
+        { value: 'commercial',         label: 'commercial' },
+        { value: 'personal_recording', label: 'own work' },
+        { value: 'sample',             label: 'sample' },
+        { value: 'found_sound',        label: 'field recording' },
+        { value: 'sound_effect',       label: 'sound effect' },
+        { value: 'dj_tool',            label: 'DJ tool' },
+        { value: 'acapella',           label: 'acapella' },
+    ];
+    const NON_COMMERCIAL = new Set(['personal_recording','sample','found_sound','sound_effect','dj_tool','acapella']);
+
+    const FIELDS = ['title','artist_name','album','year','label'];
+
+    let filter        = 'unknown';
+    let search        = '';
+    let hideSource    = '';
+    let tracks        = [];
+    let total         = 0;
+    let offset        = 0;
+    let searchTimer   = null;
+    let saving        = new Set();
+
+    // ─── Stats ───────────────────────────────────────────────────────────────
+
+    async function loadStats() {
+        try {
+            // Use the existing api_tracks endpoint to count each bucket
+            const [u, n, t] = await Promise.all([
+                fetch('/api/tracks?limit=1&offset=0').then(r => r.json()),
+                fetch('/api/tracks?limit=1&offset=0&needs_review=1').then(r => r.json()),
+                fetch('/api/tracks?limit=1&offset=0').then(r => r.json()),
+            ]);
+            const totalAll = t.total || 0;
+            document.getElementById('stat-total').textContent = totalAll;
+            document.getElementById('stat-needs').textContent = n.total ?? '—';
+            // For unknowns we count client-side from our current bucket; for now use needs_review as the cleanup pool size
+            document.getElementById('stat-clean').textContent = Math.max(0, totalAll - (n.total ?? 0));
+
+            updateUnknownStat();
+            updateProgress(totalAll, n.total ?? 0);
+        } catch (e) {
+            console.error('stats error', e);
+        }
+    }
+
+    function updateUnknownStat() {
+        // We can ask the unknown count via a search trick — but the current /api/tracks
+        // doesn't filter on unknown server-side. Estimate by scanning the cached page.
+        // For accuracy on first load, just count "unknown rows in fetched batches".
+        const unknownInView = tracks.filter(isUnknown).length;
+        document.getElementById('stat-unknown').textContent = unknownInView + (offset < total ? '+' : '');
+    }
+
+    function updateProgress(totalAll, dirtyCount) {
+        const pct = totalAll > 0 ? Math.round(((totalAll - dirtyCount) / totalAll) * 100) : 0;
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-pct').textContent  = pct + '%';
+        document.getElementById('progress-text').textContent =
+            totalAll > 0 ? `${totalAll - dirtyCount} of ${totalAll} tracks have clean metadata` : '—';
+    }
+
+    // ─── Loading ─────────────────────────────────────────────────────────────
+
+    function isUnknown(t) {
+        const a = (t.artist_name || '').trim().toLowerCase();
+        const ti = (t.title || '').trim().toLowerCase();
+        const blank = (s) => !s || s === 'unknown' || s === 'untitled';
+        return blank(a) || blank(ti);
+    }
+
+    function passesSourceFilter(t) {
+        if (hideSource === 'hide_non_commercial' && NON_COMMERCIAL.has(t.source_type)) return false;
+        return true;
+    }
+
+    async function loadBatch(reset = false) {
+        if (reset) {
+            tracks = [];
+            offset = 0;
+            document.getElementById('fix-tbody').innerHTML =
+                '<tr><td colspan="8"><div class="fix-loading">Loading…</div></td></tr>';
+        }
+
+        const params = new URLSearchParams({
+            limit:  BATCH_SIZE,
+            offset: offset,
+            sort:   'artist_name',
+            order:  'asc',
+        });
+        if (filter === 'needs_review') params.set('needs_review', '1');
+        if (search) params.set('search', search);
+
+        try {
+            const res = await fetch(`/api/tracks?${params}`);
+            const data = await res.json();
+            total = data.total || 0;
+
+            let incoming = data.tracks || [];
+            if (filter === 'unknown') incoming = incoming.filter(isUnknown);
+            incoming = incoming.filter(passesSourceFilter);
+
+            tracks = tracks.concat(incoming);
+            offset += BATCH_SIZE;
+
+            render();
+            updateUnknownStat();
+
+            const more = document.getElementById('load-more-wrap');
+            more.style.display = (offset < total) ? '' : 'none';
+        } catch (e) {
+            console.error('load error', e);
+            toast('Could not load tracks', 'error');
+        }
+    }
+
+    function loadMore() { loadBatch(false); }
+
+    // ─── Render ──────────────────────────────────────────────────────────────
+
+    function render() {
+        const tbody = document.getElementById('fix-tbody');
+        if (tracks.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="fix-loading">
+                Nothing in this filter. Try another tab.
+            </div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = tracks.map(rowHtml).join('');
+    }
+
+    function rowHtml(t) {
+        const unknown = isUnknown(t) ? ' unknown' : '';
+        const shortPath = (t.file_path || '').split('/').slice(-2).join('/');
+
+        const sourceOpts = SOURCE_OPTIONS.map(o =>
+            `<option value="${o.value}" ${ (t.source_type || '') === o.value ? 'selected' : '' }>${o.label}</option>`
+        ).join('');
+
+        return `
+        <tr data-id="${t.id}" class="row${unknown}">
+            <td class="cell-input"><input data-field="title" value="${escAttr(t.title)}" placeholder="title" /></td>
+            <td class="cell-input"><input data-field="artist_name" value="${escAttr(t.artist_name)}" placeholder="artist" /></td>
+            <td class="cell-input"><input data-field="album" value="${escAttr(t.album)}" placeholder="album" /></td>
+            <td class="cell-input"><input data-field="year" value="${escAttr(t.year)}" placeholder="—" /></td>
+            <td class="cell-input"><input data-field="label" value="${escAttr(t.label)}" placeholder="—" /></td>
+            <td class="cell-source"><select data-field="source_type">${sourceOpts}</select></td>
+            <td class="cell-path" title="${escAttr(t.file_path)}">${escHtml(shortPath || '—')}</td>
+            <td class="cell-actions" style="text-align:right">
+                <button class="row-btn save"   title="Save (Cmd+S)"            >save</button>
+                <button class="row-btn write"  title="Write tags to file"      >write↓</button>
+                <button class="row-btn lookup" title="Look up on Discogs"      >look</button>
+                <button class="row-btn done"   title="Mark done (clears needs_review)">done</button>
+                <button class="row-btn skip"   title="Skip (sets needs_review)" >skip</button>
+            </td>
+        </tr>`;
+    }
+
+    function escAttr(v) {
+        return v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    }
+    function escHtml(v) {
+        return v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    }
+
+    // ─── Filter / search ─────────────────────────────────────────────────────
+
+    function setFilter(f) {
+        filter = f;
+        document.querySelectorAll('.fix-tab').forEach(b =>
+            b.classList.toggle('active', b.dataset.filter === f)
+        );
+        loadBatch(true);
+    }
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            search = e.target.value.trim();
+            loadBatch(true);
+        }, 280);
+    });
+
+    document.getElementById('hide-source').addEventListener('change', (e) => {
+        hideSource = e.target.value;
+        loadBatch(true);
+    });
+
+    // ─── Edit / save / actions ───────────────────────────────────────────────
+
+    function getRowEl(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function getRowValues(rowEl) {
+        const vals = {};
+        rowEl.querySelectorAll('input[data-field], select[data-field]').forEach(el => {
+            vals[el.dataset.field] = el.value;
+        });
+        return vals;
+    }
+
+    function getTrackById(id) {
+        return tracks.find(t => t.id == id);
+    }
+
+    function markDirty(rowEl, dirty) {
+        rowEl.classList.toggle('dirty', dirty);
+        rowEl.querySelectorAll('.cell-input').forEach(c => {
+            const input = c.querySelector('input');
+            if (!input) return;
+            const field = input.dataset.field;
+            const original = getTrackById(rowEl.dataset.id)?.[field] ?? '';
+            const changed = String(input.value) !== String(original ?? '');
+            c.classList.toggle('dirty', changed);
+        });
+        const saveBtn = rowEl.querySelector('.row-btn.save');
+        if (saveBtn) saveBtn.classList.toggle('dirty', dirty);
+    }
+
+    function isRowDirty(rowEl) {
+        const id = rowEl.dataset.id;
+        const t = getTrackById(id);
+        if (!t) return false;
+        const vals = getRowValues(rowEl);
+        return Object.keys(vals).some(k => String(vals[k] ?? '') !== String(t[k] ?? ''));
+    }
+
+    async function saveRow(rowEl, opts = {}) {
+        const id = rowEl.dataset.id;
+        if (saving.has(id)) return;
+        if (!isRowDirty(rowEl)) return;
+        saving.add(id);
+
+        const vals = getRowValues(rowEl);
+        const payload = {};
+        FIELDS.forEach(f => { payload[f] = vals[f] === '' ? null : vals[f]; });
+        if (payload.year != null && payload.year !== '') {
+            const y = parseInt(payload.year, 10);
+            payload.year = isNaN(y) ? null : y;
+        }
+        if (vals.source_type !== undefined) {
+            payload.source_type = vals.source_type === '' ? null : vals.source_type;
+        }
+
+        try {
+            const res = await fetch(`/api/track/${id}/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const updated = await res.json();
+            // Merge into local cache
+            const t = getTrackById(id);
+            Object.assign(t, updated);
+            markDirty(rowEl, false);
+            if (!opts.silent) toast('Saved');
+        } catch (e) {
+            toast('Save failed', 'error');
+            console.error(e);
+        } finally {
+            saving.delete(id);
+        }
+    }
+
+    async function writeTags(rowEl) {
+        const id = rowEl.dataset.id;
+        // Save dirty fields first, silent
+        if (isRowDirty(rowEl)) await saveRow(rowEl, { silent: true });
+        try {
+            const res = await fetch(`/api/track/${id}/write_tags`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                toast('Tags written to file');
+            } else {
+                toast('Write failed: ' + (data.error || res.status), 'error');
+            }
+        } catch (e) {
+            toast('Write failed', 'error');
+        }
+    }
+
+    async function markDone(rowEl) {
+        const id = rowEl.dataset.id;
+        if (isRowDirty(rowEl)) await saveRow(rowEl, { silent: true });
+        try {
+            const res = await fetch(`/api/track/${id}/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ needs_review: 0 }),
+            });
+            if (!res.ok) throw new Error();
+            const t = getTrackById(id);
+            if (t) t.needs_review = 0;
+            fadeOutRow(rowEl);
+            toast('Marked done');
+        } catch (e) {
+            toast('Could not mark done', 'error');
+        }
+    }
+
+    async function markSkip(rowEl) {
+        const id = rowEl.dataset.id;
+        try {
+            await fetch(`/api/track/${id}/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ needs_review: 1 }),
+            });
+            const t = getTrackById(id);
+            if (t) t.needs_review = 1;
+            fadeOutRow(rowEl);
+            toast('Skipped', 'warn');
+        } catch (e) {
+            toast('Skip failed', 'error');
+        }
+    }
+
+    function fadeOutRow(rowEl) {
+        // Only fade out if the row no longer matches the current filter
+        const id = rowEl.dataset.id;
+        const t  = getTrackById(id);
+        let stillMatches = true;
+        if (filter === 'needs_review' && t && t.needs_review !== 1) stillMatches = false;
+        if (filter === 'unknown' && t && !isUnknown(t)) stillMatches = false;
+        if (!stillMatches) {
+            rowEl.classList.add('cleaned');
+            setTimeout(() => {
+                tracks = tracks.filter(x => x.id != id);
+                rowEl.remove();
+                updateUnknownStat();
+            }, 600);
+        }
+    }
+
+    // ─── Lookup ──────────────────────────────────────────────────────────────
+
+    function openLookup(rowEl) {
+        const id = rowEl.dataset.id;
+        const vals = getRowValues(rowEl);
+        const t = getTrackById(id);
+        let q = '';
+        if (vals.artist_name && vals.title) {
+            q = `${vals.artist_name} ${vals.title}`;
+        } else if (t && t.file_path) {
+            // Use filename stem as fallback
+            const name = t.file_path.split('/').pop().replace(/\.[^.]+$/, '');
+            q = name.replace(/[_\-]/g, ' ');
+        }
+        const url = `https://www.discogs.com/search/?q=${encodeURIComponent(q)}&type=release`;
+        document.getElementById('lookup-query').textContent = q ? `Searching for: “${q}”` : 'No artist/title yet — search uses filename.';
+        document.getElementById('lookup-link').href = url;
+        document.getElementById('lookup-modal').classList.add('show');
+        // Auto-open the tab — but keep modal visible as a hint
+        window.open(url, '_blank', 'noopener');
+    }
+
+    function closeLookup(e) {
+        if (e && e.target.closest('.lookup-body')) return;
+        document.getElementById('lookup-modal').classList.remove('show');
+    }
+
+    // ─── Event delegation ────────────────────────────────────────────────────
+
+    const tbody = document.getElementById('fix-tbody');
+
+    tbody.addEventListener('input', (e) => {
+        const rowEl = e.target.closest('tr');
+        if (!rowEl) return;
+        markDirty(rowEl, isRowDirty(rowEl));
+    });
+
+    tbody.addEventListener('change', (e) => {
+        const rowEl = e.target.closest('tr');
+        if (!rowEl) return;
+        if (e.target.matches('select[data-field="source_type"]')) {
+            // Autosave source_type immediately
+            saveRow(rowEl);
+        }
+    });
+
+    tbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('.row-btn');
+        if (!btn) return;
+        const rowEl = e.target.closest('tr');
+        if (btn.classList.contains('save'))   saveRow(rowEl);
+        if (btn.classList.contains('write'))  writeTags(rowEl);
+        if (btn.classList.contains('lookup')) openLookup(rowEl);
+        if (btn.classList.contains('done'))   markDone(rowEl);
+        if (btn.classList.contains('skip'))   markSkip(rowEl);
+    });
+
+    // ─── Keyboard ────────────────────────────────────────────────────────────
+
+    tbody.addEventListener('keydown', (e) => {
+        const input = e.target;
+        if (!input.matches('input[data-field]')) return;
+        const rowEl = input.closest('tr');
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveRow(rowEl);
+            // Move to same column, next row
+            const next = rowEl.nextElementSibling;
+            if (next) {
+                const sameCol = next.querySelector(`input[data-field="${input.dataset.field}"]`);
+                if (sameCol) sameCol.focus();
+            }
+        } else if (e.key === 'Escape') {
+            const t = getTrackById(rowEl.dataset.id);
+            const field = input.dataset.field;
+            input.value = t?.[field] ?? '';
+            markDirty(rowEl, isRowDirty(rowEl));
+            input.blur();
+        } else if (e.key === 'ArrowUp' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            const prev = rowEl.previousElementSibling;
+            if (prev) prev.querySelector(`input[data-field="${input.dataset.field}"]`)?.focus();
+        } else if (e.key === 'ArrowDown' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            const next = rowEl.nextElementSibling;
+            if (next) next.querySelector(`input[data-field="${input.dataset.field}"]`)?.focus();
+        } else if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            saveRow(rowEl);
+        }
+    });
+
+    // Autosave on blur of last cell — only if dirty
+    tbody.addEventListener('focusout', (e) => {
+        if (!e.target.matches('input[data-field]')) return;
+        const rowEl = e.target.closest('tr');
+        if (rowEl && isRowDirty(rowEl)) {
+            // Defer so focus-moves inside the same row don't trigger
+            setTimeout(() => {
+                if (!rowEl.contains(document.activeElement) && isRowDirty(rowEl)) {
+                    saveRow(rowEl, { silent: true });
+                }
+            }, 100);
+        }
+    });
+
+    // Global / shortcut: focus search
+    document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+            e.preventDefault();
+            document.getElementById('search-input').focus();
+        }
+    });
+
+    // ─── Toasts ──────────────────────────────────────────────────────────────
+
+    function toast(text, kind) {
+        const c = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast' + (kind ? ' ' + kind : '');
+        el.textContent = text;
+        c.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 300);
+        }, 2200);
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+
+    async function init() {
+        await loadStats();
+        await loadBatch(true);
+    }
+    init();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

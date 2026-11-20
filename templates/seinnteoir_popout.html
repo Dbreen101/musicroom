@@ -1,0 +1,84 @@
+{# Seinnteoir popout — a standalone, persistent player window.
+   Reads the same localStorage queue + position as the main app, plays
+   continuously while the main app navigates. Coordinates via
+   BroadcastChannel so they don't trample each other. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <style>
+        html, body {
+            margin: 0; padding: 0;
+            background: linear-gradient(180deg, #3a2a1c 0%, #2b1f14 100%);
+            color: rgba(232,222,196,0.94);
+            font-family: var(--font-main, system-ui, sans-serif);
+            overflow: hidden;
+            user-select: none;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* The shared seinnteoir.js mounts its bar at position:fixed bottom-right.
+           Inside the popout we want it to fill the whole window. Override here. */
+        #seinnteoir-bar {
+            position: static !important;
+            display: flex !important;
+            margin: 0;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            padding: 8px 12px;
+            background: transparent;
+            flex-wrap: wrap;
+            max-width: none;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: space-between;
+        }
+        /* In the popout we always want the controls expanded — no hover. */
+        #seinnteoir-bar .snt-controls {
+            max-width: none !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            transition: none !important;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        /* Queue popover should slide UP from inside the window */
+        #snt-qpop {
+            position: fixed !important;
+            left: 8px !important;
+            right: 8px !important;
+            top: auto !important;
+            bottom: 60px !important;
+            max-width: none !important;
+        }
+        /* Make the cassette bigger so it's the centrepiece */
+        .snt-cassette {
+            width: 220px !important;
+            height: 36px !important;
+        }
+        .snt-reel  { width: 28px !important; height: 28px !important; }
+        .snt-reel::before { inset: 4px !important; }
+        .snt-reel::after  { inset: 10px !important; }
+        .snt-cassette-label { font-size: 0.66rem !important; max-width: 130px !important; padding: 2px 7px !important; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body data-popout="1">
+
+<!-- The Seinnteoir bar will be injected here by seinnteoir.js.
+     The script detects window.name === 'seinnteoir-popout' or
+     document.body.dataset.popout === '1' and adapts. -->
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

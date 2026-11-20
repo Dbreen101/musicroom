@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grúpa — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <link rel="stylesheet" href="/static/css/grupa.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+
+<!-- The grúpa surface is static/js/grupa_ui.js — the same one My Room shows as
+     its Grúpa view. This page is just its other home. -->
+<main class="gr-main"><div id="gp-root" data-gid="{{ gid }}"></div></main>
+
+<script src="/static/vendor/sortable/Sortable.min.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/grupa_ui.js"></script>
+<script>
+document.querySelectorAll('.nav__links a[href="/grupa"]').forEach(a => a.classList.add('active'));
+const root = document.getElementById('gp-root');
+GrupaUI.mount(root, {
+    gid: parseInt(root.dataset.gid, 10) || 0,
+    // the address follows the open grúpa, so a reload or a shared link lands on it
+    onOpen: (id, g) => {
+        try { history.replaceState(null, '', id ? '/grupa/' + id : '/grupa'); } catch (_) {}
+        document.title = (g && g.name ? g.name + ' — ' : '') + 'Grúpa — Music Room';
+    },
+});
+</script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+/* plugin_base.css — the working document's look, given to every plug-in before its own style.css.
+   The colours are the app's own (the page around the plug-in sends them when it starts:
+   --bg --text --muted --border --border2 --red --surface), so a plug-in looks at home in
+   Paper and in Ink without doing anything. Every class here is mr-…; override what you like. */
+:root { --bg: #f2efe8; --text: #161513; --muted: #6e6a61; --border: #c8c3b6; --border2: #a9a497; --red: #c9412f; --surface: #f7f5f0;
+  --f-display: "Instrument Serif", Georgia, serif; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace; color-scheme: light dark; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--f-mono); font-size: 14px; line-height: 1.55; }
+body { padding: 18px 22px 40px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 400; letter-spacing: -.01em; line-height: 1.08; margin: 0 0 .4em; }
+h1 { font-size: 2.2rem; } h2 { font-size: 1.6rem; } h3 { font-size: 1.2rem; }
+p { margin: 0 0 .8em; }
+a { color: var(--text); text-underline-offset: 3px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.mr-label { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.mr-btn { appearance: none; padding: 7px 11px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+  font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.mr-btn:hover, .mr-btn:focus-visible { border-color: var(--text); outline: none; }
+.mr-btn--go, .mr-btn.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.mr-btn:disabled { color: var(--muted); border-color: var(--border); cursor: default; }
+.mr-input { padding: 8px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; outline: none; }
+.mr-input:focus { border-color: var(--text); }
+.mr-rule { height: 1px; background: var(--border); border: 0; margin: 14px 0; }
+.mr-muted { color: var(--muted); }
+.mr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px 14px; }
+.mr-card { min-width: 0; }
+.mr-card__cover { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface); border: 1px solid var(--border); }
+.mr-card__t { margin-top: 7px; font-family: var(--f-display); font-size: 1.08rem; line-height: 1.15; overflow-wrap: anywhere; }
+.mr-card__s { font-size: .6rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }

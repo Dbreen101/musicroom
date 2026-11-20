@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        .analyse-layout {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+        }
+
+        .analyse-header {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .analyse-header h1 {
+            font-family: var(--font-serif);
+            font-size: 2.2rem;
+            font-weight: 400;
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .analyse-header p {
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .coverage-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 22px 26px;
+            margin-bottom: 28px;
+        }
+        .coverage-headline {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.15rem;
+            color: var(--text);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .coverage-headline strong { color: var(--accent); font-weight: 400; }
+        .coverage-rows {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 8px 28px;
+        }
+        @media (max-width: 720px) { .coverage-rows { grid-template-columns: 1fr; } }
+        .cov-row {
+            display: flex; align-items: center; gap: 12px;
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+        .cov-row__label { min-width: 130px; }
+        .cov-row__bar   { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+        .cov-row__fill  { height: 100%; background: var(--accent); opacity: 0.55; border-radius: 3px; transition: width 0.3s ease; }
+        .cov-row__num   { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted2); min-width: 86px; text-align: right; }
+        .coverage-actions {
+            display: flex; align-items: center; gap: 14px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .coverage-actions__hint {
+            flex: 1; min-width: 240px;
+            font-size: 0.78rem;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        /* Live-running state on a coverage row */
+        .cov-row { padding: 4px 0; transition: background 0.2s; }
+        .cov-row--running {
+            background: rgba(120,188,150,0.06);
+            border-radius: var(--radius);
+            margin: 0 -8px;
+            padding: 8px 8px;
+        }
+        .cov-row__bar--running .cov-row__fill {
+            background: var(--accent);
+            opacity: 0.9;
+            animation: cov-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes cov-pulse {
+            0%, 100% { opacity: 0.55; }
+            50%      { opacity: 0.95; }
+        }
+        .cov-row__live {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--accent);
+            line-height: 1.4;
+            margin-left: 4px;
+            white-space: nowrap;
+        }
+        .cov-row__current {
+            color: var(--muted2);
+            font-size: 0.7rem;
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            max-width: 220px;
+            vertical-align: bottom;
+        }
+        .cov-row__warn {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: #d4a050;
+            line-height: 1.4;
+            max-width: 280px;
+            white-space: normal;
+            cursor: help;
+        }
+        #run-all-btn[disabled] {
+            opacity: 0.75;
+            cursor: progress;
+        }
+        /* Stop-all variant — same button, warmer-red treatment so it's
+           clearly a different action while batches are running. */
+        #run-all-btn.stop-mode {
+            background: rgba(192,128,112,0.10);
+            border-color: rgba(192,128,112,0.55);
+            color: #d4a090;
+        }
+        #run-all-btn.stop-mode:hover {
+            background: rgba(192,128,112,0.18);
+            border-color: rgba(212,160,128,0.7);
+            color: var(--danger);
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 16px;
+            text-align: center;
+        }
+
+        .stat-card__value {
+            font-family: var(--font-mono);
+            font-size: 1.6rem;
+            color: var(--text);
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .stat-card__value.done    { color: var(--accent); }
+        .stat-card__value.failed  { color: var(--danger); }
+
+        .stat-card__label {
+            font-size: 0.71rem;
+            color: var(--muted2);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 500;
+        }
+
+        /* Progress bar */
+        .progress-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px 22px;
+            margin-bottom: 24px;
+        }
+
+        .progress-track {
+            height: 5px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .progress-label .pct {
+            font-family: var(--font-mono);
+            color: var(--accent);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted2);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+
+        .status-dot.running {
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        .status-dot.failed {
+            background: var(--danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.35; }
+        }
+
+        .status-text {
+            font-size: 0.82rem;
+            color: var(--muted);
+            flex: 1;
+        }
+
+        .status-text.running { color: var(--accent); }
+
+        /* Log */
+        .log-wrap {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .log-header__title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted2);
+            font-weight: 500;
+        }
+
+        .log-header__actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .log-autoscroll-toggle {
+            font-size: 0.72rem;
+            color: var(--muted2);
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2px 8px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .log-autoscroll-toggle.on {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .log-autoscroll-toggle:hover { color: var(--text); border-color: var(--border2); }
+
+        .log-body {
+            height: 320px;
+            overflow-y: auto;
+            padding: 10px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.65;
+        }
+
+        .log-empty {
+            color: var(--muted2);
+            font-style: italic;
+            font-family: var(--font-serif);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .log-line { padding: 1px 0; }
+        .log-line.ok  { color: var(--accent); }
+        .log-line.err { color: var(--danger); }
+        .log-line.info { color: var(--muted); }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="analyse-layout floor-sheet">
+
+    <div class="analyse-header">
+        <h1>Analyse</h1>
+        <p>Run librosa analysis on all unanalysed tracks — BPM, key, frequency balance. Leave running overnight.</p>
+    </div>
+
+    <!-- Duplicate versions cleanup — only shows when there are redundant copies -->
+    <div id="dupversions-card" class="coverage-panel" style="display:none; border-color:rgba(168,130,44,0.4);">
+        <div class="coverage-headline" id="dupversions-headline"></div>
+        <div class="coverage-actions">
+            <button class="btn btn--primary" id="dupversions-btn" onclick="removeDupVersions()">Remove duplicate versions</button>
+            <span class="coverage-actions__hint">
+                Byte-identical copies of the same track (e.g. an old copy left in another folder). One copy is
+                kept (the organised-library copy, made primary); the redundant database entries are retired.
+            </span>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:0.86rem; color:var(--muted); cursor:pointer;">
+            <input type="checkbox" id="dupversions-delete" style="accent-color:var(--accent); width:15px; height:15px;">
+            Also move the duplicate <strong>files</strong> to the Trash (recoverable) — only copies proven
+            identical to the one being kept. Leave unticked to retire database entries only and keep every file on disk.
+        </label>
+    </div>
+    <script>
+    async function loadDupVersions() {
+        try {
+            const d = await fetch('/api/files/duplicate-versions').then(r => r.json());
+            const card = document.getElementById('dupversions-card');
+            if (!card) return;
+            if (d.redundant_files > 0) {
+                document.getElementById('dupversions-headline').innerHTML =
+                    `Up to <strong>${d.redundant_files}</strong> possible duplicate version${d.redundant_files===1?'':'s'} across ${d.groups} track${d.groups===1?'':'s'} — each is confirmed byte-identical before anything is removed.`;
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        } catch (e) {}
+    }
+    async function removeDupVersions() {
+        const btn = document.getElementById('dupversions-btn');
+        const head = document.getElementById('dupversions-headline');
+        const del = document.getElementById('dupversions-delete').checked;
+        btn.disabled = true; btn.textContent = 'Checking…';
+        try {
+            const r = await fetch('/api/files/dedupe', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ delete_files: del })
+            }).then(r => r.json());
+            if (!r.ok) { btn.disabled = false; btn.textContent = 'Remove duplicate versions'; return; }
+        } catch (e) { btn.disabled = false; btn.textContent = 'Remove duplicate versions'; return; }
+        const poll = setInterval(async () => {
+            let s; try { s = await fetch('/api/files/dedupe-status').then(r => r.json()); } catch(e){ return; }
+            const trashBit = s.delete_files ? `, trashed <strong>${s.trashed||0}</strong> file${(s.trashed===1)?'':'s'}` : '';
+            head.innerHTML = `Confirming &amp; removing… checked ${s.checked}/${s.total}, removed <strong>${s.removed}</strong>${trashBit}.`;
+            if (!s.running && s.done) {
+                clearInterval(poll);
+                const doneTrash = s.delete_files ? ` and moved <strong>${s.trashed||0}</strong> file${(s.trashed===1)?'':'s'} to the Trash` : '';
+                head.innerHTML = `Removed <strong>${s.removed}</strong> redundant version${s.removed===1?'':'s'}${doneTrash}. ✓`;
+                btn.disabled = false; btn.textContent = 'Remove duplicate versions';
+                setTimeout(loadDupVersions, 2000);
+            }
+        }, 1000);
+    }
+    loadDupVersions();
+    </script>
+
+    <!-- Library coverage — readable single panel, no graphs -->
+    <div id="coverage-panel" class="coverage-panel">
+        <div class="coverage-headline" id="coverage-headline">Loading library coverage…</div>
+        <div class="coverage-rows" id="coverage-rows"></div>
+        <div class="coverage-actions">
+            <button class="btn btn--primary" id="run-all-btn" onclick="onRunAllClick()">
+                ▶ Run all
+            </button>
+            <span class="coverage-actions__hint" id="run-all-hint">
+                Kicks off ISRC scan, artwork, sound fingerprint, DSP check and label lookup for everything still missing. Each runs in the background — you can navigate away.
+            </span>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+            <div class="stat-card__value" id="stat-total">—</div>
+            <div class="stat-card__label">Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value done" id="stat-done">—</div>
+            <div class="stat-card__label">Analysed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value" id="stat-remaining">—</div>
+            <div class="stat-card__label">Remaining</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__value failed" id="stat-failed">—</div>
+            <div class="stat-card__label">Failed</div>
+        </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-label">
+            <span id="progress-text">Loading…</span>
+            <span class="pct" id="progress-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-text" id="status-text">Idle</span>
+        <button class="btn btn--primary" id="btn-start" onclick="startAnalysis()">Start analysis</button>
+        <button class="btn btn--ghost" id="btn-stop" onclick="stopAnalysis()" style="display:none">Stop</button>
+    </div>
+
+    <!-- Perceptual fingerprint batch -->
+    <div class="progress-wrap" id="fingerprint-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Sound fingerprint</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Recomputes the per-track audio fingerprint with A-weighted band loudness across 6 perceptual bands
+                    (sub / bass / low-mid / body / presence / brilliance) plus a vocal-likelihood score. Replaces the old
+                    bass/mid/treble bars (which always read ~85% bass) with corpus-relative values you can actually compare.
+                    Runs ~1 s per track in the background.
+                </div>
+                <div id="fp-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="fp-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="fp-btn-missing" onclick="startFingerprintBatch(true)" style="font-size:0.8rem;">Fingerprint missing</button>
+                    <button class="btn btn--ghost btn--small" id="fp-btn-all" onclick="startFingerprintBatch(false)" style="font-size:0.75rem; color:var(--muted2);">Re-do all</button>
+                </div>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="fp-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="fp-progress-text">—</span>
+            <span class="pct" id="fp-progress-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Listening analytics -->
+    <div class="progress-wrap" id="listening-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:6px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Listening</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    What actually gets played. Every play is logged with its source (Seinnteoir / track panel /
+                    set / canvas), context and listened time — completion = at least 80% heard.
+                </div>
+            </div>
+            <select id="lst-window" onchange="loadListeningStats()" style="background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:4px 8px; font-size:0.8rem; font-family:var(--font-main);">
+                <option value="7">last 7 days</option>
+                <option value="30" selected>last 30 days</option>
+                <option value="90">last 90 days</option>
+                <option value="365">last year</option>
+            </select>
+        </div>
+        <div id="lst-numbers" style="display:flex; gap:26px; flex-wrap:wrap; margin:14px 0 6px;"></div>
+        <div style="display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start;">
+            <div style="flex:1; min-width:280px;">
+                <div style="font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted2); margin:10px 0 6px;">Most played</div>
+                <div id="lst-top" style="font-size:0.84rem;"></div>
+            </div>
+            <div style="flex:0 0 300px;">
+                <div style="font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted2); margin:10px 0 6px;">When you listen</div>
+                <div id="lst-hours" style="display:flex; align-items:flex-end; gap:2px; height:54px;"></div>
+                <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:0.6rem; color:var(--muted2); margin-top:3px;"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+                <div id="lst-sources" style="font-family:var(--font-mono); font-size:0.7rem; color:var(--muted); margin-top:12px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BPM refinement -->
+    <div class="progress-wrap" id="bpm-refine-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">BPM refinement</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    The old tempo analysis snapped every BPM onto a coarse grid (a whole library collapses
+                    onto ~47 values — real 120/128 BPM tracks read as 117.5/129.2). This re-estimates every
+                    stored BPM with the corrected analyser (accurate to ~±0.5 BPM). Runs ~1–2 s per track in
+                    the background; stop any time — finished tracks keep their corrected value.
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="bpmref-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="bpmref-btn" onclick="toggleBpmRefine()" style="font-size:0.8rem;">Refine BPMs</button>
+                </div>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="bpmref-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="bpmref-progress-text">—</span>
+            <span class="pct" id="bpmref-progress-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Import rekordbox analysis -->
+    <div class="progress-wrap" id="rb-import-section" style="margin-top: 32px;">
+        <div style="margin-bottom:12px;">
+            <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Import rekordbox analysis</div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                Bring rekordbox's BPM &amp; key in as a layer beside the Music Room's own. Export your rekordbox
+                collection to an XML, choose it here, and each track's rekordbox analysis is matched (by file path,
+                filename, then artist+title) and stored. The track panel then shows rekordbox by default with a flick
+                to the Music Room's. Nothing else changes; re-import any time to refresh.
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="rb-xml-input" placeholder="…/rekordbox collection.xml"
+                   style="flex:1; min-width:240px; background:var(--bg); border:1px solid var(--border);
+                          border-radius:var(--radius); color:var(--text); padding:7px 11px; font-size:0.84rem; outline:none;">
+            <button class="btn btn--ghost btn--small" onclick="mrChooseInto('rb-xml-input','file')">📄 Choose file…</button>
+            <button class="btn btn--primary btn--small" id="rb-import-btn" onclick="importRekordboxAnalysis()">Import</button>
+        </div>
+        <div id="rb-import-out" style="font-size:0.82rem; color:var(--muted); margin-top:10px;"></div>
+    </div>
+
+    <!-- Import rekordbox tags/cues/colours (reverse-import) -->
+    <div class="progress-wrap" id="rbmeta-section" style="margin-top: 32px;">
+        <div style="margin-bottom:12px;">
+            <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Import rekordbox genres, cues &amp; colours</div>
+            <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                Already curated in rekordbox? Bring that work the other way — into the Music Room. From the same
+                collection XML this pulls in <strong>genres</strong>, <strong>cue points</strong> (memory &amp; hot,
+                as timestamped notes) and the <strong>track colour</strong>. It's additive and safe: genres are added
+                (never removed), cues skip ones you already have, and a colour only fills a record that has none —
+                your own tags and tints are never overwritten. <em>Preview first</em> to see exactly what would change.
+                <span style="color:var(--muted2);">(rekordbox MyTags aren't in the XML, so they can't be imported this way.)</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:10px; font-size:0.82rem; color:var(--muted);">
+            <label style="display:inline-flex; gap:6px; align-items:center;"><input type="checkbox" id="rbmeta-genres" checked> genres</label>
+            <label style="display:inline-flex; gap:6px; align-items:center;"><input type="checkbox" id="rbmeta-cues" checked> cue points</label>
+            <label style="display:inline-flex; gap:6px; align-items:center;"><input type="checkbox" id="rbmeta-colours" checked> track colour</label>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="rbmeta-xml-input" placeholder="…/rekordbox collection.xml"
+                   style="flex:1; min-width:240px; background:var(--bg); border:1px solid var(--border);
+                          border-radius:var(--radius); color:var(--text); padding:7px 11px; font-size:0.84rem; outline:none;">
+            <button class="btn btn--ghost btn--small" onclick="mrChooseInto('rbmeta-xml-input','file')">📄 Choose file…</button>
+            <button class="btn btn--ghost btn--small" id="rbmeta-preview-btn" onclick="rbMetaPreview()">Preview</button>
+            <button class="btn btn--primary btn--small" id="rbmeta-apply-btn" onclick="rbMetaApply()" disabled style="opacity:.5;">Apply</button>
+        </div>
+        <div id="rbmeta-out" style="font-size:0.82rem; color:var(--muted); margin-top:10px; line-height:1.55;"></div>
+    </div>
+
+    <!-- Record labels lookup -->
+    <div class="progress-wrap" id="label-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Record labels</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Looks up each track's release label via MusicBrainz (free, no key, ~1 s per track) and Discogs
+                    (better for electronic / vinyl — add a token in <a href="/settings">Settings</a> to enable it).
+                    Skips tracks already labelled, tracks marked "Self released", and unknown tracks (no artist or title).
+                    Throttled to respect the API rate limits.
+                </div>
+                <div id="label-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="label-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="label-btn-missing" onclick="startLabelLookup(true)" style="font-size:0.8rem;">Look up missing</button>
+                    <button class="btn btn--ghost btn--small" id="label-btn-all" onclick="startLabelLookup(false)" style="font-size:0.75rem; color:var(--muted2);">Re-look all</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="label-btn-stop" onclick="stopLabelLookup()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="label-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="label-progress-text">—</span>
+            <span class="pct" id="label-progress-pct">—</span>
+        </div>
+        <div id="label-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- "Original Mix" cleanup -->
+    <div class="progress-wrap" id="origmix-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Strip "Original Mix" from titles + files</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    "(Original Mix)" / "(Original Version)" suffixes are noise — Spotify, MusicBrainz, Discogs and iTunes don't carry them,
+                    so leaving them on titles causes API lookups to miss. This walks every affected track, removes the tag from the DB title,
+                    writes the cleaned title into the audio file's embedded tags, and renames the file on disk (collision-safe). Other version
+                    tags ("Extended Mix", "Club Mix", "Album Version") are deliberately left alone — those are meaningful.
+                </div>
+                <div id="origmix-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="origmix-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <button class="btn btn--primary" id="origmix-btn" onclick="startOrigMixCleanup()" style="font-size:0.8rem;">Clean now</button>
+                <button class="btn btn--ghost btn--small" id="origmix-btn-stop" onclick="stopOrigMixCleanup()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="origmix-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="origmix-progress-text">—</span>
+            <span class="pct" id="origmix-progress-pct">—</span>
+        </div>
+        <div id="origmix-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- ISRC backfill -->
+    <div class="progress-wrap" id="isrc-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">ISRC codes</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Reads each track's embedded ISRC (the unique recording id) from its file and stores it in the background —
+                    it isn't shown anywhere. With an ISRC the DSP check, label lookup and artwork fetch can match a track
+                    <em>exactly</em> instead of guessing from artist + title. Local file read only, no network — fast.
+                    FLACs usually carry one; most MP3s don't.
+                </div>
+                <div id="isrc-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="isrc-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="isrc-btn-missing" onclick="startIsrcBackfill(true)" style="font-size:0.8rem;">Read unscanned</button>
+                    <button class="btn btn--ghost btn--small" id="isrc-btn-all" onclick="startIsrcBackfill(false)" style="font-size:0.75rem; color:var(--muted2);">Re-scan all</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="isrc-btn-stop" onclick="stopIsrcBackfill()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="isrc-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="isrc-progress-text">—</span>
+            <span class="pct" id="isrc-progress-pct">—</span>
+        </div>
+        <div id="isrc-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- DSP availability check -->
+    <div class="progress-wrap" id="dsp-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">DSP availability</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Checks each track against Deezer + iTunes (free, no login, no Spotify rate limits). Tracks with an
+                    <a href="#isrc-section">ISRC</a> are matched exactly; the rest fall back to a tight artist+title search.
+                    Tracks already on Apple Music (from artwork) are counted for free. The result is stored so we never re-check
+                    per page load — tracks confirmed on no DSP show an "only here" chip on every track row. Unknown tracks are skipped.
+                </div>
+                <div id="dsp-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px; line-height:1.8;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="dsp-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="dsp-btn-untested" onclick="startDspCheck(true)" style="font-size:0.8rem;">Check untested</button>
+                    <button class="btn btn--ghost btn--small" id="dsp-btn-all" onclick="startDspCheck(false)" style="font-size:0.75rem; color:var(--muted2);">Re-check all</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="dsp-btn-stop" onclick="stopDspCheck()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="dsp-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="dsp-progress-text">—</span>
+            <span class="pct" id="dsp-progress-pct">—</span>
+        </div>
+        <div id="dsp-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- Artist origins (cultural enrichment, no AI) -->
+    <div class="progress-wrap" id="artistcult-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Artist origins</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Pulls each artist's origin (birthplace + country), gender, type, active-from year and genres from
+                    MusicBrainz + Wikidata, with a short Wikipedia bio. Free, no login, <strong>no AI</strong> — uses your
+                    ISRCs for exact matches where possible. Feeds the world map and cultural views. Unknown/untagged tracks are skipped.
+                </div>
+                <div id="artistcult-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="artistcult-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="artistcult-btn-missing" onclick="startArtistCulture(true)" style="font-size:0.8rem;">Enrich missing</button>
+                    <button class="btn btn--ghost btn--small" id="artistcult-btn-all" onclick="startArtistCulture(false)" style="font-size:0.75rem; color:var(--muted2);">Re-enrich all</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="artistcult-btn-stop" onclick="stopArtistCulture()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="artistcult-progress-fill" style="width:0%"></div></div>
+        <div class="progress-label"><span id="artistcult-progress-text">—</span><span class="pct" id="artistcult-progress-pct">—</span></div>
+        <div id="artistcult-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- Record label origins (cultural enrichment, no AI) -->
+    <div class="progress-wrap" id="labelcult-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Record label origins</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    Looks up each label's country, city/HQ, founding year and founder from MusicBrainz + Wikidata (+ a Discogs
+                    fallback if you've added a token). Free, <strong>no AI</strong>. "Self released" is skipped. Builds the label-geography map.
+                </div>
+                <div id="labelcult-counts-detail" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <span id="labelcult-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--primary" id="labelcult-btn-missing" onclick="startLabelCulture(true)" style="font-size:0.8rem;">Enrich missing</button>
+                    <button class="btn btn--ghost btn--small" id="labelcult-btn-all" onclick="startLabelCulture(false)" style="font-size:0.75rem; color:var(--muted2);">Re-enrich all</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="labelcult-btn-stop" onclick="stopLabelCulture()" style="font-size:0.75rem; color:var(--danger); display:none;">Stop</button>
+            </div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="labelcult-progress-fill" style="width:0%"></div></div>
+        <div class="progress-label"><span id="labelcult-progress-text">—</span><span class="pct" id="labelcult-progress-pct">—</span></div>
+        <div id="labelcult-stop-reason" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
+    </div>
+
+    <!-- Artwork fetch -->
+    <div class="progress-wrap" id="artwork-section" style="margin-top: 32px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:20px;">
+            <div style="flex:1;">
+                <div style="font-family:var(--font-serif); font-style:italic; font-size:1.1rem; margin-bottom:4px;">Artwork</div>
+                <div style="font-size:0.82rem; color:var(--muted); line-height:1.55;">
+                    <em>Scan files</em> reads embedded tags from every audio file (fast, local).
+                    <em>Search online</em> queries iTunes then MusicBrainz for tracks still without art
+                    — strips mix/version suffixes from titles for a better hit rate (~0.5 s/track).
+                </div>
+                <div id="art-source-breakdown" style="font-family:var(--font-mono); font-size:0.75rem; color:var(--muted2); margin-top:8px; line-height:1.8;">—</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0; align-items:flex-end;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span id="art-counts" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--muted);">—</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn--ghost btn--small" id="art-btn-scan" onclick="startArtworkFetch(1)" style="font-size:0.8rem;">Scan files</button>
+                    <button class="btn btn--primary" id="art-btn-online" onclick="startArtworkFetch(2)" style="font-size:0.8rem;">Search online</button>
+                </div>
+                <button class="btn btn--ghost btn--small" id="art-btn-both" onclick="startArtworkFetch(null)" style="font-size:0.75rem; color:var(--muted2);">Run both phases</button>
+            </div>
+        </div>
+        <!-- phase indicator — shown while running -->
+        <div id="art-phase-row" style="display:none; margin-bottom:10px; font-size:0.8rem; color:var(--muted);">
+            <span id="art-phase-label" style="color:var(--accent); font-family:var(--font-mono);"></span>
+            <span id="art-phase-progress" style="margin-left:8px;"></span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="art-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+            <span id="art-progress-text">—</span>
+            <span class="pct" id="art-progress-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-wrap">
+        <div class="log-header">
+            <span class="log-header__title">Log</span>
+            <div class="log-header__actions">
+                <button class="log-autoscroll-toggle on" id="autoscroll-btn" onclick="toggleAutoscroll()">autoscroll</button>
+                <button class="btn btn--ghost btn--small" onclick="clearLog()">Clear</button>
+            </div>
+        </div>
+        <div class="log-body" id="log-body">
+            <div class="log-empty">No log yet. Start analysis to see output here.</div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+async function importRekordboxAnalysis() {
+    const path = document.getElementById('rb-xml-input').value.trim();
+    const out = document.getElementById('rb-import-out');
+    if (!path) { out.textContent = 'Choose your rekordbox collection XML first.'; return; }
+    const btn = document.getElementById('rb-import-btn');
+    btn.disabled = true; out.textContent = 'Importing…';
+    try {
+        const r = await fetch('/api/analysis/import-rekordbox', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path }) }).then(r => r.json());
+        if (!r.ok) { out.textContent = r.error || 'Import failed.'; return; }
+        const m = r.by_method || {};
+        out.innerHTML = `Matched <strong>${r.matched}</strong> of ${r.tracks_in_xml} tracks `
+            + `(path ${m.path || 0}, filename ${m.filename || 0}, artist+title ${m.artist_title || 0})`
+            + (r.unmatched ? ` · ${r.unmatched} unmatched` : '')
+            + `. Open a track to see the rekordbox layer.`;
+    } catch (e) { out.textContent = 'Import failed.'; }
+    finally { btn.disabled = false; }
+}
+
+// ── reverse-import: rekordbox genres / cues / colours -> the Music Room ──
+function rbMetaFields() {
+    const f = [];
+    if (document.getElementById('rbmeta-genres').checked)  f.push('genres');
+    if (document.getElementById('rbmeta-cues').checked)    f.push('cues');
+    if (document.getElementById('rbmeta-colours').checked) f.push('colours');
+    return f;
+}
+function rbMetaRender(r, applied) {
+    const m = r.by_method || {};
+    const n = applied ? (r.added || {}) : (r.would_add || {});
+    const sk = r.skipped || {};
+    const verb = applied ? 'Added' : 'Would add';
+    let html = `Matched <strong>${r.matched}</strong> of ${r.tracks_in_xml} tracks `
+        + `(path ${m.path || 0}, filename ${m.filename || 0}, artist+title ${m.artist_title || 0})`
+        + (r.unmatched ? ` · ${r.unmatched} unmatched` : '') + '.<br>'
+        + `${verb}: <strong>${n.genres || 0}</strong> genres · <strong>${n.cues || 0}</strong> cues · <strong>${n.colours || 0}</strong> colours.`;
+    const skips = [];
+    if (sk.colour_has_existing) skips.push(`${sk.colour_has_existing} colours skipped (record already has one)`);
+    if (sk.cue_duplicate)       skips.push(`${sk.cue_duplicate} cues skipped (already present)`);
+    if (skips.length) html += `<br><span style="color:var(--muted2);">${skips.join(' · ')}.</span>`;
+    if (applied) html += `<br>Open a track to see the new genres / cues / colour.`;
+    document.getElementById('rbmeta-out').innerHTML = html;
+}
+async function rbMetaPreview() {
+    const path = document.getElementById('rbmeta-xml-input').value.trim();
+    const out = document.getElementById('rbmeta-out');
+    const apply = document.getElementById('rbmeta-apply-btn');
+    if (!path) { out.textContent = 'Choose your rekordbox collection XML first.'; return; }
+    const fields = rbMetaFields();
+    if (!fields.length) { out.textContent = 'Pick at least one of genres / cues / colour.'; return; }
+    const btn = document.getElementById('rbmeta-preview-btn');
+    btn.disabled = true; out.textContent = 'Previewing…';
+    apply.disabled = true; apply.style.opacity = .5;
+    try {
+        const r = await fetch('/api/import/rekordbox-metadata', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, fields, dry_run: true }) }).then(r => r.json());
+        if (!r.ok) { out.textContent = r.error || 'Preview failed.'; return; }
+        rbMetaRender(r, false);
+        const total = (r.would_add.genres || 0) + (r.would_add.cues || 0) + (r.would_add.colours || 0);
+        if (total > 0) { apply.disabled = false; apply.style.opacity = 1; apply.textContent = `Apply (${total})`; }
+        else out.innerHTML += `<br><span style="color:var(--muted2);">Nothing new to add.</span>`;
+    } catch (e) { out.textContent = 'Preview failed.'; }
+    finally { btn.disabled = false; }
+}
+async function rbMetaApply() {
+    const path = document.getElementById('rbmeta-xml-input').value.trim();
+    const out = document.getElementById('rbmeta-out');
+    if (!path) return;
+    const btn = document.getElementById('rbmeta-apply-btn');
+    btn.disabled = true; btn.style.opacity = .5; out.textContent = 'Applying…';
+    try {
+        const r = await fetch('/api/import/rekordbox-metadata', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, fields: rbMetaFields(), dry_run: false }) }).then(r => r.json());
+        if (!r.ok) { out.textContent = r.error || 'Import failed.'; return; }
+        rbMetaRender(r, true);
+        btn.textContent = 'Apply';
+    } catch (e) { out.textContent = 'Import failed.'; }
+}
+    let pollInterval  = null;
+    let logOffset     = 0;
+    let autoscroll    = true;
+    let isRunning     = false;
+
+    // ─── Poll ────────────────────────────────────────────────────────────────
+
+    async function poll() {
+        try {
+            const res  = await fetch(`/api/analysis/status?offset=${logOffset}`);
+            const data = await res.json();
+
+            isRunning = data.running;
+            updateStats(data);
+            updateProgress(data);
+            appendLog(data.log || []);
+            logOffset = data.log_total || logOffset;
+            updateControls(data.running);
+        } catch (e) {
+            console.error('poll error', e);
+        }
+    }
+
+    async function loadStats() {
+        try {
+            const res  = await fetch('/api/analysis/stats');
+            const data = await res.json();
+            updateStats(data);
+            updateProgress(data);
+        } catch (e) {
+            console.error('stats error', e);
+        }
+    }
+
+    // ─── Update helpers ──────────────────────────────────────────────────────
+
+    function updateStats(data) {
+        document.getElementById('stat-total').textContent     = data.total     ?? '—';
+        document.getElementById('stat-done').textContent      = data.done      ?? '—';
+        document.getElementById('stat-remaining').textContent = data.remaining ?? '—';
+        document.getElementById('stat-failed').textContent    = data.failed    ?? '—';
+    }
+
+    function updateProgress(data) {
+        const total = data.total || 0;
+        const done  = data.done  || 0;
+        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-pct').textContent  = pct + '%';
+        document.getElementById('progress-text').textContent =
+            total > 0 ? `${done} of ${total} tracks analysed` : 'No tracks found';
+    }
+
+    function updateControls(running) {
+        const dot  = document.getElementById('status-dot');
+        const text = document.getElementById('status-text');
+        const btnStart = document.getElementById('btn-start');
+        const btnStop  = document.getElementById('btn-stop');
+
+        if (running) {
+            dot.className  = 'status-dot running';
+            text.className = 'status-text running';
+            text.textContent = 'Running…';
+            btnStart.style.display = 'none';
+            btnStop.style.display  = '';
+        } else {
+            dot.className  = 'status-dot';
+            text.className = 'status-text';
+            text.textContent = 'Idle';
+            btnStart.style.display = '';
+            btnStop.style.display  = 'none';
+        }
+    }
+
+    function appendLog(lines) {
+        if (!lines.length) return;
+        const body = document.getElementById('log-body');
+
+        // Clear placeholder
+        const empty = body.querySelector('.log-empty');
+        if (empty) empty.remove();
+
+        lines.forEach(entry => {
+            const div = document.createElement('div');
+            div.className = 'log-line ' + (entry.level || 'info');
+            div.textContent = entry.text;
+            body.appendChild(div);
+        });
+
+        // Cap log at 600 lines to avoid DOM bloat
+        const allLines = body.querySelectorAll('.log-line');
+        if (allLines.length > 600) {
+            for (let i = 0; i < allLines.length - 600; i++) {
+                allLines[i].remove();
+            }
+        }
+
+        if (autoscroll) {
+            body.scrollTop = body.scrollHeight;
+        }
+    }
+
+    // ─── Actions ─────────────────────────────────────────────────────────────
+
+    async function startAnalysis() {
+        try {
+            const res  = await fetch('/api/analysis/start', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                logOffset = 0;
+                clearLog(true);
+                startPolling();
+            } else {
+                alert(data.error || 'Could not start analysis');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    async function stopAnalysis() {
+        try {
+            await fetch('/api/analysis/stop', { method: 'POST' });
+            // Let the next poll pick up the stopped state
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            await poll();
+            if (!isRunning) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+                loadStats(); // refresh final counts
+            }
+        }, 1500);
+    }
+
+    function toggleAutoscroll() {
+        autoscroll = !autoscroll;
+        const btn = document.getElementById('autoscroll-btn');
+        btn.className = 'log-autoscroll-toggle' + (autoscroll ? ' on' : '');
+        btn.textContent = 'autoscroll';
+    }
+
+    function clearLog(silent) {
+        const body = document.getElementById('log-body');
+        body.innerHTML = silent
+            ? ''
+            : '<div class="log-empty">Log cleared.</div>';
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+
+    async function init() {
+        await loadStats();
+        await loadArtworkStatus();
+        // Check if already running (e.g. started in a previous tab)
+        try {
+            const res  = await fetch('/api/analysis/status?offset=0');
+            const data = await res.json();
+            if (data.running) {
+                updateControls(true);
+                appendLog(data.log || []);
+                logOffset = data.log_total || 0;
+                startPolling();
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    // ─── Artwork ──────────────────────────────────────────────────────────────
+
+    let artPollInterval = null;
+
+    function setArtBtnsDisabled(disabled) {
+        ['art-btn-scan','art-btn-online','art-btn-both'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = disabled;
+        });
+    }
+
+    async function loadArtworkStatus() {
+        try {
+            const res  = await fetch('/api/artwork/batch-status');
+            const data = await res.json();
+
+            const withArt    = data.with_art    || 0;
+            const notFound   = data.not_found   || 0;
+            const neverTried = data.never_tried || 0;
+            const total      = data.total_tracks || (withArt + notFound + neverTried);
+            const attempted  = withArt + notFound;
+            const pct        = total > 0 ? Math.round(attempted / total * 100) : 0;
+
+            // Overall count chip
+            let countParts = [`${withArt} with artwork`];
+            if (notFound  > 0) countParts.push(`${notFound} not found`);
+            if (neverTried > 0) countParts.push(`${neverTried} not tried`);
+            document.getElementById('art-counts').textContent = countParts.join(' · ');
+
+            // Source breakdown
+            const emb  = data.src_embedded    || 0;
+            const itn  = data.src_itunes       || 0;
+            const mb   = data.src_musicbrainz  || 0;
+            const man  = data.src_manual       || 0;
+            const breakdown = document.getElementById('art-source-breakdown');
+            if (breakdown) {
+                const parts = [];
+                if (emb) parts.push(`${emb} embedded`);
+                if (itn) parts.push(`${itn} iTunes`);
+                if (mb)  parts.push(`${mb} MusicBrainz`);
+                if (man) parts.push(`${man} manual`);
+                if (notFound) parts.push(`${notFound} searched / not found`);
+                if (neverTried) parts.push(`${neverTried} never tried`);
+                breakdown.textContent = parts.join(' · ') || '—';
+            }
+
+            if (data.running) {
+                const phaseRow   = document.getElementById('art-phase-row');
+                const phaseLabel = document.getElementById('art-phase-label');
+                const phaseProg  = document.getElementById('art-phase-progress');
+                const phaseDone  = data.phase_done  || 0;
+                const phaseTotal = data.phase_total || 0;
+                const label      = data.phase_label || (data.phase === 2 ? 'Searching online' : 'Scanning files');
+
+                phaseRow.style.display = '';
+                phaseLabel.textContent = label;
+                phaseProg.textContent  = phaseTotal > 0 ? `${phaseDone} / ${phaseTotal}` : '';
+
+                const grand  = data.grand_total || 1;
+                const done   = data.total_done  || 0;
+                const found  = data.found_count || 0;
+                const runPct = Math.round(done / grand * 100);
+                document.getElementById('art-progress-fill').style.width = runPct + '%';
+                document.getElementById('art-progress-text').textContent =
+                    `${found} covers found · ${done} processed`;
+                document.getElementById('art-progress-pct').textContent = runPct + '%';
+
+                setArtBtnsDisabled(true);
+                if (!artPollInterval) artPollInterval = setInterval(loadArtworkStatus, 2000);
+            } else {
+                document.getElementById('art-phase-row').style.display = 'none';
+                document.getElementById('art-progress-fill').style.width = pct + '%';
+                document.getElementById('art-progress-pct').textContent = pct + '%';
+
+                if (neverTried === 0) {
+                    const retryNote = notFound > 0 ? ` — ${notFound} will be retried` : '';
+                    document.getElementById('art-progress-text').textContent =
+                        `All ${total} tracks searched · ${withArt} covers found${retryNote}`;
+                } else {
+                    document.getElementById('art-progress-text').textContent =
+                        `${attempted} / ${total} tracks searched`;
+                }
+                setArtBtnsDisabled(false);
+                if (artPollInterval) { clearInterval(artPollInterval); artPollInterval = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function startArtworkFetch(phaseOnly) {
+        // Immediate visual feedback before waiting for server
+        setArtBtnsDisabled(true);
+        document.getElementById('art-phase-row').style.display = '';
+        document.getElementById('art-phase-label').textContent =
+            phaseOnly === 1 ? 'Starting scan…' :
+            phaseOnly === 2 ? 'Starting online search…' : 'Starting…';
+        document.getElementById('art-phase-progress').textContent = '';
+        document.getElementById('art-progress-text').textContent = 'Starting…';
+
+        const body = phaseOnly != null ? JSON.stringify({ phase_only: phaseOnly }) : '{}';
+        const res  = await fetch('/api/artwork/fetch-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (!artPollInterval) artPollInterval = setInterval(loadArtworkStatus, 2000);
+            loadArtworkStatus();
+        } else {
+            document.getElementById('art-phase-row').style.display = 'none';
+            document.getElementById('art-progress-text').textContent = data.error || 'Already running';
+            setArtBtnsDisabled(false);
+        }
+    }
+
+    // ─── Listening analytics ────────────────────────────────────────────────
+    async function loadListeningStats() {
+        const days = document.getElementById('lst-window').value;
+        let d;
+        try { d = await fetch(`/api/stats/listening?days=${days}`).then(r => r.json()); }
+        catch (e) { return; }
+        const num = (label, val, hint) => `
+            <div title="${hint || ''}">
+                <div style="font-family:var(--font-mono); font-size:1.35rem; color:var(--text);">${val}</div>
+                <div style="font-size:0.68rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted2);">${label}</div>
+            </div>`;
+        document.getElementById('lst-numbers').innerHTML =
+            num('plays', d.plays_window.toLocaleString(), 'Play events in this window') +
+            num('hours heard', d.hours_window, 'Listened time (where measured)') +
+            num('tracks reached', d.distinct_tracks_window.toLocaleString(), 'Distinct tracks played') +
+            (d.completion_rate_window != null ? num('finish rate', d.completion_rate_window + '%', 'Plays that reached 80% of the track') : '') +
+            (d.repeat_rate_window != null ? num('repeat rate', d.repeat_rate_window + '%', 'Played tracks you returned to (2+ plays)') : '') +
+            num('never played', d.never_played.toLocaleString(), 'Tracks in the library with zero plays ever') +
+            num('all-time plays', d.plays_all_time.toLocaleString(), '');
+        document.getElementById('lst-top').innerHTML = (d.top_tracks || []).length
+            ? d.top_tracks.map((t, i) => `
+                <div style="display:flex; gap:10px; padding:4px 0; border-bottom:1px solid var(--border);">
+                    <span style="font-family:var(--font-mono); color:var(--muted2); width:18px;">${i + 1}</span>
+                    <a href="/track/${t.track_id}" style="flex:1; color:var(--text); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ${t.title || 'Untitled'} <span style="color:var(--muted);">— ${t.artist_name || 'Unknown'}</span></a>
+                    <span style="font-family:var(--font-mono); color:var(--muted);">${t.plays}×${t.minutes ? ' · ' + t.minutes + 'm' : ''}</span>
+                </div>`).join('')
+            : '<div style="color:var(--muted); font-size:0.82rem;">No plays in this window yet — they log from now on.</div>';
+        const byH = d.by_hour || {};
+        const max = Math.max(1, ...Object.values(byH));
+        document.getElementById('lst-hours').innerHTML = Array.from({ length: 24 }, (_, h) => {
+            const n = byH[h] || 0;
+            return `<div title="${String(h).padStart(2,'0')}:00 — ${n} plays" style="flex:1; height:${Math.max(2, n / max * 100)}%;
+                background:${n ? 'var(--accent)' : 'var(--border)'}; border-radius:2px; opacity:${n ? .9 : .5};"></div>`;
+        }).join('');
+        document.getElementById('lst-sources').textContent = Object.entries(d.by_source || {})
+            .sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ');
+    }
+    loadListeningStats();
+
+    // ─── BPM refinement batch ───────────────────────────────────────────────
+    let bpmRefPoll = null;
+
+    async function loadBpmRefineStatus() {
+        try {
+            const d = await fetch('/api/bpm/refine-status').then(r => r.json());
+            const remaining = d.remaining ?? 0, refined = d.refined ?? 0;
+            const all = remaining + refined;
+            document.getElementById('bpmref-counts').textContent =
+                remaining ? `${remaining.toLocaleString()} BPMs to refine` : 'All BPMs refined ✓';
+            const btn = document.getElementById('bpmref-btn');
+            if (d.running) {
+                const total = d.total || 1, done = d.done || 0;
+                const pct = Math.round(done * 100 / total);
+                document.getElementById('bpmref-progress-fill').style.width = pct + '%';
+                document.getElementById('bpmref-progress-text').textContent =
+                    `Running · ${done}/${total} — ${d.current || ''}`;
+                document.getElementById('bpmref-progress-pct').textContent = pct + '%';
+                btn.textContent = '■ Stop';
+            } else {
+                const pct = all ? Math.round(refined * 100 / all) : 0;
+                document.getElementById('bpmref-progress-fill').style.width = pct + '%';
+                document.getElementById('bpmref-progress-text').textContent =
+                    d.stop_reason ? d.stop_reason : `${refined.toLocaleString()} of ${all.toLocaleString()} refined`;
+                document.getElementById('bpmref-progress-pct').textContent = pct + '%';
+                btn.textContent = 'Refine BPMs';
+                btn.disabled = remaining === 0;
+                if (bpmRefPoll) { clearInterval(bpmRefPoll); bpmRefPoll = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function toggleBpmRefine() {
+        const btn = document.getElementById('bpmref-btn');
+        if (btn.textContent.includes('Stop')) {
+            await fetch('/api/bpm/refine-stop', { method: 'POST' });
+            loadBpmRefineStatus();
+            return;
+        }
+        document.getElementById('bpmref-progress-text').textContent = 'Starting…';
+        const data = await fetch('/api/bpm/refine', { method: 'POST' }).then(r => r.json());
+        if (data.ok) {
+            if (!bpmRefPoll) bpmRefPoll = setInterval(loadBpmRefineStatus, 2000);
+            loadBpmRefineStatus();
+        } else {
+            document.getElementById('bpmref-progress-text').textContent = data.error || 'Already running';
+        }
+    }
+
+    // ─── Sound fingerprint batch ────────────────────────────────────────────
+    let fpPollInterval = null;
+
+    async function loadFingerprintStatus() {
+        try {
+            const r = await fetch('/api/fingerprint/batch-status');
+            const d = await r.json();
+            const analysed = d.tracks_analysed       ?? 0;
+            const done     = d.tracks_fingerprinted  ?? 0;
+            const left     = d.tracks_remaining      ?? 0;
+            const pctFull  = analysed ? Math.round(done * 100 / analysed) : 0;
+
+            document.getElementById('fp-counts').textContent =
+                `${done.toLocaleString()} / ${analysed.toLocaleString()} fingerprinted`;
+            document.getElementById('fp-counts-detail').textContent =
+                left ? `${left.toLocaleString()} still on the old fingerprint` : 'All tracks on new fingerprint ✓';
+
+            if (d.running) {
+                const total = d.total || 1;
+                const runDone = d.done || 0;
+                const runPct  = Math.round(runDone * 100 / total);
+                document.getElementById('fp-progress-fill').style.width = runPct + '%';
+                document.getElementById('fp-progress-text').textContent =
+                    `Running · ${runDone}/${total} — ${d.current || ''}`;
+                document.getElementById('fp-progress-pct').textContent = runPct + '%';
+                document.getElementById('fp-btn-missing').disabled = true;
+                document.getElementById('fp-btn-all').disabled = true;
+            } else {
+                document.getElementById('fp-progress-fill').style.width = pctFull + '%';
+                document.getElementById('fp-progress-text').textContent =
+                    `${done.toLocaleString()} of ${analysed.toLocaleString()} tracks have the new fingerprint`;
+                document.getElementById('fp-progress-pct').textContent = pctFull + '%';
+                document.getElementById('fp-btn-missing').disabled = false;
+                document.getElementById('fp-btn-all').disabled = false;
+                if (fpPollInterval) { clearInterval(fpPollInterval); fpPollInterval = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function startFingerprintBatch(onlyMissing) {
+        document.getElementById('fp-btn-missing').disabled = true;
+        document.getElementById('fp-btn-all').disabled = true;
+        document.getElementById('fp-progress-text').textContent = 'Starting…';
+        const res = await fetch('/api/fingerprint/batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ only_missing: onlyMissing }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (!fpPollInterval) fpPollInterval = setInterval(loadFingerprintStatus, 2000);
+            loadFingerprintStatus();
+        } else {
+            document.getElementById('fp-progress-text').textContent = data.error || 'Already running';
+            document.getElementById('fp-btn-missing').disabled = false;
+            document.getElementById('fp-btn-all').disabled = false;
+        }
+    }
+
+    loadFingerprintStatus();
+    loadBpmRefineStatus();
+
+    // ─── Record-label lookup batch ────────────────────────────────────────
+    let labelPollInterval = null;
+
+    async function loadLabelStatus() {
+        try {
+            const r = await fetch('/api/labels/lookup-batch-status');
+            const d = await r.json();
+            const eligible = d.eligible_total || 0;
+            const have     = d.with_label     || 0;
+            const missing  = d.without_label  || 0;
+            const pctFull  = eligible ? Math.round(have * 100 / eligible) : 0;
+
+            document.getElementById('label-counts').textContent =
+                `${have.toLocaleString()} / ${eligible.toLocaleString()} labelled`;
+            const discPart = d.discogs_configured
+                ? 'MusicBrainz + Discogs'
+                : 'MusicBrainz only — add a Discogs token in Settings for better indie coverage';
+            document.getElementById('label-counts-detail').textContent =
+                `${missing.toLocaleString()} tracks still need a label  ·  ${discPart}`;
+
+            const stopReasonEl = document.getElementById('label-stop-reason');
+            const stopBtn      = document.getElementById('label-btn-stop');
+            const missBtn      = document.getElementById('label-btn-missing');
+            const allBtn       = document.getElementById('label-btn-all');
+
+            if (d.running) {
+                const t = d.total || 1;
+                const runDone = d.done || 0;
+                const runPct  = Math.round(runDone * 100 / t);
+                document.getElementById('label-progress-fill').style.width = runPct + '%';
+                document.getElementById('label-progress-text').textContent =
+                    `Running · ${runDone}/${t} — ${d.current || ''}` +
+                    `   (found ${d.found}  ·  not found ${d.not_found}  ·  skipped ${d.skipped})`;
+                document.getElementById('label-progress-pct').textContent = runPct + '%';
+                missBtn.disabled = true; allBtn.disabled = true;
+                stopBtn.style.display = '';
+                stopReasonEl.style.display = 'none';
+            } else {
+                document.getElementById('label-progress-fill').style.width = pctFull + '%';
+                document.getElementById('label-progress-text').textContent =
+                    `${have.toLocaleString()} of ${eligible.toLocaleString()} tracks have a label`;
+                document.getElementById('label-progress-pct').textContent = pctFull + '%';
+                missBtn.disabled = false; allBtn.disabled = false;
+                stopBtn.style.display = 'none';
+                if (d.stop_reason) {
+                    stopReasonEl.textContent = d.stop_reason;
+                    stopReasonEl.style.display = '';
+                }
+                if (labelPollInterval) { clearInterval(labelPollInterval); labelPollInterval = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function startLabelLookup(onlyMissing) {
+        document.getElementById('label-btn-missing').disabled = true;
+        document.getElementById('label-btn-all').disabled = true;
+        document.getElementById('label-progress-text').textContent = 'Starting…';
+        const res = await fetch('/api/labels/lookup-batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ only_missing: onlyMissing }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (!labelPollInterval) labelPollInterval = setInterval(loadLabelStatus, 1500);
+            loadLabelStatus();
+        } else {
+            document.getElementById('label-progress-text').textContent = data.error || 'Already running';
+            document.getElementById('label-btn-missing').disabled = false;
+            document.getElementById('label-btn-all').disabled = false;
+        }
+    }
+
+    async function stopLabelLookup() {
+        await fetch('/api/labels/lookup-batch-stop', { method: 'POST' });
+        loadLabelStatus();
+    }
+
+    loadLabelStatus();
+
+    // ─── "Original Mix" cleanup batch ─────────────────────────────────────
+    let origMixPollInterval = null;
+    async function loadOrigMixStatus() {
+        try {
+            const r = await fetch('/api/tracks/strip-original-mix-status');
+            const d = await r.json();
+            const total   = d.total || 0;
+            const done    = d.done  || 0;
+            const pct     = total ? Math.round(done * 100 / total) : 0;
+            document.getElementById('origmix-counts').textContent =
+                total ? `${done.toLocaleString()} / ${total.toLocaleString()} processed` : 'idle';
+            const parts = [];
+            if (d.titles_changed)    parts.push(`${d.titles_changed} titles cleaned`);
+            if (d.tags_written)      parts.push(`${d.tags_written} tags written`);
+            if (d.files_renamed)     parts.push(`${d.files_renamed} files renamed`);
+            if (d.skipped_no_change) parts.push(`${d.skipped_no_change} unchanged`);
+            if (d.errors)            parts.push(`${d.errors} errors`);
+            document.getElementById('origmix-counts-detail').textContent = parts.join('  ·  ') || '—';
+
+            const stopReasonEl = document.getElementById('origmix-stop-reason');
+            const stopBtn      = document.getElementById('origmix-btn-stop');
+            const runBtn       = document.getElementById('origmix-btn');
+            if (d.running) {
+                document.getElementById('origmix-progress-fill').style.width = pct + '%';
+                document.getElementById('origmix-progress-text').textContent =
+                    `Running · ${done}/${total} — ${d.current || ''}`;
+                document.getElementById('origmix-progress-pct').textContent = pct + '%';
+                runBtn.disabled  = true;
+                stopBtn.style.display = '';
+                stopReasonEl.style.display = 'none';
+            } else {
+                document.getElementById('origmix-progress-fill').style.width = pct + '%';
+                document.getElementById('origmix-progress-text').textContent =
+                    total ? `Finished — ${done.toLocaleString()} of ${total.toLocaleString()} processed`
+                          : 'Idle. Click "Clean now" to scan + fix.';
+                document.getElementById('origmix-progress-pct').textContent = pct + '%';
+                runBtn.disabled  = false;
+                stopBtn.style.display = 'none';
+                if (d.stop_reason) {
+                    stopReasonEl.textContent = d.stop_reason;
+                    stopReasonEl.style.display = '';
+                }
+                if (origMixPollInterval) { clearInterval(origMixPollInterval); origMixPollInterval = null; }
+            }
+        } catch (_) { /* silent */ }
+    }
+    async function startOrigMixCleanup() {
+        document.getElementById('origmix-btn').disabled = true;
+        document.getElementById('origmix-progress-text').textContent = 'Starting…';
+        const res = await fetch('/api/tracks/strip-original-mix', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+            if (!origMixPollInterval) origMixPollInterval = setInterval(loadOrigMixStatus, 1500);
+            loadOrigMixStatus();
+        } else {
+            document.getElementById('origmix-progress-text').textContent = data.error || 'Already running';
+            document.getElementById('origmix-btn').disabled = false;
+        }
+    }
+    async function stopOrigMixCleanup() {
+        await fetch('/api/tracks/strip-original-mix-stop', { method: 'POST' });
+        loadOrigMixStatus();
+    }
+    loadOrigMixStatus();
+
+    // ─── Library coverage — single readable panel with live status ────────
+    let _coveragePollInterval = null;
+
+    async function loadCoverage() {
+        try {
+            // Coverage + each batch's status, in parallel. Batch status
+            // tells us if anything is currently running so we can pulse
+            // the bar and show a live counter inline.
+            const [d, fp, art, dsp, lbl, isrc] = await Promise.all([
+                fetch('/api/library/analysis-coverage').then(r => r.json()),
+                fetch('/api/fingerprint/batch-status').then(r => r.json()).catch(() => ({})),
+                fetch('/api/artwork/batch-status').then(r => r.json()).catch(() => ({})),
+                fetch('/api/dsp/check-status').then(r => r.json()).catch(() => ({})),
+                fetch('/api/labels/lookup-batch-status').then(r => r.json()).catch(() => ({})),
+                fetch('/api/isrc/backfill-status').then(r => r.json()).catch(() => ({})),
+            ]);
+            const total = d.total || 0;
+            const pct = (n) => total ? Math.round((n || 0) * 100 / total) : 0;
+            const fmt = (n) => (n || 0).toLocaleString();
+
+            document.getElementById('coverage-headline').innerHTML =
+                `<strong>${fmt(d.fully_analysed)}</strong> of ${fmt(total)} tracks are fully complete — ` +
+                `artwork, sound fingerprint, DSP status and record label all set.`;
+
+            const rows = [
+                ['Artwork',           d.with_artwork,     art],
+                ['Sound fingerprint', d.with_fingerprint, fp],
+                ['DSP status',        d.dsp_checked,      dsp],
+                ['Record label',      d.with_label,       lbl],
+                ['ISRC',              d.with_isrc,        isrc],
+            ];
+            document.getElementById('coverage-rows').innerHTML = rows.map(([lbl, n, st]) => {
+                const running = !!st.running;
+                const runDone  = st.done  || 0;
+                const runTotal = st.total || 0;
+                let runRight = '';
+                if (running) {
+                    runRight = `<span class="cov-row__live">▶ running · ${runDone.toLocaleString()}/${runTotal.toLocaleString()}` +
+                               (st.current ? `<br><span class="cov-row__current">${st.current}</span>` : '') +
+                               `</span>`;
+                } else if (st.stop_reason) {
+                    // Recent batch ended for a reason worth knowing about
+                    // (errors, missing connection, rate-limited, etc.)
+                    runRight = `<span class="cov-row__warn" title="${st.stop_reason}">! ${st.stop_reason.length > 60 ? st.stop_reason.slice(0,60) + '…' : st.stop_reason}</span>`;
+                }
+                return `<div class="cov-row ${running ? 'cov-row--running' : ''}">
+                    <span class="cov-row__label">${lbl}</span>
+                    <div class="cov-row__bar ${running ? 'cov-row__bar--running' : ''}">
+                        <div class="cov-row__fill" style="width:${pct(n)}%"></div>
+                    </div>
+                    <span class="cov-row__num">${fmt(n)} · ${pct(n)}%</span>
+                    ${runRight}
+                </div>`;
+            }).join('');
+
+            // Speed up the refresh while anything is running.
+            const anyRunning = fp.running || art.running || dsp.running || lbl.running || isrc.running;
+            // Flip the Run-all button into Stop-all mode while batches run.
+            const btn = document.getElementById('run-all-btn');
+            if (btn && !btn.disabled) {  // don't fight the in-flight click handler
+                if (anyRunning) {
+                    btn.dataset.mode = 'stop';
+                    btn.textContent  = '■ Stop all';
+                    btn.classList.add('stop-mode');
+                } else {
+                    btn.dataset.mode = 'run';
+                    btn.textContent  = '▶ Run all';
+                    btn.classList.remove('stop-mode');
+                }
+            }
+            const want = anyRunning ? 1500 : 8000;
+            if (_coveragePollInterval && _coveragePollInterval._every !== want) {
+                clearInterval(_coveragePollInterval);
+                _coveragePollInterval = setInterval(loadCoverage, want);
+                _coveragePollInterval._every = want;
+            }
+        } catch (e) { /* silent */ }
+    }
+    loadCoverage();
+    _coveragePollInterval = setInterval(loadCoverage, 8000);
+    _coveragePollInterval._every = 8000;
+
+    // ─── Run-all — fires every "missing only" batch in parallel ──────────
+    // Endpoint config in one place so we can iterate uniformly.
+    // `stop` is the stop endpoint where one exists (artwork can't be stopped
+    // mid-flight; the others can).
+    const RUN_ALL_BATCHES = [
+        { key: 'isrc', label: 'ISRC',             start: '/api/isrc/backfill',
+          status: '/api/isrc/backfill-status',    stop: '/api/isrc/backfill-stop',
+          body: { only_missing: true } },
+        { key: 'fp',  label: 'Sound fingerprint', start: '/api/fingerprint/batch',
+          status: '/api/fingerprint/batch-status', stop: '/api/fingerprint/batch-stop',
+          body: { only_missing: true } },
+        { key: 'art', label: 'Artwork',           start: '/api/artwork/fetch-batch',
+          status: '/api/artwork/batch-status',     stop: '/api/artwork/batch-stop',
+          body: { phase_only: null } },
+        { key: 'dsp', label: 'DSP availability',  start: '/api/dsp/check-batch',
+          status: '/api/dsp/check-status',         stop: '/api/dsp/check-stop',
+          body: { only_untested: true } },
+        { key: 'lbl', label: 'Record labels',     start: '/api/labels/lookup-batch',
+          status: '/api/labels/lookup-batch-status', stop: '/api/labels/lookup-batch-stop',
+          body: { only_missing: true } },
+    ];
+
+    async function _fetchStatuses() {
+        const out = {};
+        await Promise.all(RUN_ALL_BATCHES.map(async b => {
+            try { out[b.key] = await fetch(b.status).then(r => r.json()); }
+            catch (_) { out[b.key] = {}; }
+        }));
+        return out;
+    }
+
+    // Click handler — runs Run-all OR Stop-all depending on current state.
+    // The button label is kept in sync by the coverage poll.
+    async function onRunAllClick() {
+        const btn = document.getElementById('run-all-btn');
+        if (btn.dataset.mode === 'stop') {
+            await stopAllBatches();
+        } else {
+            await runAllBatches();
+        }
+    }
+
+    async function stopAllBatches() {
+        const hint = document.getElementById('run-all-hint');
+        hint.textContent = 'Stopping all batches…';
+        // POST every available stop endpoint in parallel.
+        await Promise.all(RUN_ALL_BATCHES.filter(b => b.stop).map(b =>
+            fetch(b.stop, { method: 'POST' }).catch(() => {})
+        ));
+        // Artwork batch has no stop endpoint — it runs to completion of
+        // whatever it's mid-track on, but new tracks won't be queued
+        // because we don't trigger another start.
+        hint.textContent = 'Stop signal sent. Batches will halt on their next iteration.';
+        // Force an immediate coverage refresh so the button flips back.
+        setTimeout(loadCoverage, 300);
+        setTimeout(loadCoverage, 1500);
+    }
+
+    async function runAllBatches() {
+        const btn  = document.getElementById('run-all-btn');
+        const hint = document.getElementById('run-all-hint');
+
+        // Snapshot before. So we can tell, when it's over, which batches
+        // had work and which were already empty.
+        const before = await _fetchStatuses();
+
+        const willStart = RUN_ALL_BATCHES.filter(b => !before[b.key].running);
+        if (!willStart.length) {
+            hint.textContent = 'All four batches are already running.';
+            return;
+        }
+        const ok = confirm(
+            `Run the following batches in parallel?\n\n  • ` +
+            willStart.map(b => b.label).join('\n  • ') +
+            `\n\nEach runs in the background — you can navigate away. ` +
+            `Coverage above will update as they finish.`
+        );
+        if (!ok) return;
+
+        hint.textContent = 'Kicking off…';
+
+        // POST every start in parallel and AWAIT each response. Anything
+        // that returns non-200 surfaces as a failure in the summary.
+        const startResults = {};
+        await Promise.all(willStart.map(async b => {
+            try {
+                const r = await fetch(b.start, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(b.body),
+                });
+                startResults[b.key] = { http: r.status, body: await r.json().catch(() => ({})) };
+            } catch (e) {
+                startResults[b.key] = { http: 0, body: { error: String(e) } };
+            }
+        }));
+
+        // Wait long enough for the worker threads to either have set
+        // their total / running flag, or to have crashed and stamped a
+        // stop_reason. Then capture a snapshot.
+        await new Promise(r => setTimeout(r, 1500));
+        const afterStart = await _fetchStatuses();
+        console.log('[run-all] start results', startResults);
+        console.log('[run-all] post-start snapshot', afterStart);
+
+        // Build a status line per batch.
+        const lines = willStart.map(b => {
+            const sr = startResults[b.key] || {};
+            const st = afterStart[b.key]   || {};
+            const eligible = sr.body && sr.body.eligible != null ? sr.body.eligible : null;
+            if (sr.http >= 400 || (sr.body && sr.body.error)) {
+                return `✗ ${b.label}: ${(sr.body && sr.body.error) || ('HTTP ' + sr.http)}`;
+            }
+            if (st.running) {
+                return `▶ ${b.label}: ${(st.total || eligible || 0).toLocaleString()} to do`;
+            }
+            if (st.stop_reason) {
+                return `! ${b.label}: ${st.stop_reason}`;
+            }
+            // Not running, no stop reason. Distinguish "0 eligible" from "finished instantly".
+            if (eligible === 0) {
+                return `✓ ${b.label}: nothing to do (0 eligible)`;
+            }
+            if (eligible != null) {
+                return `? ${b.label}: ${eligible.toLocaleString()} eligible but the batch is not running — check server console for a traceback`;
+            }
+            return `? ${b.label}: started but couldn't read status (POST returned ${sr.http})`;
+        });
+        hint.innerHTML = lines.map(l => `<span style="display:block;">${l}</span>`).join('');
+
+        setTimeout(loadCoverage, 300);
+        setTimeout(loadCoverage, 1200);
+
+        // Wait for everything to settle, then post the final summary.
+        const reenableInterval = setInterval(async () => {
+            const now = await _fetchStatuses();
+            if (RUN_ALL_BATCHES.some(b => now[b.key].running)) return;
+            clearInterval(reenableInterval);
+            // (Button state is now driven by loadCoverage based on running flag.)
+            // Final summary with what each batch found / stopped on.
+            const summary = RUN_ALL_BATCHES.map(b => {
+                const s = now[b.key] || {};
+                if (s.stop_reason) return `! ${b.label}: ${s.stop_reason}`;
+                const found = (s.found != null) ? s.found
+                             : (s.found_count != null) ? s.found_count
+                             : null;
+                const errors = s.errors || 0;
+                const done   = s.done   || 0;
+                const parts = [];
+                if (found  != null) parts.push(`${found} found`);
+                if (errors)         parts.push(`${errors} errors`);
+                if (!parts.length)  parts.push(`${done} processed`);
+                return `✓ ${b.label}: ${parts.join(' · ')}`;
+            });
+            hint.innerHTML = `<span style="display:block; color:var(--accent); margin-bottom:4px;">Done.</span>` +
+                summary.map(s => `<span style="display:block;">${s}</span>`).join('');
+            loadCoverage();
+        }, 4000);
+    }
+
+    function showMessage(msg) {
+        document.getElementById('run-all-hint').textContent = msg;
+    }
+
+    // ─── DSP availability batch ────────────────────────────────────────────
+    let dspPollInterval = null;
+
+    async function loadDspStatus() {
+        try {
+            const r = await fetch('/api/dsp/check-status');
+            const d = await r.json();
+            const counts = d.counts || {};
+            const total      = d.total_tracks || 0;
+            const untested   = counts.untested        || 0;
+            const onDsp      = counts.on_dsp      || 0;
+            const notOnDsp   = counts.not_on_dsp  || 0;
+            const skipped    = counts.skipped         || 0;
+            const errored    = counts.error           || 0;
+            const checked    = onDsp + notOnDsp + skipped + errored;
+            const pctFull    = total ? Math.round(checked * 100 / total) : 0;
+
+            document.getElementById('dsp-counts').textContent =
+                `${checked.toLocaleString()} / ${total.toLocaleString()} checked`;
+            document.getElementById('dsp-counts-detail').textContent =
+                `${onDsp.toLocaleString()} on a DSP  ·  ${notOnDsp.toLocaleString()} only here  ·  ` +
+                `${skipped.toLocaleString()} skipped (no artist/title)  ·  ${errored.toLocaleString()} errors  ·  ` +
+                `${untested.toLocaleString()} not yet checked`;
+
+            const stopReasonEl = document.getElementById('dsp-stop-reason');
+            const stopBtn      = document.getElementById('dsp-btn-stop');
+            const untBtn       = document.getElementById('dsp-btn-untested');
+            const allBtn       = document.getElementById('dsp-btn-all');
+
+            if (d.running) {
+                const t = d.total || 1;
+                const runDone = d.done || 0;
+                const runPct  = Math.round(runDone * 100 / t);
+                document.getElementById('dsp-progress-fill').style.width = runPct + '%';
+                document.getElementById('dsp-progress-text').textContent =
+                    `Running · ${runDone}/${t} — ${d.current || ''}` +
+                    `   (on a DSP ${d.found}  ·  only here ${d.not_found}  ·  skipped ${d.skipped})`;
+                document.getElementById('dsp-progress-pct').textContent = runPct + '%';
+                untBtn.disabled = true; allBtn.disabled = true;
+                stopBtn.style.display = '';
+                stopReasonEl.style.display = 'none';
+            } else {
+                document.getElementById('dsp-progress-fill').style.width = pctFull + '%';
+                document.getElementById('dsp-progress-text').textContent =
+                    `${checked.toLocaleString()} of ${total.toLocaleString()} tracks checked against Deezer + iTunes`;
+                document.getElementById('dsp-progress-pct').textContent = pctFull + '%';
+                untBtn.disabled = false;
+                allBtn.disabled = false;
+                stopBtn.style.display = 'none';
+                if (d.stop_reason) {
+                    stopReasonEl.textContent = d.stop_reason;
+                    stopReasonEl.style.display = '';
+                }
+                if (dspPollInterval) { clearInterval(dspPollInterval); dspPollInterval = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function startDspCheck(onlyUntested) {
+        document.getElementById('dsp-btn-untested').disabled = true;
+        document.getElementById('dsp-btn-all').disabled = true;
+        document.getElementById('dsp-progress-text').textContent = 'Starting…';
+        const res = await fetch('/api/dsp/check-batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ only_untested: onlyUntested }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (!dspPollInterval) dspPollInterval = setInterval(loadDspStatus, 1500);
+            loadDspStatus();
+        } else {
+            document.getElementById('dsp-progress-text').textContent = data.error || 'Already running';
+            document.getElementById('dsp-btn-untested').disabled = false;
+            document.getElementById('dsp-btn-all').disabled = false;
+        }
+    }
+
+    async function stopDspCheck() {
+        await fetch('/api/dsp/check-stop', { method: 'POST' });
+        loadDspStatus();
+    }
+
+    loadDspStatus();
+
+    // ─── ISRC backfill batch ───────────────────────────────────────────────
+    let isrcPollInterval = null;
+
+    async function loadIsrcStatus() {
+        try {
+            const r = await fetch('/api/isrc/backfill-status');
+            const d = await r.json();
+            const total    = d.total_tracks || 0;
+            const checked  = d.checked || 0;
+            const withIsrc = d.with_isrc || 0;
+            const pctChecked = total ? Math.round(checked * 100 / total) : 0;
+
+            document.getElementById('isrc-counts').textContent =
+                `${withIsrc.toLocaleString()} with ISRC`;
+            document.getElementById('isrc-counts-detail').textContent =
+                `${withIsrc.toLocaleString()} have an ISRC  ·  ${checked.toLocaleString()} of ${total.toLocaleString()} files scanned`;
+
+            const stopReasonEl = document.getElementById('isrc-stop-reason');
+            const stopBtn = document.getElementById('isrc-btn-stop');
+            const missBtn = document.getElementById('isrc-btn-missing');
+            const allBtn  = document.getElementById('isrc-btn-all');
+
+            if (d.running) {
+                const t = d.total || 1;
+                const runDone = d.done || 0;
+                const runPct  = Math.round(runDone * 100 / t);
+                document.getElementById('isrc-progress-fill').style.width = runPct + '%';
+                document.getElementById('isrc-progress-text').textContent =
+                    `Scanning · ${runDone}/${t} — ${d.current || ''}   (found ${d.found}  ·  none ${d.missing})`;
+                document.getElementById('isrc-progress-pct').textContent = runPct + '%';
+                missBtn.disabled = true; allBtn.disabled = true;
+                stopBtn.style.display = '';
+                stopReasonEl.style.display = 'none';
+                if (!isrcPollInterval) isrcPollInterval = setInterval(loadIsrcStatus, 1200);
+            } else {
+                document.getElementById('isrc-progress-fill').style.width = pctChecked + '%';
+                document.getElementById('isrc-progress-text').textContent =
+                    `${withIsrc.toLocaleString()} tracks carry an ISRC`;
+                document.getElementById('isrc-progress-pct').textContent = pctChecked + '%';
+                missBtn.disabled = false; allBtn.disabled = false;
+                stopBtn.style.display = 'none';
+                if (d.stop_reason) { stopReasonEl.textContent = d.stop_reason; stopReasonEl.style.display = ''; }
+                if (isrcPollInterval) { clearInterval(isrcPollInterval); isrcPollInterval = null; }
+            }
+        } catch (e) { /* silent */ }
+    }
+
+    async function startIsrcBackfill(onlyMissing) {
+        document.getElementById('isrc-btn-missing').disabled = true;
+        document.getElementById('isrc-btn-all').disabled = true;
+        document.getElementById('isrc-progress-text').textContent = 'Starting…';
+        const res = await fetch('/api/isrc/backfill', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ only_missing: onlyMissing }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (!isrcPollInterval) isrcPollInterval = setInterval(loadIsrcStatus, 1200);
+            loadIsrcStatus();
+        } else {
+            document.getElementById('isrc-progress-text').textContent = data.error || 'Already running';
+            document.getElementById('isrc-btn-missing').disabled = false;
+            document.getElementById('isrc-btn-all').disabled = false;
+        }
+    }
+
+    async function stopIsrcBackfill() {
+        await fetch('/api/isrc/backfill-stop', { method: 'POST' });
+        loadIsrcStatus();
+    }
+
+    loadIsrcStatus();
+
+    // ─── Cultural enrichment batches (artist + label origins) ──────────────
+    const _cg = (id) => document.getElementById(id);
+    function _cultureCard(p, statusUrl, startUrl, stopUrl, totalKey, noun) {
+        let poll = null;
+        async function load() {
+            let d = {};
+            try { d = await fetch(statusUrl).then(r => r.json()); } catch (_) {}
+            const total = d[totalKey] || 0, placed = d.with_origin || 0;
+            const pct = total ? Math.round(placed * 100 / total) : 0;
+            _cg(p + '-counts').textContent = `${placed.toLocaleString()} / ${total.toLocaleString()} placed`;
+            _cg(p + '-counts-detail').textContent =
+                `${placed.toLocaleString()} have an origin  ·  ${(d.found || 0).toLocaleString()} found  ·  ${(d.errors || 0).toLocaleString()} no match`;
+            const stopBtn = _cg(p + '-btn-stop'), mB = _cg(p + '-btn-missing'), aB = _cg(p + '-btn-all'), sr = _cg(p + '-stop-reason');
+            if (d.running) {
+                const t = d.total || 1, done = d.done || 0, rp = Math.round(done * 100 / t);
+                _cg(p + '-progress-fill').style.width = rp + '%';
+                _cg(p + '-progress-text').textContent = `Enriching · ${done}/${t} — ${d.current || ''}   (found ${d.found || 0})`;
+                _cg(p + '-progress-pct').textContent = rp + '%';
+                mB.disabled = true; aB.disabled = true; stopBtn.style.display = ''; sr.style.display = 'none';
+                if (!poll) poll = setInterval(load, 1500);
+            } else {
+                _cg(p + '-progress-fill').style.width = pct + '%';
+                _cg(p + '-progress-text').textContent = `${placed.toLocaleString()} of ${total.toLocaleString()} ${noun} have an origin`;
+                _cg(p + '-progress-pct').textContent = pct + '%';
+                mB.disabled = false; aB.disabled = false; stopBtn.style.display = 'none';
+                if (d.stop_reason) { sr.textContent = d.stop_reason; sr.style.display = ''; }
+                if (poll) { clearInterval(poll); poll = null; }
+            }
+        }
+        async function start(onlyMissing) {
+            _cg(p + '-btn-missing').disabled = true; _cg(p + '-btn-all').disabled = true;
+            _cg(p + '-progress-text').textContent = 'Starting…';
+            const res = await fetch(startUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ only_missing: onlyMissing }) });
+            const data = await res.json();
+            if (data.ok) { if (!poll) poll = setInterval(load, 1500); load(); }
+            else { _cg(p + '-progress-text').textContent = data.error || 'Already running'; _cg(p + '-btn-missing').disabled = false; _cg(p + '-btn-all').disabled = false; }
+        }
+        async function stop() { await fetch(stopUrl, { method: 'POST' }); load(); }
+        return { load, start, stop };
+    }
+    const _artistCult = _cultureCard('artistcult', '/api/culture/artists/status', '/api/culture/artists', '/api/culture/artists/stop', 'total_artists', 'artists');
+    const _labelCult  = _cultureCard('labelcult',  '/api/culture/labels/status',  '/api/culture/labels',  '/api/culture/labels/stop',  'total_labels',  'labels');
+    function startArtistCulture(m) { _artistCult.start(m); }
+    function stopArtistCulture()   { _artistCult.stop(); }
+    function startLabelCulture(m)  { _labelCult.start(m); }
+    function stopLabelCulture()    { _labelCult.stop(); }
+    _artistCult.load();
+    _labelCult.load();
+
+    init();
+
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/path_picker.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

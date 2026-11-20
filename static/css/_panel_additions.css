@@ -1,0 +1,126 @@
+        /* Place picker dropdown for "add to place" */
+        #place-picker-dropdown {
+            position: fixed;
+            z-index: 300;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-width: 220px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            overflow: hidden;
+            display: none;
+        }
+        #place-picker-dropdown.open { display: block; }
+        .place-picker-item {
+            padding: 10px 14px;
+            font-size: 0.88rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .place-picker-item:last-child { border-bottom: none; }
+        .place-picker-item:hover { background: var(--surface2); }
+        .place-picker-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+           FILE VERSIONS
+           ============================================================ */
+        .file-version-row {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.84rem;
+        }
+        .file-version-row:last-child { border-bottom: none; }
+        .file-version-row__top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .file-version-badge {
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .file-version-badge.primary {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .file-version-meta {
+            color: var(--muted);
+            font-size: 0.78rem;
+            flex: 1;
+        }
+        .file-version-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .file-version-path {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            opacity: 0.6;
+        }
+
+        /* ============================================================
+           DANGER ZONE / DELETE TRACK
+           ============================================================ */
+        .danger-zone {
+            padding-top: 6px;
+        }
+        .btn--danger {
+            background: none;
+            border: 1px solid #6b2020;
+            border-radius: var(--radius);
+            color: #c07070;
+            padding: 5px 12px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn--danger:hover {
+            background: rgba(192, 112, 112, 0.1);
+            border-color: #c07070;
+        }
+
+        /* ============================================================
+           CONFIRMATION MODAL
+           ============================================================ */
+        #confirm-modal {
+            display: none;
+        }
+        #confirm-modal.open {
+            display: flex;
+        }
+        .confirm-modal__body {
+            max-width: 420px;
+            width: 100%;
+        }
+        .confirm-modal__detail {
+            font-size: 0.82rem;
+            color: var(--muted);
+            background: var(--surface2);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            margin: 12px 0 16px;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+        .confirm-modal__detail strong {
+            color: var(--text);
+            font-weight: 500;
+        }

@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        /* ============================================================
+           Spotify page — left intentionally plain so Daithí can paint
+           the "darker forest / observed by big tech" atmosphere onto
+           it later. Everything here is functional only.
+           ============================================================ */
+        body { background: var(--bg); }
+
+        .spo-layout {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 36px 24px 80px;
+        }
+
+        .spo-header {
+            display: flex; align-items: baseline; justify-content: space-between;
+            margin-bottom: 28px; padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 14px; flex-wrap: wrap;
+        }
+        .spo-header h1 {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-weight: 400;
+            font-size: 2rem;
+            margin: 0;
+        }
+        .spo-header__meta {
+            font-size: 0.82rem; color: var(--muted);
+        }
+        .spo-header__status {
+            color: var(--muted2);
+        }
+        .spo-header__status.connected { color: var(--accent); }
+
+        /* Setup card shown when not yet connected */
+        .spo-setup {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            margin-bottom: 28px;
+        }
+        .spo-setup h2 {
+            font-family: var(--font-serif); font-style: italic;
+            font-weight: 400; font-size: 1.2rem;
+            margin: 0 0 10px;
+        }
+        .spo-setup ol {
+            color: var(--muted);
+            font-size: 0.88rem; line-height: 1.7;
+            padding-left: 22px; margin: 14px 0;
+        }
+        .spo-setup ol code, .spo-redirect-display {
+            background: var(--surface2);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            color: var(--accent);
+            user-select: all;
+        }
+        .spo-redirect-row {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 2px;
+        }
+        .spo-redirect-display {
+            padding: 6px 10px;
+            cursor: text;
+        }
+        .spo-redirect-copy {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.74rem;
+            padding: 4px 10px;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+        .spo-redirect-copy:hover { border-color: var(--accent); color: var(--accent); }
+        .spo-redirect-copy.copied { color: var(--accent); border-color: var(--accent); }
+        .spo-setup__field {
+            display: flex; gap: 8px; align-items: center;
+            margin-top: 14px;
+        }
+        .spo-setup__field input {
+            flex: 1;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            padding: 9px 12px;
+        }
+        .spo-setup__field input:focus { outline: none; border-color: var(--accent); }
+
+        /* Tabs */
+        .spo-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+        .spo-tab {
+            background: none; border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            margin-bottom: -1px;
+        }
+        .spo-tab:hover { color: var(--text); }
+        .spo-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .spo-panel { display: none; }
+        .spo-panel.active { display: block; }
+
+        /* Toolbar above each list */
+        .spo-toolbar {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 14px; flex-wrap: wrap;
+            font-size: 0.84rem; color: var(--muted);
+        }
+        .spo-toolbar input {
+            flex: 1; min-width: 200px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.86rem;
+            padding: 8px 12px;
+        }
+        .spo-toolbar input:focus { outline: none; border-color: var(--accent); }
+
+        /* Track / playlist rows */
+        .spo-list {
+            display: flex; flex-direction: column; gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .spo-row {
+            display: flex; gap: 12px; align-items: center;
+            padding: 10px 14px;
+            background: var(--surface);
+            transition: background 0.12s;
+        }
+        .spo-row:hover { background: var(--surface2); }
+
+        .spo-cover {
+            width: 44px; height: 44px;
+            border-radius: 4px;
+            background: var(--surface2);
+            flex-shrink: 0; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted2); font-size: 0.7rem;
+        }
+        .spo-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+        .spo-row__body { flex: 1; min-width: 0; }
+        .spo-row__title {
+            font-size: 0.92rem; color: var(--text);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .spo-row__sub {
+            font-size: 0.78rem; color: var(--muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            margin-top: 2px;
+        }
+
+        .spo-row__status {
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+            color: var(--muted2);
+        }
+        .spo-row__status.owned    { color: var(--accent); border-color: rgba(120,188,150,0.3); }
+        .spo-row__status.wished   { color: var(--gold); border-color: rgba(212,160,80,0.3); }
+        .spo-row__status.external { color: var(--muted2); }
+
+        .spo-row__actions {
+            display: flex; gap: 4px;
+            opacity: 0;
+            transition: opacity 0.12s;
+            flex-shrink: 0;
+        }
+        .spo-row:hover .spo-row__actions { opacity: 1; }
+        .spo-action {
+            background: none; border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-size: 0.74rem;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-family: var(--font-main);
+            transition: all 0.12s;
+        }
+        .spo-action:hover { border-color: var(--accent); color: var(--accent); }
+        .spo-action.primary { color: var(--gold); border-color: rgba(212,160,80,0.4); }
+        .spo-action.primary:hover { background: rgba(212,160,80,0.08); }
+
+        .spo-empty {
+            padding: 50px 20px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.88rem;
+            background: var(--surface);
+        }
+
+        /* Footer load-more */
+        .spo-load-more {
+            text-align: center; padding: 20px;
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 0.84rem;
+            cursor: pointer;
+        }
+        .spo-load-more:hover { color: var(--accent); }
+
+        .spo-playlist-row {
+            cursor: pointer;
+        }
+        .spo-playlist-row .spo-cover {
+            width: 52px; height: 52px;
+        }
+        .spo-playlist-import {
+            background: rgba(212,160,80,0.08);
+            border-color: rgba(212,160,80,0.4);
+            color: var(--gold);
+        }
+        .spo-owner-badge {
+            font-size: 0.66rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 2px 7px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--muted2);
+            margin-right: 6px;
+        }
+        .spo-owner-badge.mine    { color: var(--accent); border-color: rgba(120,188,150,0.3); }
+        .spo-owner-badge.spotify { color: var(--danger);     border-color: rgba(192,128,112,0.3); }
+        .spo-playlist-row.restricted { opacity: 0.6; }
+        .spo-playlist-row.restricted:hover { opacity: 0.85; }
+
+        /* Inline error banner with a usable hint */
+        .spo-error-banner {
+            background: rgba(192,128,112,0.06);
+            border: 1px solid rgba(192,128,112,0.35);
+            border-radius: var(--radius);
+            color: var(--danger);
+            font-size: 0.84rem;
+            line-height: 1.55;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            white-space: pre-wrap;
+        }
+        .spo-error-banner__title {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--danger);
+            margin-bottom: 6px;
+        }
+        .spo-error-banner a { color: var(--accent); }
+
+        /* Confirm bar when viewing a single playlist */
+        .spo-playlist-header {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px 18px;
+            margin-bottom: 14px;
+            display: flex; gap: 14px; align-items: center;
+            flex-wrap: wrap;
+        }
+        .spo-playlist-header h3 {
+            margin: 0;
+            font-family: var(--font-serif); font-style: italic;
+            font-weight: 400; font-size: 1.1rem;
+            flex: 1;
+        }
+        .spo-playlist-header .back {
+            color: var(--muted); cursor: pointer; background: none; border: none;
+            font-family: var(--font-main); font-size: 0.84rem;
+        }
+        .spo-playlist-header .back:hover { color: var(--accent); }
+
+        /* Stats card at top of connected view */
+        .spo-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        @media (max-width: 720px) { .spo-stats { grid-template-columns: 1fr; } }
+        .spo-stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+        }
+        .spo-stat-card__title {
+            font-size: 0.70rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 12px;
+        }
+        .spo-stat-card__big {
+            font-family: var(--font-mono);
+            font-size: 1.9rem;
+            color: var(--text);
+            line-height: 1.1;
+            margin-bottom: 2px;
+        }
+        .spo-stat-card__big-label {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .spo-stat-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 0;
+            font-size: 0.84rem;
+            color: var(--muted);
+        }
+        .spo-stat-row .num {
+            font-family: var(--font-mono);
+            font-variant-numeric: tabular-nums;
+            min-width: 60px; text-align: right;
+            color: var(--text);
+        }
+        .spo-stat-row .bar {
+            flex: 1; height: 4px; border-radius: 2px;
+            background: var(--surface2);
+            overflow: hidden;
+        }
+        .spo-stat-row .bar-fill { height: 100%; border-radius: 2px; }
+        .spo-stat-row.row-on  .num { color: var(--accent); }
+        .spo-stat-row.row-on  .bar-fill { background: var(--accent); }
+        .spo-stat-row.row-not .num { color: var(--gold); }
+        .spo-stat-row.row-not .bar-fill { background: var(--gold); }
+        .spo-stat-row.row-untested .num { color: var(--muted2); }
+        .spo-stat-row.row-untested .bar-fill { background: var(--muted2); }
+        .spo-stat-hint {
+            margin-top: 12px;
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            border-radius: var(--radius);
+            background: rgba(245,230,176,0.06);
+            border: 1px solid rgba(212,184,122,0.25);
+            color: var(--gold);
+        }
+        .spo-stat-hint a { color: var(--accent); }
+
+        /* Filter pills on the saved-tracks tab */
+        .spo-status-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+        .spo-status-pill {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.78rem;
+            padding: 4px 14px;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+        .spo-status-pill:hover { color: var(--text); border-color: var(--muted); }
+        .spo-status-pill.active {
+            color: var(--accent);
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+        .spo-status-pill .pill-count {
+            margin-left: 6px;
+            opacity: 0.6;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+        }
+        .spo-loadall {
+            background: rgba(212,160,80,0.08);
+            border-color: rgba(212,160,80,0.4);
+            color: var(--gold);
+        }
+
+        /* Small disclaimer line at top — pure fact, no atmosphere */
+        .spo-disclaimer {
+            font-size: 0.74rem; color: var(--muted2);
+            line-height: 1.6;
+            margin: -10px 0 24px;
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="spo-layout floor-sheet">
+    <div class="spo-header">
+        <h1>Spotify</h1>
+        <div class="spo-header__meta">
+            <span class="spo-header__status" id="spo-status">Loading…</span>
+            <button id="spo-disconnect-btn" class="spo-action" style="display:none; margin-left:10px;"
+                    onclick="disconnectSpotify()">Disconnect</button>
+        </div>
+    </div>
+
+    <div class="spo-disclaimer">
+        Music Room reads your Spotify library through their API and, once you sign in here, can
+        play, pause and skip your own Spotify from the deck (Spotify allows that for Premium accounts).
+        Spotify can see these requests. Tokens stay on this machine. No Spotify audio passes through
+        Music Room: Spotify itself plays it. This page is also where you locate music you don't own,
+        recognise what you already do, and trace it back to where the artist sells it.
+    </div>
+
+    <!-- signed in before the deck could drive Spotify: one more sign-in adds it -->
+    <div id="spo-reconnect" class="spo-setup" style="display:none;">
+        <h2>Let the deck play your Spotify</h2>
+        <p style="color:var(--muted); font-size:0.88rem; line-height:1.65; margin:0 0 14px;">
+            You signed in before the deck could play, pause and skip Spotify for you. Sign in once more to allow it.
+            Nothing needs changing on Spotify's developer page.
+        </p>
+        <button class="spo-action primary" onclick="connectSpotify()">Sign in to Spotify again →</button>
+    </div>
+
+    <!-- SETUP — shown when not connected -->
+    <div id="spo-setup" class="spo-setup" style="display:none;">
+        <h2>Connect a Spotify account</h2>
+        <p style="color:var(--muted); font-size:0.88rem; line-height:1.65; margin:0;">
+            One-time setup. You'll need a free Spotify Developer app — it gives you a Client ID
+            without a server-side secret.
+        </p>
+        <ol>
+            <li>Open <a href="#" onclick="openExternal('https://developer.spotify.com/dashboard'); return false;">developer.spotify.com/dashboard</a>.</li>
+            <li>Create app → Web API. Set the redirect URI to
+                <span class="spo-redirect-row">
+                    <input class="spo-redirect-display" id="spo-redirect-uri"
+                           readonly value="http://127.0.0.1:5177/api/spotify/callback"
+                           style="border:none; min-width:300px;"
+                           onclick="this.select()">
+                    <button type="button" class="spo-redirect-copy" id="spo-redirect-copy-btn"
+                            onclick="copyRedirectUri(this)">Copy</button>
+                </span>
+                <span style="display:block; font-size:0.78rem; color:var(--muted2); margin-top:6px;">
+                    Copy it exactly, number included. (Spotify's page calls an address without the number "not secure" and refuses it.)
+                </span>
+            </li>
+            <li>Copy the Client ID and paste it below.</li>
+        </ol>
+        <div class="spo-setup__field">
+            <input type="text" id="spo-client-id-input" placeholder="Spotify Client ID">
+            <button class="spo-action primary" onclick="saveClientId()">Save</button>
+        </div>
+        <div style="font-size:0.78rem; color:var(--muted2); margin-top:14px;">
+            <span id="spo-client-id-status"></span>
+        </div>
+        <div class="spo-setup__field" style="margin-top:18px;">
+            <button class="spo-action primary" id="spo-connect-btn" onclick="connectSpotify()" disabled>Connect Spotify →</button>
+            <span style="font-size:0.78rem; color:var(--muted2);" id="spo-connect-hint">Add the Client ID first.</span>
+        </div>
+    </div>
+
+    <!-- CONNECTED — tabs -->
+    <div id="spo-connected" style="display:none;">
+
+        <!-- STATS CARD -->
+        <div class="spo-stats" id="spo-stats-card">
+            <!-- populated by JS -->
+        </div>
+
+        <div class="spo-tabs">
+            <button class="spo-tab active" onclick="showSpoTab('saved')">Saved tracks</button>
+            <button class="spo-tab" onclick="showSpoTab('playlists')">Playlists</button>
+            <button class="spo-tab" onclick="showSpoTab('only-here')">Only here</button>
+        </div>
+
+        <!-- SAVED TRACKS -->
+        <div id="spo-panel-saved" class="spo-panel active">
+            <div class="spo-status-pills" id="spo-saved-pills">
+                <button class="spo-status-pill active" data-status="all"
+                        onclick="setSavedStatusFilter('all')">All<span class="pill-count" id="pill-count-all"></span></button>
+                <button class="spo-status-pill" data-status="owned"
+                        onclick="setSavedStatusFilter('owned')">Owned locally<span class="pill-count" id="pill-count-owned"></span></button>
+                <button class="spo-status-pill" data-status="wished"
+                        onclick="setSavedStatusFilter('wished')">In wishlist<span class="pill-count" id="pill-count-wished"></span></button>
+                <button class="spo-status-pill" data-status="external"
+                        onclick="setSavedStatusFilter('external')">External only<span class="pill-count" id="pill-count-external"></span></button>
+            </div>
+            <div class="spo-toolbar">
+                <input type="text" id="spo-saved-search" placeholder="Filter the loaded tracks (title, artist, album)…"
+                       oninput="filterSavedTracks()">
+                <span id="spo-saved-meta"></span>
+                <button class="spo-action spo-loadall" id="spo-loadall-btn" onclick="loadAllSavedTracks()">Load all</button>
+                <button class="spo-action" onclick="reloadSavedTracks()">Reload</button>
+            </div>
+            <div class="spo-list" id="spo-saved-list">
+                <div class="spo-empty">Loading…</div>
+            </div>
+        </div>
+
+        <!-- PLAYLISTS -->
+        <div id="spo-panel-playlists" class="spo-panel">
+            <div id="spo-playlists-view">
+                <div class="spo-toolbar">
+                    <span id="spo-playlists-meta"></span>
+                    <button class="spo-action" onclick="reloadPlaylists()">Reload</button>
+                </div>
+                <div class="spo-list" id="spo-playlists-list">
+                    <div class="spo-empty">Loading…</div>
+                </div>
+            </div>
+
+            <div id="spo-playlist-detail" style="display:none;">
+                <div class="spo-playlist-header">
+                    <button class="back" onclick="backToPlaylists()">← Back</button>
+                    <h3 id="spo-pl-detail-name"></h3>
+                    <button class="spo-action primary" onclick="importCurrentPlaylist()">
+                        Import into wishlist
+                    </button>
+                </div>
+                <div class="spo-list" id="spo-pl-detail-list">
+                    <div class="spo-empty">Loading…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ONLY HERE — Music Room tracks confirmed not on Spotify -->
+        <div id="spo-panel-only-here" class="spo-panel">
+            <div class="spo-toolbar">
+                <input type="text" id="spo-onlyhere-search" placeholder="Search your unique tracks…"
+                       oninput="onOnlyHereSearch()">
+                <span id="spo-onlyhere-meta"></span>
+                <button class="spo-action" onclick="loadOnlyHere(true)">Reload</button>
+            </div>
+            <div class="spo-list" id="spo-onlyhere-list">
+                <div class="spo-empty">—</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// =============================================================
+// STATE
+// =============================================================
+let spoStatus = null;
+let savedTracksLoaded = [];          // accumulated across pages
+let savedTracksOffset = 0;
+let savedTracksTotal  = 0;
+let savedTracksFilter = '';
+let savedStatusFilter = 'all';       // all | owned | wished | external
+let savedLoadAllRunning = false;
+let playlists         = [];
+let currentPlaylist   = null;        // {id, name}
+let currentPlaylistTracks = [];
+let onlyHereLoaded    = [];
+let onlyHereTotal     = 0;
+let onlyHereSearch    = '';
+let onlyHereWellId    = null;
+let _onlyHereSearchTimer = null;
+
+// =============================================================
+// HELPERS
+// =============================================================
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Irish date format: ISO/SQLite date → DD/MM/YYYY (never American MM/DD).
+function toIeDate(iso) {
+    if (!iso) return '';
+    const p = String(iso).slice(0, 10).split('-');
+    return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(iso).slice(0, 10);
+}
+
+function openExternal(url) {
+    fetch('/api/open-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+    });
+}
+
+// Copy the redirect URI to the clipboard. Tries the modern async API
+// first; falls back to selecting the input and using execCommand('copy')
+// for environments (some pywebview builds) where navigator.clipboard
+// is unavailable or blocked.
+async function copyRedirectUri(btn) {
+    const inp = document.getElementById('spo-redirect-uri');
+    if (!inp) return;
+    const text = inp.value;
+    let ok = false;
+    try {
+        if (navigator.clipboard && window.isSecureContext !== false) {
+            await navigator.clipboard.writeText(text);
+            ok = true;
+        }
+    } catch (_) { /* fall through */ }
+    if (!ok) {
+        try {
+            inp.removeAttribute('readonly');
+            inp.focus();
+            inp.select();
+            ok = document.execCommand('copy');
+            inp.setAttribute('readonly', '');
+            inp.blur();
+        } catch (_) {}
+    }
+    if (ok) {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied ✓';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1600);
+    } else {
+        // Last resort — select so the user can ⌘C manually.
+        inp.focus();
+        inp.select();
+        btn.textContent = 'Press ⌘C';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2400);
+    }
+}
+
+function showToast(msg, isError) {
+    let el = document.getElementById('spo-toast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'spo-toast';
+        el.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%);' +
+            'background:var(--surface); border:1px solid var(--border); border-radius:6px;' +
+            'padding:10px 18px; font-size:0.86rem; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.5);';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+    el.style.opacity = '1';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.4s'; }, 2200);
+}
+
+// =============================================================
+// CONNECTION / STATUS
+// =============================================================
+async function loadStatus() {
+    const r = await fetch('/api/spotify/status');
+    spoStatus = await r.json();
+    renderConnectionState();
+    if (spoStatus.connected) {
+        loadStats();
+        loadSavedTracks(true);
+        loadPlaylists();
+    }
+}
+
+async function loadStats() {
+    try {
+        const r = await fetch('/api/spotify/stats');
+        const s = await r.json();
+        renderStats(s);
+    } catch (_) { /* silent */ }
+}
+
+function renderStats(s) {
+    const lib    = s.library  || {};
+    const wish   = s.wishlist || {};
+    const spo    = s.spotify  || {};
+    const total  = lib.total || 1;
+    const pct = (n) => Math.round((n || 0) * 100 / total);
+    const card = `
+        <div class="spo-stat-card">
+            <div class="spo-stat-card__title">Your Music Room library</div>
+            <div class="spo-stat-card__big">${(lib.total || 0).toLocaleString()}</div>
+            <div class="spo-stat-card__big-label">tracks</div>
+            <div class="spo-stat-row row-on">
+                <span class="num">${(lib.on_dsp || 0).toLocaleString()}</span>
+                <div class="bar"><div class="bar-fill" style="width:${pct(lib.on_dsp)}%"></div></div>
+                <span>on a DSP</span>
+            </div>
+            <div class="spo-stat-row row-not">
+                <span class="num">${(lib.not_on_dsp || 0).toLocaleString()}</span>
+                <div class="bar"><div class="bar-fill" style="width:${pct(lib.not_on_dsp)}%"></div></div>
+                <span>only here</span>
+            </div>
+            <div class="spo-stat-row row-untested">
+                <span class="num">${(lib.untested || 0).toLocaleString()}</span>
+                <div class="bar"><div class="bar-fill" style="width:${pct(lib.untested)}%"></div></div>
+                <span>untested</span>
+            </div>
+            ${(lib.skipped || 0) + (lib.errors || 0) > 0 ? `
+                <div class="spo-stat-row">
+                    <span class="num">${((lib.skipped || 0) + (lib.errors || 0)).toLocaleString()}</span>
+                    <div class="bar"></div>
+                    <span>skipped / errored</span>
+                </div>` : ''}
+            ${lib.untested && lib.untested > 0 ? `
+                <div class="spo-stat-hint">
+                    ${lib.untested.toLocaleString()} tracks haven't been checked yet.
+                    <a href="/analyse">Run the DSP check</a> to fill these in.
+                </div>` : ''}
+        </div>
+        <div class="spo-stat-card">
+            <div class="spo-stat-card__title">Spotify activity</div>
+            <div class="spo-stat-card__big">${(wish.from_spotify || 0).toLocaleString()}</div>
+            <div class="spo-stat-card__big-label">wishlist items via Spotify</div>
+            <div class="spo-stat-row">
+                <span class="num">${(wish.total || 0).toLocaleString()}</span>
+                <div class="bar"></div>
+                <span>wishlist total</span>
+            </div>
+            <div class="spo-stat-row">
+                <span class="num">${(spo.cached_tracks || 0).toLocaleString()}</span>
+                <div class="bar"></div>
+                <span>Spotify tracks seen</span>
+            </div>
+            <div class="spo-stat-row">
+                <span style="font-size:0.78rem; color:var(--muted2);">
+                    Use <strong>Only here</strong> to see what's unique to your library.
+                    Use <strong>External only</strong> on Saved Tracks to find buy candidates.
+                </span>
+            </div>
+        </div>
+    `;
+    document.getElementById('spo-stats-card').innerHTML = card;
+}
+
+function renderConnectionState() {
+    const setup     = document.getElementById('spo-setup');
+    const connected = document.getElementById('spo-connected');
+    const status    = document.getElementById('spo-status');
+    const disc      = document.getElementById('spo-disconnect-btn');
+    const redirectUriEl = document.getElementById('spo-redirect-uri');
+    if (redirectUriEl && spoStatus.redirect_uri) {
+        // It's an <input> so we set .value (not textContent).
+        redirectUriEl.value = spoStatus.redirect_uri;
+    }
+    const again = document.getElementById('spo-reconnect');
+    if (again) again.style.display = (spoStatus.connected && spoStatus.needs_reconnect) ? '' : 'none';
+
+    if (spoStatus.connected) {
+        setup.style.display = 'none';
+        connected.style.display = '';
+        status.textContent = `Connected as ${spoStatus.user_name || spoStatus.user_id || '—'}`;
+        status.classList.add('connected');
+        disc.style.display = '';
+    } else {
+        setup.style.display = '';
+        connected.style.display = 'none';
+        status.textContent = spoStatus.client_id_set ? 'Not connected' : 'Setup required';
+        status.classList.remove('connected');
+        disc.style.display = 'none';
+        const cidStatus = document.getElementById('spo-client-id-status');
+        const connectBtn = document.getElementById('spo-connect-btn');
+        const connectHint = document.getElementById('spo-connect-hint');
+        if (spoStatus.client_id_set) {
+            cidStatus.textContent = 'Client ID is saved.';
+            cidStatus.style.color = 'var(--accent)';
+            connectBtn.disabled = false;
+            connectHint.textContent = 'Opens Spotify in your browser to authorise.';
+        } else {
+            cidStatus.textContent = '';
+            connectBtn.disabled = true;
+            connectHint.textContent = 'Add the Client ID first.';
+        }
+    }
+}
+
+async function saveClientId() {
+    const val = document.getElementById('spo-client-id-input').value.trim();
+    if (!val) return;
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spotify_client_id: val }),
+    });
+    showToast('Client ID saved');
+    loadStatus();
+}
+
+async function connectSpotify() {
+    const r = await fetch('/api/spotify/auth/start', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok || !data.auth_url) {
+        showToast(data.error || 'Could not start auth', true);
+        return;
+    }
+    // Open Spotify auth in the preferred external browser.
+    openExternal(data.auth_url);
+    showToast('Opened Spotify in your browser. Come back here when done.');
+    // Poll status until connected (or user gives up). A second sign-in (to let
+    // the deck drive Spotify) is done when the new permission has arrived.
+    const needed = !!(spoStatus && spoStatus.needs_reconnect);
+    const intervalId = setInterval(async () => {
+        const sr = await fetch('/api/spotify/status').then(r => r.json());
+        if (sr.connected && !(needed && sr.needs_reconnect)) {
+            clearInterval(intervalId);
+            spoStatus = sr;
+            renderConnectionState();
+            loadSavedTracks(true);
+            loadPlaylists();
+        }
+    }, 1800);
+    setTimeout(() => clearInterval(intervalId), 240000); // give up after 4 minutes
+}
+
+async function disconnectSpotify() {
+    if (!confirm('Disconnect Spotify? Your local cache stays — only the access tokens are wiped.')) return;
+    await fetch('/api/spotify/disconnect', { method: 'POST' });
+    loadStatus();
+}
+
+// =============================================================
+// TABS
+// =============================================================
+function showSpoTab(t) {
+    const order = ['saved','playlists','only-here'];
+    document.querySelectorAll('.spo-tab').forEach((b,i) => {
+        b.classList.toggle('active', order[i] === t);
+    });
+    document.querySelectorAll('.spo-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('spo-panel-' + t).classList.add('active');
+    if (t === 'only-here' && !onlyHereLoaded.length) loadOnlyHere(true);
+}
+
+// =============================================================
+// SAVED TRACKS
+// =============================================================
+async function loadSavedTracks(reset) {
+    if (reset) {
+        savedTracksLoaded = [];
+        savedTracksOffset = 0;
+        savedTracksTotal  = 0;
+        document.getElementById('spo-saved-list').innerHTML = '<div class="spo-empty">Loading…</div>';
+    }
+    const r = await fetch(`/api/spotify/saved-tracks?limit=50&offset=${savedTracksOffset}`);
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById('spo-saved-list').innerHTML =
+            `<div class="spo-empty">${escHtml(data.error || 'Could not load')}</div>`;
+        return;
+    }
+    savedTracksLoaded.push(...(data.items || []));
+    savedTracksOffset += (data.items || []).length;
+    savedTracksTotal = data.total || savedTracksLoaded.length;
+    renderSavedTracks(data.has_more);
+}
+
+function reloadSavedTracks() { loadSavedTracks(true); }
+
+function filterSavedTracks() {
+    savedTracksFilter = document.getElementById('spo-saved-search').value.trim().toLowerCase();
+    renderSavedTracks(savedTracksOffset < savedTracksTotal);
+}
+
+function setSavedStatusFilter(s) {
+    savedStatusFilter = s;
+    document.querySelectorAll('#spo-saved-pills .spo-status-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.status === s);
+    });
+    renderSavedTracks(savedTracksOffset < savedTracksTotal);
+}
+
+// Walk every page of saved tracks so filters work across the whole library.
+async function loadAllSavedTracks() {
+    if (savedLoadAllRunning) return;
+    if (savedTracksOffset >= savedTracksTotal && savedTracksTotal > 0) return; // already loaded
+    savedLoadAllRunning = true;
+    const btn = document.getElementById('spo-loadall-btn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    let safety = 100;  // page cap (50/page × 100 = 5000 saved tracks max)
+    try {
+        while (savedTracksOffset < savedTracksTotal || savedTracksTotal === 0) {
+            const before = savedTracksOffset;
+            await loadSavedTracks(false);
+            btn.textContent = `Loading ${savedTracksLoaded.length} / ${savedTracksTotal || '…'}`;
+            if (savedTracksOffset === before) break; // no progress — bail
+            if (--safety <= 0) break;
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = (savedTracksLoaded.length >= savedTracksTotal && savedTracksTotal > 0)
+            ? 'All loaded ✓' : 'Load all';
+        savedLoadAllRunning = false;
+    }
+}
+
+function _matchesStatusFilter(t) {
+    switch (savedStatusFilter) {
+        case 'owned':    return !!t.owned_track_id;
+        case 'wished':   return !!t.wishlist_id;
+        case 'external': return !t.owned_track_id && !t.wishlist_id;
+        default:         return true;
+    }
+}
+
+function renderSavedTracks(hasMore) {
+    const list = document.getElementById('spo-saved-list');
+    const meta = document.getElementById('spo-saved-meta');
+
+    // Refresh pill counts based on what's currently loaded
+    const counts = { all: savedTracksLoaded.length, owned: 0, wished: 0, external: 0 };
+    savedTracksLoaded.forEach(t => {
+        if (t.owned_track_id)    counts.owned++;
+        else if (t.wishlist_id)  counts.wished++;
+        else                     counts.external++;
+    });
+    ['all','owned','wished','external'].forEach(k => {
+        const el = document.getElementById('pill-count-' + k);
+        if (el) el.textContent = counts[k] ? ` ${counts[k]}` : '';
+    });
+
+    let items = savedTracksLoaded.filter(_matchesStatusFilter);
+    if (savedTracksFilter) {
+        items = items.filter(t =>
+            (t.title  || '').toLowerCase().includes(savedTracksFilter) ||
+            (t.artist || '').toLowerCase().includes(savedTracksFilter) ||
+            (t.album  || '').toLowerCase().includes(savedTracksFilter)
+        );
+    }
+    meta.textContent = `${items.length} shown · ${savedTracksLoaded.length} loaded${savedTracksTotal ? ' of ' + savedTracksTotal + ' saved' : ''}`;
+    if (!items.length) {
+        const why = savedTracksFilter || savedStatusFilter !== 'all'
+            ? 'No tracks match those filters.'
+            : 'No tracks.';
+        list.innerHTML = `<div class="spo-empty">${why}</div>`;
+        return;
+    }
+    // Only show "load 50 more" when there's no active filter that's
+    // narrowing the visible set — otherwise it's confusing.
+    const filterActive = savedTracksFilter || savedStatusFilter !== 'all';
+    list.innerHTML = items.map(renderTrackRow).join('') + (
+        hasMore && !filterActive
+            ? `<div class="spo-load-more" onclick="loadSavedTracks(false)">Load 50 more…</div>`
+            : ''
+    );
+}
+
+function renderTrackRow(t) {
+    const status = t.owned_track_id ? '<span class="spo-row__status owned">In your library</span>'
+                : t.wishlist_id     ? '<span class="spo-row__status wished">In wishlist</span>'
+                : '<span class="spo-row__status external">External only</span>';
+    const cover = t.album_image_url
+        ? `<div class="spo-cover"><img src="${t.album_image_url}" alt=""></div>`
+        : `<div class="spo-cover">♪</div>`;
+    const sub = [t.artist, t.album].filter(Boolean).map(escHtml).join(' · ');
+    const buyButtons = (t.buy_links || []).map(l =>
+        `<button class="spo-action" onclick="openExternal('${l.url.replace(/'/g, "\\'")}')">${escHtml(l.label)}</button>`
+    ).join('');
+    const wishlistBtn = t.owned_track_id
+        ? ''
+        : (t.wishlist_id
+            ? `<button class="spo-action" disabled>✓ Wished</button>`
+            : `<button class="spo-action primary" onclick="addSpotifyTrackToWishlist('${t.spotify_id}', this)">+ Wishlist</button>`);
+    const openInSpotify = t.spotify_url
+        ? `<button class="spo-action" title="Open in Spotify" onclick="openExternal('${t.spotify_url}')">↗</button>`
+        : '';
+    return `<div class="spo-row" data-sid="${t.spotify_id}">
+        ${cover}
+        <div class="spo-row__body">
+            <div class="spo-row__title">${escHtml(t.title || 'Untitled')}</div>
+            <div class="spo-row__sub">${sub}</div>
+        </div>
+        ${status}
+        <div class="spo-row__actions">
+            ${buyButtons}
+            ${wishlistBtn}
+            ${openInSpotify}
+        </div>
+    </div>`;
+}
+
+async function addSpotifyTrackToWishlist(spotifyId, btn) {
+    const t = (savedTracksLoaded.concat(currentPlaylistTracks)).find(x => x.spotify_id === spotifyId);
+    if (!t) return;
+    const r = await fetch('/api/spotify/track-to-wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            spotify_id:  t.spotify_id,
+            title:       t.title,
+            artist:      t.artist,
+            spotify_url: t.spotify_url,
+        }),
+    });
+    const data = await r.json();
+    if (!r.ok) { showToast(data.error || 'Failed', true); return; }
+    // Update local copies + UI
+    [savedTracksLoaded, currentPlaylistTracks].forEach(list => {
+        const item = list.find(x => x.spotify_id === spotifyId);
+        if (item) item.wishlist_id = data.wishlist_id;
+    });
+    showToast(data.already ? 'Already in wishlist' : 'Added to wishlist');
+    if (btn) { btn.textContent = '✓ Wished'; btn.disabled = true; btn.classList.remove('primary'); }
+}
+
+// =============================================================
+// PLAYLISTS
+// =============================================================
+async function loadPlaylists() {
+    document.getElementById('spo-playlists-list').innerHTML = '<div class="spo-empty">Loading…</div>';
+    const r = await fetch('/api/spotify/playlists?limit=50');
+    const data = await r.json();
+    if (!r.ok) {
+        document.getElementById('spo-playlists-list').innerHTML =
+            `<div class="spo-empty">${escHtml(data.error || 'Could not load')}</div>`;
+        return;
+    }
+    playlists = data.items || [];
+    renderPlaylists();
+}
+function reloadPlaylists() { loadPlaylists(); }
+
+function renderPlaylists() {
+    const list = document.getElementById('spo-playlists-list');
+    const mine = playlists.filter(p => p.is_mine).length;
+    const others = playlists.length - mine;
+    document.getElementById('spo-playlists-meta').textContent =
+        playlists.length
+            ? `${playlists.length} playlist${playlists.length === 1 ? '' : 's'} · ${mine} yours · ${others} from elsewhere`
+            : '';
+    if (!playlists.length) {
+        list.innerHTML = '<div class="spo-empty">No playlists.</div>';
+        return;
+    }
+    // Sort: your own first, then alpha by owner name
+    const sorted = playlists.slice().sort((a, b) => {
+        if (a.is_mine !== b.is_mine) return a.is_mine ? -1 : 1;
+        return (a.owner || '').localeCompare(b.owner || '');
+    });
+    list.innerHTML = sorted.map(p => {
+        const cover = p.image_url
+            ? `<div class="spo-cover"><img src="${p.image_url}" alt=""></div>`
+            : `<div class="spo-cover">♪</div>`;
+        const badge = p.is_mine
+            ? `<span class="spo-owner-badge mine">you</span>`
+            : p.is_spotify_owned
+                ? `<span class="spo-owner-badge spotify">Spotify</span>`
+                : `<span class="spo-owner-badge">${escHtml(p.owner || 'other')}</span>`;
+        // Spotify-owned playlists are unreadable for new dev apps — visually mark them.
+        const restrictedCls = p.is_spotify_owned ? ' restricted' : '';
+        const safeName = escHtml(p.name).replace(/'/g, "\\'");
+        return `<div class="spo-row spo-playlist-row${restrictedCls}"
+                     onclick="openPlaylist('${p.id}', '${safeName}', ${p.is_spotify_owned ? 'true' : 'false'})">
+            ${cover}
+            <div class="spo-row__body">
+                <div class="spo-row__title">${badge}${escHtml(p.name || 'Untitled playlist')}</div>
+                <div class="spo-row__sub">${p.track_count != null ? p.track_count + ' tracks' : '— tracks'} · ${escHtml(p.owner || '')}</div>
+            </div>
+            <div class="spo-row__actions">
+                <button class="spo-action spo-playlist-import"
+                        onclick="event.stopPropagation(); importPlaylist('${p.id}', '${safeName}', this)">
+                    Import → wishlist
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function openPlaylist(id, name, isSpotifyOwned) {
+    currentPlaylist = { id, name };
+    document.getElementById('spo-playlists-view').style.display = 'none';
+    document.getElementById('spo-playlist-detail').style.display = '';
+    document.getElementById('spo-pl-detail-name').textContent = name || 'Playlist';
+    document.getElementById('spo-pl-detail-list').innerHTML = '<div class="spo-empty">Loading…</div>';
+    const r = await fetch(`/api/spotify/playlist/${id}/tracks`);
+    const data = await r.json();
+    const detailList = document.getElementById('spo-pl-detail-list');
+    if (!r.ok) {
+        const title = `Couldn't load this playlist (HTTP ${data.status || r.status})`;
+        const body  = data.hint || data.error || 'Could not load.';
+        // For known-Spotify-owned playlists, lead with the November-2024 fact.
+        const lead = isSpotifyOwned
+            ? `This is a Spotify-curated playlist. Spotify restricted third-party access to these for any dev app created after November 2024 — your app can see the playlist exists, but not the tracks inside.\n\n`
+            : '';
+        detailList.innerHTML = `
+            <div class="spo-error-banner">
+                <div class="spo-error-banner__title">${escHtml(title)}</div>
+                ${escHtml(lead + body)}
+            </div>`;
+        currentPlaylistTracks = [];
+        return;
+    }
+    currentPlaylistTracks = data.items || [];
+    detailList.innerHTML = currentPlaylistTracks.length
+        ? currentPlaylistTracks.map(renderTrackRow).join('')
+        : '<div class="spo-empty">This playlist is empty.</div>';
+}
+
+function backToPlaylists() {
+    currentPlaylist = null;
+    currentPlaylistTracks = [];
+    document.getElementById('spo-playlist-detail').style.display = 'none';
+    document.getElementById('spo-playlists-view').style.display = '';
+}
+
+async function importPlaylist(id, name, btn) {
+    if (!confirm(`Import every track in "${name}" into your wishlist?`)) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+    const r = await fetch('/api/spotify/import-playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlist_id: id }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+        // If we have a hint, the user needs the full message — alert() reads
+        // better than a toast for multi-line diagnostics.
+        if (data.hint) alert(data.hint);
+        else           showToast(data.error || 'Import failed', true);
+        if (btn) { btn.disabled = false; btn.textContent = 'Import → wishlist'; }
+        return;
+    }
+    showToast(`Added ${data.added} · skipped ${data.skipped} · already owned ${data.owned_skipped}`);
+    if (btn) { btn.disabled = false; btn.textContent = 'Imported ✓'; }
+}
+
+async function importCurrentPlaylist() {
+    if (!currentPlaylist) return;
+    await importPlaylist(currentPlaylist.id, currentPlaylist.name, null);
+    // Refresh statuses on the current playlist view
+    openPlaylist(currentPlaylist.id, currentPlaylist.name);
+}
+
+// =============================================================
+// ONLY HERE — Music Room tracks confirmed not on Spotify
+// =============================================================
+function onOnlyHereSearch() {
+    const val = document.getElementById('spo-onlyhere-search').value.trim();
+    clearTimeout(_onlyHereSearchTimer);
+    _onlyHereSearchTimer = setTimeout(() => {
+        onlyHereSearch = val;
+        loadOnlyHere(true);
+    }, 220);
+}
+
+async function loadOnlyHere(reset) {
+    if (reset) {
+        onlyHereLoaded = [];
+        document.getElementById('spo-onlyhere-list').innerHTML =
+            '<div class="spo-empty">Loading…</div>';
+    }
+    const offset = onlyHereLoaded.length;
+    const qs = new URLSearchParams({ limit: 100, offset });
+    if (onlyHereSearch) qs.set('search', onlyHereSearch);
+    const r = await fetch('/api/dsp/only-here?' + qs.toString());
+    const data = await r.json();
+    onlyHereTotal  = data.total || 0;
+    onlyHereWellId = data.well_id || null;
+    onlyHereLoaded.push(...(data.items || []));
+    renderOnlyHere();
+}
+
+function renderOnlyHere() {
+    const list = document.getElementById('spo-onlyhere-list');
+    const meta = document.getElementById('spo-onlyhere-meta');
+    if (!onlyHereTotal) {
+        meta.textContent = '';
+        list.innerHTML = `<div class="spo-empty">
+            ${onlyHereSearch
+                ? 'No matches in your "only here" tracks.'
+                : 'No tracks confirmed not-on-Spotify yet. Run the DSP check in <a href="/analyse" style="color:var(--accent);">Analyse</a> to fill this in.'}
+        </div>`;
+        return;
+    }
+    meta.textContent = `${onlyHereLoaded.length} shown of ${onlyHereTotal.toLocaleString()}`;
+    const hasMore = onlyHereLoaded.length < onlyHereTotal;
+    list.innerHTML = onlyHereLoaded.map(renderOnlyHereRow).join('') + (
+        hasMore
+            ? `<div class="spo-load-more" onclick="loadOnlyHere(false)">Load 100 more…</div>`
+            : ''
+    );
+}
+
+function renderOnlyHereRow(t) {
+    const cover = t.artwork_path
+        ? `<div class="spo-cover"><img src="/api/artwork/${t.id}" alt=""></div>`
+        : `<div class="spo-cover">♪</div>`;
+    const sub = [t.artist_name, t.album, t.year, t.label, t.file_format].filter(Boolean).map(escHtml).join(' · ');
+    const checked = toIeDate(t.dsp_checked_at);
+    const openHref = onlyHereWellId ? `/place/${onlyHereWellId}?track=${t.id}` : '#';
+    return `<div class="spo-row">
+        ${cover}
+        <div class="spo-row__body">
+            <div class="spo-row__title">${escHtml(t.title || 'untitled')}</div>
+            <div class="spo-row__sub">${sub}</div>
+        </div>
+        <span class="spo-row__status" style="color:var(--gold); border-color:rgba(212,184,122,0.3);" title="Last checked ${checked}">only here</span>
+        <div class="spo-row__actions">
+            <a href="${openHref}" class="spo-action" style="text-decoration:none;">Open →</a>
+        </div>
+    </div>`;
+}
+
+// =============================================================
+// INIT
+// =============================================================
+loadStatus();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

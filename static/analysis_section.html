@@ -1,0 +1,49 @@
+    <!-- ANALYSIS -->
+    <div class="track-panel__section" id="analysis-section-${track.id}">
+        <div class="track-panel__section-heading">
+            Analysis
+            ${!primary.has_analysis && primary.id ? `
+                <span style="float:right;">
+                    <button class="btn-verify" id="analyse-btn-${primary.id}"
+                            onclick="triggerAnalysis(${primary.id}, ${track.id})"
+                            style="font-size:0.72rem; padding:2px 10px;">
+                        ⟳ Analyse
+                    </button>
+                </span>` : ''}
+        </div>
+        <div id="analysis-content-${track.id}">
+            ${primary.bpm || primary.key_note ? `
+            <div class="analysis-row">
+                <span class="analysis-label">BPM</span>
+                <span class="analysis-value ${primary.bpm_verified ? '' : 'unverified'}" id="bpm-val-${track.id}">${primary.bpm || '—'}</span>
+                <div class="analysis-actions">
+                    <button class="btn-verify ${primary.bpm_verified ? 'verified' : ''}" onclick="verifyBpm(${track.id}, ${primary.bpm || 0})">✓</button>
+                    <button class="btn-verify" onclick="editBpm(${track.id})">✎</button>
+                </div>
+            </div>
+            <div class="analysis-row">
+                <span class="analysis-label">Key</span>
+                <span class="analysis-value ${primary.key_verified ? '' : 'unverified'}" id="key-val-${track.id}">
+                    ${primary.key_note ? primary.key_note + (primary.key_scale === 'minor' ? ' minor' : ' major') : '—'}
+                </span>
+                <div class="analysis-actions">
+                    <button class="btn-verify ${primary.key_verified ? 'verified' : ''}" onclick="verifyKey(${track.id}, '${primary.key_note||''}', '${primary.key_scale||''}')">✓</button>
+                    <button class="btn-verify" onclick="editKey(${track.id})">✎</button>
+                </div>
+            </div>` : `<div style="font-size:0.8rem; color:var(--muted); padding:6px 0;">No analysis yet.</div>`}
+            ${primary.bass_energy ? `
+            <div class="analysis-row">
+                <span class="analysis-label">Freq</span>
+                <div style="display:flex; gap:8px; align-items:center; flex:1;">
+                    <div class="freq-bar" style="width:100%;">
+                        <div class="freq-bar__bass"   style="width:${primary.bass_energy*100}%"></div>
+                        <div class="freq-bar__mid"    style="width:${primary.mid_energy*100}%"></div>
+                        <div class="freq-bar__treble" style="width:${primary.treble_energy*100}%"></div>
+                    </div>
+                    <span style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
+                        B${Math.round(primary.bass_energy*100)} M${Math.round(primary.mid_energy*100)} T${Math.round(primary.treble_energy*100)}
+                    </span>
+                </div>
+            </div>` : ''}
+        </div>
+    </div>

@@ -1,0 +1,1437 @@
+{# -- Spéaclaí v3 — clean adaptive data scope over a place's library --
+   - Field map (scatter) — pick any field for X / Y / colour / size
+   - World — Leaflet with dark-tile basemap, tracks by artist location
+   - Wheel — Camelot clock by detected key
+   Adaptive: new fields appear automatically as choices.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectacles — {{ place.name }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        :root {
+            --bg-deep:     #e7d9ba;
+            --bg-mid:      #ede1c4;
+            --bg-soft:     #f5edd6;
+            --line:        #c6b487;
+            --line-soft:   #d8c69c;
+            --text-strong: #241d10;
+            --text:        #2e2718;
+            --text-soft:   #6c5d40;
+            --text-dim:    #8a7a58;
+            --warm:        #a8822c;
+            --warm-hot:    #8a6a1e;
+        }
+
+        body { margin: 0; overflow: hidden; background: var(--bg-deep); color: var(--text); }
+
+        .speclai-shell {
+            position: fixed;
+            inset: 53px 0 0 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-deep);
+        }
+
+        /* TOP BAR — place name + mode tabs + close */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--line-soft);
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        .top-bar__title {
+            font-family: var(--font-celtic);
+            font-size: 1.05rem;
+            color: var(--text-strong);
+            letter-spacing: 0.04em;
+            margin: 0;
+        }
+        .top-bar__title::first-letter {
+            font-size: 1.4em;
+            color: var(--warm);
+        }
+        .top-bar__title .label {
+            display: inline;
+            font-family: var(--font-main);
+            font-size: 0.66rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            margin-left: 14px;
+            font-weight: 500;
+        }
+
+        .mode-tabs { display: flex; gap: 2px; background: var(--bg-mid); border: 1px solid var(--line-soft); border-radius: 100px; padding: 3px; }
+        .mode-tab {
+            background: none; border: none;
+            color: var(--text-soft);
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            font-family: var(--font-main);
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 100px;
+            transition: all 0.15s ease;
+            letter-spacing: 0.02em;
+        }
+        .mode-tab:hover { color: var(--text); }
+        .mode-tab.active { background: var(--bg-soft); color: var(--text-strong); }
+
+        .top-bar__close {
+            background: none;
+            border: 1px solid var(--line);
+            color: var(--text-soft);
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 0.78rem;
+            font-family: var(--font-main);
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .top-bar__close:hover { color: var(--text-strong); border-color: var(--text-soft); text-decoration: none; }
+
+        /* AXES BAR — second row, picker dropdowns */
+        .axes-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--line-soft);
+            background: var(--bg-mid);
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            min-height: 44px;
+        }
+        .axis-pick {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .axis-pick__label {
+            font-size: 0.62rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            font-weight: 500;
+        }
+        .axis-pick__select {
+            background: var(--bg-soft);
+            border: 1px solid var(--line);
+            color: var(--text);
+            padding: 5px 10px;
+            font-family: var(--font-main);
+            font-size: 0.82rem;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 130px;
+        }
+        .axis-pick__select:hover, .axis-pick__select:focus {
+            border-color: var(--warm);
+            outline: none;
+        }
+        .axes-bar__note {
+            color: var(--text-soft);
+            font-size: 0.78rem;
+            font-style: italic;
+            font-family: var(--font-serif);
+            margin-left: auto;
+        }
+
+        /* MAIN STAGE — fills remaining space */
+        .stage {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Direct child only — must NOT match Leaflet's internal overlay <svg>,
+           which Leaflet sizes itself (matching it forces it to 0×0 and the
+           map markers vanish). */
+        .stage > svg, .stage .leaflet-container {
+            position: absolute;
+            inset: 0;
+            width: 100%; height: 100%;
+        }
+        .leaflet-container { background: var(--bg-deep); }
+        .leaflet-control-attribution {
+            background: rgba(245,237,214,0.85) !important;
+            color: var(--text-dim) !important;
+            font-size: 0.66rem !important;
+        }
+        .leaflet-control-attribution a { color: var(--text-soft) !important; }
+
+        /* FILTER POD — floating bottom-left */
+        .filter-pod {
+            position: absolute;
+            left: 18px; bottom: 18px;
+            background: rgba(245,237,214,0.95);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px 16px;
+            min-width: 260px;
+            max-width: 320px;
+            backdrop-filter: blur(8px);
+            z-index: 500;
+        }
+        .filter-pod__title {
+            font-size: 0.62rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            font-weight: 500;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .filter-pod__title__count {
+            color: var(--warm);
+            font-size: 0.72rem;
+            letter-spacing: 0.04em;
+            text-transform: none;
+            font-family: var(--font-mono);
+        }
+        .filter-pod.collapsed .filter-pod__body { display: none; }
+
+        .filter-row {
+            display: flex; align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .filter-row__label {
+            font-size: 0.74rem;
+            color: var(--text-soft);
+            min-width: 50px;
+        }
+        .filter-row input[type="number"] {
+            background: var(--bg-soft);
+            border: 1px solid var(--line);
+            color: var(--text);
+            padding: 4px 8px;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            border-radius: 3px;
+            width: 70px;
+        }
+        .filter-row input[type="number"]:focus { outline: none; border-color: var(--warm); }
+
+        .tag-set { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; max-height: 110px; overflow-y: auto; }
+        .tag-chip {
+            background: var(--bg-soft);
+            border: 1px solid var(--line);
+            color: var(--text-soft);
+            padding: 2px 8px;
+            border-radius: 100px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .tag-chip:hover { color: var(--text); border-color: var(--text-soft); }
+        .tag-chip.active {
+            color: #2a2110;
+            background: var(--warm);
+            border-color: var(--warm);
+            font-weight: 500;
+        }
+        .tag-chip__count {
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            font-size: 0.66rem;
+            margin-left: 4px;
+        }
+        .tag-chip.active .tag-chip__count { color: rgba(8,9,11,0.55); }
+
+        /* DETAIL CARD — floating right */
+        .detail-card {
+            position: absolute;
+            top: 18px; right: 18px;
+            width: 300px;
+            background: rgba(245,237,214,0.96);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 18px;
+            backdrop-filter: blur(8px);
+            z-index: 500;
+            transform: translateX(380px);
+            transition: transform 0.3s ease;
+        }
+        .detail-card.open { transform: translateX(0); }
+        .detail-card__close {
+            position: absolute; top: 8px; right: 10px;
+            background: none; border: none;
+            color: var(--text-soft);
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .detail-card__close:hover { color: var(--text-strong); }
+        .detail-card__title {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.1rem;
+            color: var(--text-strong);
+            line-height: 1.3;
+            margin-bottom: 2px;
+            padding-right: 20px;
+        }
+        .detail-card__artist {
+            color: var(--text);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .detail-card dl {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            row-gap: 5px;
+            column-gap: 12px;
+            font-size: 0.8rem;
+            margin: 0;
+        }
+        .detail-card dt {
+            font-size: 0.62rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            padding-top: 2px;
+        }
+        .detail-card dd { margin: 0; color: var(--text-strong); font-family: var(--font-mono); font-size: 0.82rem; }
+        .detail-card__tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
+        .detail-card__tags .tag-chip { font-size: 0.7rem; }
+        .detail-card__open {
+            margin-top: 16px;
+            display: inline-block;
+            background: var(--oxblood);
+            color: #fbf4dd;
+            padding: 7px 14px;
+            border-radius: 4px;
+            font-family: var(--font-main);
+            font-size: 0.82rem;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        .detail-card__open:hover { background: #842f22; text-decoration: none; color: #fbf4dd; }
+
+        /* SCATTER / WHEEL */
+        .track-dot { cursor: pointer; transition: opacity 0.15s ease; }
+        .track-dot:hover { stroke: var(--text-strong); stroke-width: 1.2; }
+        .track-dot.selected { stroke: var(--warm); stroke-width: 1.8; }
+
+        .axis-label {
+            font-family: var(--font-main);
+            font-size: 0.72rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            fill: var(--text-soft);
+        }
+        .axis text { font-family: var(--font-mono); font-size: 0.7rem; fill: var(--text-soft); }
+        .axis line, .axis path { stroke: var(--line); }
+        .axis-band-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            fill: var(--text);
+            text-anchor: middle;
+        }
+        .axis-band-tick { stroke: var(--line-soft); stroke-dasharray: 1 3; }
+
+        .legend-pod {
+            position: absolute;
+            top: 18px; right: 18px;
+            background: rgba(245,237,214,0.92);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 8px 12px;
+            backdrop-filter: blur(8px);
+            font-size: 0.74rem;
+            color: var(--text);
+            z-index: 100;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .detail-card.open ~ .legend-pod { display: none; }
+        .legend-pod__title {
+            font-size: 0.62rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-soft);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .legend-pod__row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+        .legend-pod__swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        .wheel-letter {
+            font-family: var(--font-mono);
+            fill: var(--text-soft);
+            font-size: 0.74rem;
+            text-anchor: middle;
+        }
+        .wheel-letter.B { fill: var(--warm); }
+        .wheel-centre {
+            font-family: var(--font-celtic);
+            fill: var(--text-soft);
+            font-size: 0.95rem;
+            text-anchor: middle;
+        }
+
+        /* Empty state */
+        .empty {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-soft);
+            font-family: var(--font-serif);
+            font-style: italic;
+            pointer-events: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="speclai-shell">
+    <div class="top-bar">
+        <h1 class="top-bar__title">{{ place.name }} <span class="label">— Spectacles</span></h1>
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="scatter">Map</button>
+            <button class="mode-tab"        data-mode="genres">Genres</button>
+            <button class="mode-tab"        data-mode="world">World</button>
+            <button class="mode-tab"        data-mode="wheel">Camelot</button>
+        </div>
+        <a class="top-bar__close" href="/place/{{ place.id }}">← back to place</a>
+    </div>
+
+    <div class="axes-bar" id="axes-bar"></div>
+
+    <div class="stage" id="stage">
+        <!-- Filled per mode -->
+    </div>
+
+    <div class="filter-pod" id="filter-pod">
+        <div class="filter-pod__title" onclick="toggleFilterPod()">
+            <span>Filters</span>
+            <span class="filter-pod__title__count"><span id="filtered-count">0</span> / <span id="track-count">0</span></span>
+        </div>
+        <div class="filter-pod__body">
+            <div class="filter-row">
+                <span class="filter-row__label">BPM</span>
+                <input type="number" id="bpm-min" placeholder="min" step="1">
+                <input type="number" id="bpm-max" placeholder="max" step="1">
+            </div>
+            <div class="filter-row">
+                <span class="filter-row__label">Year</span>
+                <input type="number" id="year-min" placeholder="min" step="1">
+                <input type="number" id="year-max" placeholder="max" step="1">
+            </div>
+            <div class="filter-row__label" style="margin-top:10px;">Genres</div>
+            <div class="tag-set" id="genre-set"></div>
+            <div class="filter-row__label" style="margin-top:10px;">Tags</div>
+            <div class="tag-set" id="tag-set"></div>
+        </div>
+    </div>
+
+    <div class="detail-card" id="detail-card"></div>
+    <div class="legend-pod" id="legend-pod" style="display:none;"></div>
+</div>
+
+<script>
+const PLACE_ID = {{ place.id }};
+
+// =============================================================
+// FIELDS — every queryable track dimension lives here.
+// Add one and it appears in every picker automatically.
+// =============================================================
+const FIELDS = [
+    { key:'bpm',               label:'BPM',                kind:'numeric',     get:t=>t.bpm },
+    { key:'year',              label:'Year',               kind:'numeric',     get:t=>t.year },
+    { key:'loudness_rms',      label:'Loudness (RMS)',     kind:'numeric',     get:t=>t.loudness_rms },
+    { key:'dynamic_range',     label:'Dynamic range',      kind:'numeric',     get:t=>t.dynamic_range },
+    { key:'brightness_score',  label:'Brightness (Presence + Brilliance)', kind:'numeric', get:t=>t.brightness_score },
+    { key:'spectral_centroid', label:'Spectral centroid (raw)', kind:'numeric', get:t=>t.spectral_centroid },
+    { key:'band_sub',          label:'Sub (20-60Hz)',      kind:'numeric',     get:t=>t.band_sub },
+    { key:'band_bass',         label:'Bass (60-250Hz)',    kind:'numeric',     get:t=>t.band_bass },
+    { key:'band_lowmid',       label:'Low-mid (250-500Hz)',kind:'numeric',     get:t=>t.band_lowmid },
+    { key:'band_body',         label:'Body (0.5-2kHz)',    kind:'numeric',     get:t=>t.band_body },
+    { key:'band_presence',     label:'Presence (2-5kHz)',  kind:'numeric',     get:t=>t.band_presence },
+    { key:'band_brilliance',   label:'Brilliance (5-11kHz)', kind:'numeric',   get:t=>t.band_brilliance },
+    { key:'duration_sec',      label:'Duration',           kind:'numeric',     get:t=>t.duration_sec },
+    { key:'note_count',        label:'Notes written',      kind:'numeric',     get:t=>t.note_count },
+    { key:'place_count',       label:'Places it lives in', kind:'numeric',     get:t=>t.place_count },
+    { key:'artist_name',       label:'Artist',             kind:'categorical', get:t=>t.artist_name },
+    { key:'label',             label:'Label',              kind:'categorical', get:t=>t.label },
+    { key:'genre',             label:'Genre',              kind:'categorical', get:t=>(t.genres&&t.genres[0])?t.genres[0].name:null },
+    { key:'country',           label:'Artist country',     kind:'categorical', get:t=>t.country },
+    { key:'city',              label:'Artist city',        kind:'categorical', get:t=>t.city },
+    { key:'artist_gender',     label:'Artist gender',      kind:'categorical', get:t=>t.artist_gender },
+    { key:'artist_scene',      label:'Artist scene',       kind:'categorical', get:t=>t.artist_scene },
+    { key:'key_camelot',       label:'Key (Camelot)',      kind:'categorical', get:t=>trackCamelot(t) },
+    { key:'key_note',          label:'Key (note)',         kind:'categorical', get:t=>t.key_note },
+    { key:'file_format',       label:'Format',             kind:'categorical', get:t=>t.file_format },
+    { key:'source_type',       label:'Source',             kind:'categorical', get:t=>t.source_type },
+    { key:'moment',            label:'Moment',             kind:'categorical', get:t=>t.moment },
+    { key:'decade',            label:'Decade',             kind:'categorical', get:t=>t.year?(Math.floor(t.year/10)*10)+'s':null },
+    { key:'primary_tag',       label:'Primary tag',        kind:'categorical', get:t=>(t.tags&&t.tags[0])?t.tags[0].name:null },
+];
+const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f=>[f.key,f]));
+function numericFields() { return FIELDS.filter(f=>f.kind==='numeric'); }
+
+// Recorded music was invented ~1877 (Edison). Anything earlier (year 0,
+// "202" typos, etc.) is bad metadata — treat it as no year so it never
+// drags the axis or invents a fake decade.
+const MIN_YEAR = 1877;
+function cleanYear(y) {
+    return (y != null && +y >= MIN_YEAR && +y <= 2100) ? +y : null;
+}
+
+const CAMELOT_MAP = {
+    'C major':'8B','G major':'9B','D major':'10B','A major':'11B','E major':'12B','B major':'1B',
+    'F# major':'2B','C# major':'3B','Ab major':'4B','Eb major':'5B','Bb major':'6B','F major':'7B',
+    'A minor':'8A','E minor':'9A','B minor':'10A','F# minor':'11A','C# minor':'12A','Ab minor':'1A',
+    'Eb minor':'2A','Bb minor':'3A','F minor':'4A','C minor':'5A','G minor':'6A','D minor':'7A',
+};
+function trackCamelot(t) {
+    if (!t.key_note) return null;
+    return CAMELOT_MAP[`${t.key_note} ${t.key_scale||'major'}`] || null;
+}
+
+const CITY_COORDS = {
+    'berlin':[13.40,52.52],'london':[-0.13,51.51],'manchester':[-2.24,53.48],
+    'glasgow':[-4.25,55.86],'edinburgh':[-3.19,55.95],'dublin':[-6.27,53.35],
+    'belfast':[-5.93,54.60],'galway':[-9.05,53.27],'cork':[-8.47,51.90],
+    'paris':[2.35,48.86],'amsterdam':[4.90,52.37],'rotterdam':[4.48,51.92],
+    'antwerp':[4.40,51.22],'brussels':[4.35,50.85],'cologne':[6.96,50.94],
+    'hamburg':[10.00,53.55],'munich':[11.58,48.14],'leipzig':[12.37,51.34],
+    'frankfurt':[8.68,50.11],'copenhagen':[12.57,55.68],'stockholm':[18.06,59.33],
+    'oslo':[10.75,59.91],'helsinki':[24.94,60.17],'gothenburg':[11.97,57.71],
+    'reykjavik':[-21.94,64.15],'lisbon':[-9.14,38.72],'porto':[-8.61,41.15],
+    'madrid':[-3.70,40.42],'barcelona':[2.17,41.39],'rome':[12.50,41.90],
+    'milan':[9.19,45.46],'naples':[14.27,40.85],'palermo':[13.36,38.12],
+    'athens':[23.73,37.98],'istanbul':[28.98,41.01],'budapest':[19.04,47.50],
+    'prague':[14.42,50.07],'warsaw':[21.01,52.23],'krakow':[19.94,50.06],
+    'vienna':[16.37,48.21],'zurich':[8.55,47.37],'tel aviv':[34.78,32.08],
+    'beirut':[35.50,33.89],'cairo':[31.24,30.04],'casablanca':[-7.59,33.57],
+    'tunis':[10.18,36.81],'lagos':[3.38,6.52],'accra':[-0.19,5.55],
+    'johannesburg':[28.05,-26.20],'cape town':[18.42,-33.92],'nairobi':[36.82,-1.29],
+    'kingston':[-76.79,17.97],'havana':[-82.36,23.13],'mexico city':[-99.13,19.43],
+    'rio de janeiro':[-43.17,-22.91],'sao paulo':[-46.63,-23.55],'buenos aires':[-58.38,-34.60],
+    'medellin':[-75.57,6.24],'bogota':[-74.07,4.61],'santiago':[-70.65,-33.45],
+    'new york':[-74.00,40.71],'brooklyn':[-73.94,40.65],'detroit':[-83.05,42.33],
+    'chicago':[-87.62,41.87],'los angeles':[-118.24,34.05],'san francisco':[-122.42,37.77],
+    'oakland':[-122.27,37.80],'philadelphia':[-75.16,39.95],'baltimore':[-76.61,39.29],
+    'washington':[-77.04,38.91],'miami':[-80.19,25.76],'new orleans':[-90.07,29.95],
+    'austin':[-97.74,30.27],'toronto':[-79.38,43.65],'montreal':[-73.57,45.50],
+    'tokyo':[139.69,35.68],'osaka':[135.50,34.69],'kyoto':[135.77,35.01],
+    'seoul':[126.98,37.57],'beijing':[116.40,39.90],'shanghai':[121.47,31.23],
+    'hong kong':[114.17,22.32],'singapore':[103.82,1.35],'bangkok':[100.50,13.75],
+    'jakarta':[106.85,-6.21],'manila':[120.98,14.60],'mumbai':[72.83,19.08],
+    'delhi':[77.10,28.70],'bangalore':[77.59,12.97],'sydney':[151.21,-33.87],
+    'melbourne':[144.96,-37.81],'auckland':[174.76,-36.85],
+};
+const COUNTRY_COORDS = {
+    'ireland':[-8.24,53.41],'united kingdom':[-3.44,55.38],'uk':[-3.44,55.38],
+    'germany':[10.45,51.17],'france':[2.21,46.23],'netherlands':[5.29,52.13],
+    'belgium':[4.47,50.50],'denmark':[9.50,56.26],'sweden':[18.64,60.13],
+    'norway':[8.47,60.47],'finland':[25.75,61.92],'iceland':[-19.02,64.96],
+    'portugal':[-8.22,39.40],'spain':[-3.75,40.46],'italy':[12.57,41.87],
+    'greece':[21.82,39.07],'turkey':[35.24,38.96],'czechia':[15.47,49.82],
+    'czech republic':[15.47,49.82],'poland':[19.15,51.92],'hungary':[19.50,47.16],
+    'austria':[14.55,47.52],'switzerland':[8.23,46.82],
+    'israel':[34.85,31.05],'lebanon':[35.86,33.85],'egypt':[30.80,26.82],
+    'morocco':[-7.09,31.79],'tunisia':[9.54,33.89],'nigeria':[8.68,9.08],
+    'ghana':[-1.02,7.95],'south africa':[22.94,-30.56],'kenya':[37.91,-0.02],
+    'jamaica':[-77.30,18.11],'cuba':[-77.78,21.52],'mexico':[-102.55,23.63],
+    'brazil':[-51.92,-14.24],'argentina':[-63.62,-38.42],'chile':[-71.54,-35.68],
+    'colombia':[-74.30,4.57],'united states':[-95.71,37.09],'usa':[-95.71,37.09],
+    'canada':[-106.35,56.13],'japan':[138.25,36.20],'south korea':[127.77,35.91],
+    'china':[104.20,35.86],'india':[78.96,20.59],'thailand':[100.99,15.87],
+    'indonesia':[113.92,-0.79],'philippines':[121.77,12.88],
+    'australia':[133.78,-25.27],'new zealand':[174.89,-40.90],
+    'singapore':[103.82,1.35],
+};
+// ISO 3166-1 alpha-2 → [lng, lat] centroid. MusicBrainz stores country as a
+// 2-letter code ("GB", "US", "DE"…) while Wikidata gives full names, so the
+// data has both — we resolve either.
+const COUNTRY_ISO = {
+    GB:[-2,54],US:[-98,39],IE:[-8,53.2],DE:[10.4,51.2],FR:[2.2,46.2],NL:[5.3,52.1],
+    BE:[4.5,50.5],IT:[12.5,41.9],ES:[-3.7,40.4],PT:[-8,39.5],SE:[15,62],NO:[8.5,61],
+    FI:[26,64],DK:[10,56],IS:[-19,65],PL:[19,52],CZ:[15.5,49.8],AT:[14.5,47.5],
+    CH:[8.2,46.8],GR:[22,39],TR:[35,39],RU:[100,61],UA:[32,49],HU:[19.5,47.2],
+    RO:[25,46],BG:[25,42.7],HR:[15.5,45.1],RS:[21,44],SK:[19.5,48.7],SI:[14.8,46.1],
+    EE:[26,59],LV:[25,57],LT:[24,55],LU:[6.1,49.8],MT:[14.4,35.9],CY:[33,35],
+    JP:[138,36],KR:[128,36],CN:[104,35],IN:[79,21],TH:[101,15],ID:[114,-1],
+    PH:[122,13],SG:[103.8,1.35],MY:[102,4],VN:[106,16],TW:[121,23.7],HK:[114.2,22.3],
+    AU:[134,-25],NZ:[172,-41],CA:[-106,56],MX:[-102,23],BR:[-52,-14],AR:[-64,-38],
+    CL:[-71,-35],CO:[-74,4.6],PE:[-75,-9],UY:[-56,-33],VE:[-66,7],EC:[-78,-1.5],
+    JM:[-77.3,18.1],CU:[-79,21.5],DO:[-70.7,19],PR:[-66.5,18.2],TT:[-61.2,10.7],
+    ZA:[24,-29],NG:[8,9],GH:[-1,7.9],KE:[37.9,0],EG:[30,26.8],MA:[-7,31.8],
+    TN:[9.5,34],DZ:[3,28],SN:[-14.5,14.5],ET:[40,9],TZ:[35,-6],UG:[32,1],
+    IL:[35,31.5],LB:[35.8,33.9],AE:[54,24],SA:[45,24],QA:[51.2,25.3],GE:[43,42],
+    AM:[45,40],AZ:[47.5,40.3],KZ:[68,48],BY:[28,53.7],MD:[28.4,47],AL:[20,41],
+    MK:[21.7,41.6],BA:[18,44],ME:[19.3,42.7],
+};
+function locateArtist(t) {
+    // Precise coordinates from cultural enrichment (Wikidata birthplace) win.
+    if (t.artist_lat != null && t.artist_lng != null) return [+t.artist_lng, +t.artist_lat];
+    if (t.city)    { const c = CITY_COORDS[t.city.toLowerCase().trim()]; if (c) return c; }
+    if (t.country) {
+        const cn = t.country.trim();
+        const byName = COUNTRY_COORDS[cn.toLowerCase()];                 if (byName) return byName;
+        if (cn.length === 2) { const iso = COUNTRY_ISO[cn.toUpperCase()]; if (iso) return iso; }
+    }
+    // The `city` field sometimes holds a country name (enrichment quirk) —
+    // fall back to treating it as a country so the track still lands.
+    if (t.city) { const c = COUNTRY_COORDS[t.city.toLowerCase().trim()]; if (c) return c; }
+    return null;
+}
+function locateLabel(t) {
+    if (t.label_lat != null && t.label_lng != null) return [+t.label_lng, +t.label_lat];
+    if (t.label_city)    { const c = CITY_COORDS[t.label_city.toLowerCase().trim()]; if (c) return c; }
+    if (t.label_country) {
+        const cn = t.label_country.trim();
+        const byName = COUNTRY_COORDS[cn.toLowerCase()];                 if (byName) return byName;
+        if (cn.length === 2) { const iso = COUNTRY_ISO[cn.toUpperCase()]; if (iso) return iso; }
+    }
+    return null;
+}
+
+// =============================================================
+// STATE + DATA
+// =============================================================
+let TRACKS = [];
+let TAG_INDEX = {};
+let FILTERS = { bpmMin:'', bpmMax:'', yearMin:'', yearMax:'', tags:new Set(), genres:new Set() };
+let MODE = 'scatter';
+let AXES = { x:'year', y:'bpm', colour:'genre', size:'note_count', shape:'' };
+let GENRE_VIEW = 'count';   // 'count' | 'decade' for the Genres view
+let WORLD_BY = 'artist';    // 'artist' | 'label' for the World map
+let SELECTED = null;
+let LEAFLET_MAP = null;
+let LEAFLET_LAYER = null;
+
+async function loadData() {
+    const r = await fetch(`/api/place/${PLACE_ID}/tracks/map`);
+    const d = await r.json();
+    TRACKS = (d.tracks || []).map(t => ({
+        ...t,
+        bpm:               t.bpm != null              ? +t.bpm              : null,
+        year:              cleanYear(t.year),
+        loudness_rms:      t.loudness_rms != null     ? +t.loudness_rms     : null,
+        dynamic_range:     t.dynamic_range != null    ? +t.dynamic_range    : null,
+        spectral_centroid: t.spectral_centroid != null? +t.spectral_centroid: null,
+        band_sub:          t.band_sub != null         ? +t.band_sub         : null,
+        band_bass:         t.band_bass != null        ? +t.band_bass        : null,
+        band_lowmid:       t.band_lowmid != null      ? +t.band_lowmid      : null,
+        band_body:         t.band_body != null        ? +t.band_body        : null,
+        band_presence:     t.band_presence != null    ? +t.band_presence    : null,
+        band_brilliance:   t.band_brilliance != null  ? +t.band_brilliance  : null,
+        duration_sec:      t.duration_sec != null     ? +t.duration_sec     : null,
+        note_count:        +(t.note_count || 0),
+        place_count:       +(t.place_count || 0),
+    }));
+    indexTags();
+    indexGenres();
+    document.getElementById('track-count').textContent = TRACKS.length;
+    renderAll();
+}
+
+function indexTags() {
+    TAG_INDEX = {};
+    for (const t of TRACKS) for (const tag of (t.tags || []))
+        TAG_INDEX[tag.name] = (TAG_INDEX[tag.name] || 0) + 1;
+    const list = document.getElementById('tag-set');
+    const tags = Object.entries(TAG_INDEX).sort((a,b) => b[1] - a[1]).slice(0, 24);
+    list.innerHTML = tags.map(([name, count]) =>
+        `<span class="tag-chip ${FILTERS.tags.has(name) ? 'active' : ''}" data-tag="${escAttr(name)}">${escHtml(name)}<span class="tag-chip__count">${count}</span></span>`
+    ).join('');
+    list.querySelectorAll('.tag-chip').forEach(p => p.addEventListener('click', () => {
+        const tag = p.dataset.tag;
+        if (FILTERS.tags.has(tag)) FILTERS.tags.delete(tag);
+        else                       FILTERS.tags.add(tag);
+        p.classList.toggle('active');
+        renderAll();
+    }));
+}
+
+// Genre filter pills (mirrors tags). Genres are a track property, so a
+// genre filter applies the same wherever the track lives.
+function indexGenres() {
+    const idx = {};
+    for (const t of TRACKS) for (const g of (t.genres || []))
+        idx[g.name] = (idx[g.name] || 0) + 1;
+    const list = document.getElementById('genre-set');
+    if (!list) return;
+    const gs = Object.entries(idx).sort((a, b) => b[1] - a[1]).slice(0, 28);
+    list.innerHTML = gs.length ? gs.map(([name, count]) =>
+        `<span class="tag-chip ${FILTERS.genres.has(name) ? 'active' : ''}" data-genre="${escAttr(name)}">${escHtml(name)}<span class="tag-chip__count">${count}</span></span>`
+    ).join('') : '<span style="font-size:0.75rem;color:var(--text-soft);">No genres yet.</span>';
+    list.querySelectorAll('.tag-chip').forEach(p =>
+        p.addEventListener('click', () => toggleGenreFilter(p.dataset.genre)));
+}
+function toggleGenreFilter(name) {
+    if (FILTERS.genres.has(name)) FILTERS.genres.delete(name);
+    else                          FILTERS.genres.add(name);
+    indexGenres();
+    renderAll();
+}
+
+// =============================================================
+// FILTERS
+// =============================================================
+function trackPasses(t) {
+    if (FILTERS.bpmMin && (t.bpm == null || t.bpm < +FILTERS.bpmMin)) return false;
+    if (FILTERS.bpmMax && (t.bpm == null || t.bpm > +FILTERS.bpmMax)) return false;
+    if (FILTERS.yearMin && (t.year == null || t.year < +FILTERS.yearMin)) return false;
+    if (FILTERS.yearMax && (t.year == null || t.year > +FILTERS.yearMax)) return false;
+    if (FILTERS.tags.size) {
+        const names = new Set((t.tags || []).map(x => x.name));
+        for (const tag of FILTERS.tags) if (!names.has(tag)) return false;
+    }
+    if (FILTERS.genres.size) {
+        const gnames = new Set((t.genres || []).map(x => x.name));
+        for (const gn of FILTERS.genres) if (!gnames.has(gn)) return false;
+    }
+    return true;
+}
+function filteredTracks() { return TRACKS.filter(trackPasses); }
+['bpm-min','bpm-max','year-min','year-max'].forEach(id => {
+    const map = { 'bpm-min':'bpmMin','bpm-max':'bpmMax','year-min':'yearMin','year-max':'yearMax' };
+    document.getElementById(id).addEventListener('input', e => {
+        FILTERS[map[id]] = e.target.value;
+        renderAll();
+    });
+});
+
+function toggleFilterPod() {
+    document.getElementById('filter-pod').classList.toggle('collapsed');
+}
+
+// =============================================================
+// MODE TABS + axes-bar per mode
+// =============================================================
+document.querySelectorAll('.mode-tab').forEach(t => t.addEventListener('click', () => {
+    MODE = t.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(x => x.classList.toggle('active', x === t));
+    renderAxesBar();
+    renderAll();
+}));
+
+function fieldSelect(id, currentValue, includeUniform = false, numericOnly = false) {
+    const opts = (numericOnly ? numericFields() : FIELDS).map(f =>
+        `<option value="${f.key}">${escHtml(f.label)}</option>`
+    ).join('');
+    const uniform = includeUniform ? '<option value="">— uniform —</option>' : '';
+    return `<select class="axis-pick__select" id="${id}">${uniform}${opts}</select>`;
+}
+function renderAxesBar() {
+    const bar = document.getElementById('axes-bar');
+    if (MODE === 'scatter') {
+        bar.innerHTML = `
+            <div class="axis-pick">
+                <span class="axis-pick__label">X</span>
+                ${fieldSelect('axis-x', AXES.x)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Y</span>
+                ${fieldSelect('axis-y', AXES.y)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Colour</span>
+                ${fieldSelect('axis-colour', AXES.colour, true)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Size</span>
+                ${fieldSelect('axis-size', AXES.size, true, true)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Shape</span>
+                ${fieldSelect('axis-shape', AXES.shape, true)}
+            </div>
+            <div class="axes-bar__note">2 axes · colour · size · shape — up to 5 dimensions</div>
+        `;
+        const set = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && Array.from(el.options).some(o => o.value === val)) el.value = val;
+        };
+        set('axis-x', AXES.x); set('axis-y', AXES.y);
+        set('axis-colour', AXES.colour); set('axis-size', AXES.size); set('axis-shape', AXES.shape);
+        document.getElementById('axis-x').addEventListener('change',      e => { AXES.x = e.target.value; renderAll(); });
+        document.getElementById('axis-y').addEventListener('change',      e => { AXES.y = e.target.value; renderAll(); });
+        document.getElementById('axis-colour').addEventListener('change', e => { AXES.colour = e.target.value; renderAll(); });
+        document.getElementById('axis-size').addEventListener('change',   e => { AXES.size = e.target.value; renderAll(); });
+        document.getElementById('axis-shape').addEventListener('change',  e => { AXES.shape = e.target.value; renderAll(); });
+    } else if (MODE === 'genres') {
+        bar.innerHTML = `
+            <div class="axis-pick">
+                <span class="axis-pick__label">Show</span>
+                <select class="axis-pick__select" id="genre-view-sel">
+                    <option value="count">By count — preferences &amp; gaps</option>
+                    <option value="decade">By decade — trends</option>
+                </select>
+            </div>
+            <div class="axes-bar__note">bubble size = how many you own · click a genre to filter</div>
+        `;
+        const sel = document.getElementById('genre-view-sel');
+        sel.value = GENRE_VIEW;
+        sel.addEventListener('change', e => { GENRE_VIEW = e.target.value; renderAll(); });
+    } else if (MODE === 'world') {
+        bar.innerHTML = `
+            <div class="axis-pick">
+                <span class="axis-pick__label">Plot by</span>
+                <select class="axis-pick__select" id="world-by">
+                    <option value="artist">Artist origin</option>
+                    <option value="label">Label origin</option>
+                </select>
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Colour by</span>
+                ${fieldSelect('axis-colour', AXES.colour)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Size by</span>
+                ${fieldSelect('axis-size', AXES.size, true, true)}
+            </div>
+            <div class="axes-bar__note">placed at each ${WORLD_BY === 'label' ? "label's" : "artist's"} location</div>
+        `;
+        const wb = document.getElementById('world-by');
+        wb.value = WORLD_BY;
+        wb.addEventListener('change', e => { WORLD_BY = e.target.value; renderAxesBar(); renderAll(); });
+        const sel = document.getElementById('axis-colour');
+        if (Array.from(sel.options).some(o => o.value === AXES.colour)) sel.value = AXES.colour;
+        document.getElementById('axis-colour').addEventListener('change', e => { AXES.colour = e.target.value; renderAll(); });
+        document.getElementById('axis-size').value = AXES.size || '';
+        document.getElementById('axis-size').addEventListener('change',   e => { AXES.size = e.target.value; renderAll(); });
+    } else if (MODE === 'wheel') {
+        bar.innerHTML = `
+            <div class="axis-pick">
+                <span class="axis-pick__label">Colour by</span>
+                ${fieldSelect('axis-colour', AXES.colour, true)}
+            </div>
+            <div class="axis-pick">
+                <span class="axis-pick__label">Size by</span>
+                ${fieldSelect('axis-size', AXES.size, true, true)}
+            </div>
+            <div class="axes-bar__note">arranged on the Camelot clock by detected key</div>
+        `;
+        document.getElementById('axis-colour').value = AXES.colour || '';
+        document.getElementById('axis-size').value   = AXES.size   || '';
+        document.getElementById('axis-colour').addEventListener('change', e => { AXES.colour = e.target.value; renderAll(); });
+        document.getElementById('axis-size').addEventListener('change',   e => { AXES.size = e.target.value; renderAll(); });
+    }
+}
+
+// =============================================================
+// PIPELINE
+// =============================================================
+function renderAll() {
+    const tracks = filteredTracks();
+    document.getElementById('filtered-count').textContent = tracks.length;
+    // Tear down previous render
+    const stage = document.getElementById('stage');
+    if (LEAFLET_MAP && MODE !== 'world') {
+        LEAFLET_MAP.remove();
+        LEAFLET_MAP = null;
+        LEAFLET_LAYER = null;
+    }
+    // Clear stage children except floating widgets that live outside
+    stage.innerHTML = '';
+    if (MODE === 'scatter')      renderScatter(tracks);
+    else if (MODE === 'genres')  renderGenres(tracks);
+    else if (MODE === 'world')   renderWorld(tracks);
+    else if (MODE === 'wheel')   renderWheel(tracks);
+}
+
+// =============================================================
+// COLOUR + SIZE SCALES
+// =============================================================
+// Categorical palette — earthy, warm-leaning, considered.
+// 14 colours chosen so two adjacent values stay distinguishable.
+// Illuminated jewel tones — deep enough to read on vellum.
+const CAT_PALETTE = [
+    '#9c3b2c','#34557e','#4a7242','#a8822c','#7a3b6e','#2f6f6a',
+    '#b5532a','#5a6a9c','#8a6d1e','#963d52','#3d6b34','#7c5a3a',
+    '#476b8a','#8a4b9c',
+];
+
+function colourFor(track, fieldKey) {
+    if (!fieldKey) return '#a8822c';
+    const f = FIELD_BY_KEY[fieldKey];
+    if (!f) return '#a8822c';
+    const v = f.get(track);
+    if (v == null) return '#9a8b66';   // "no value" — warm taupe, visible on vellum
+    if (f.kind === 'numeric') {
+        const [lo, hi] = numericExtent(fieldKey);
+        if (lo === hi) return '#a8822c';
+        return interpolateScale((v - lo) / (hi - lo));
+    }
+    const cats = uniqueCategories(fieldKey);
+    const idx  = cats.indexOf(String(v));
+    return CAT_PALETTE[idx % CAT_PALETTE.length];
+}
+// Numeric: lapis → vermilion. Both ends legible on vellum.
+function interpolateScale(t) {
+    const lo = [56, 86, 122];      // lapis
+    const hi = [156, 64, 44];      // vermilion
+    return `rgb(${Math.round(lo[0]+(hi[0]-lo[0])*t)},${Math.round(lo[1]+(hi[1]-lo[1])*t)},${Math.round(lo[2]+(hi[2]-lo[2])*t)})`;
+}
+
+const _extentCache = {};
+function numericExtent(fieldKey) {
+    if (_extentCache[fieldKey]) return _extentCache[fieldKey];
+    const f = FIELD_BY_KEY[fieldKey];
+    let lo = Infinity, hi = -Infinity;
+    for (const t of TRACKS) {
+        const v = f.get(t);
+        if (v == null || isNaN(v)) continue;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+    }
+    if (lo === Infinity) { lo = 0; hi = 1; }
+    _extentCache[fieldKey] = [lo, hi];
+    return _extentCache[fieldKey];
+}
+const _catsCache = {};
+function uniqueCategories(fieldKey) {
+    if (_catsCache[fieldKey]) return _catsCache[fieldKey];
+    const f = FIELD_BY_KEY[fieldKey];
+    const counts = {};
+    for (const t of TRACKS) {
+        const v = f.get(t);
+        if (v != null) counts[String(v)] = (counts[String(v)] || 0) + 1;
+    }
+    // Sort by frequency descending — most populated categories get the strongest palette colours
+    _catsCache[fieldKey] = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    return _catsCache[fieldKey];
+}
+function invalidateScales() {
+    for (const k of Object.keys(_extentCache)) delete _extentCache[k];
+    for (const k of Object.keys(_catsCache)) delete _catsCache[k];
+}
+
+function sizeFor(track, fieldKey) {
+    if (!fieldKey) return 4.5;
+    const f = FIELD_BY_KEY[fieldKey];
+    if (!f || f.kind !== 'numeric') return 4.5;
+    const v = f.get(track);
+    if (v == null || isNaN(v)) return 3;
+    const [lo, hi] = numericExtent(fieldKey);
+    if (lo === hi) return 4.5;
+    const t = (v - lo) / (hi - lo);
+    return 3 + t * 10;
+}
+
+// =============================================================
+// SCATTER (FIELD MAP)
+// =============================================================
+function renderScatter(tracks) {
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '<svg></svg>';
+    const svg = d3.select(stage).select('svg');
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const M = { top: 28, right: 30, bottom: 56, left: 80 };
+    const innerW = W - M.left - M.right, innerH = H - M.top - M.bottom;
+    if (innerW < 10 || innerH < 10) return;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    const g = svg.append('g').attr('transform', `translate(${M.left},${M.top})`);
+
+    const xField = FIELD_BY_KEY[AXES.x];
+    const yField = FIELD_BY_KEY[AXES.y];
+    if (!xField || !yField) return;
+
+    const xScale = makeScale(xField, [0, innerW]);
+    const yScale = makeScale(yField, [innerH, 0]);
+
+    // Axis labels (top-tier)
+    svg.append('text').attr('class','axis-label')
+       .attr('x', M.left + innerW/2).attr('y', H - 14)
+       .attr('text-anchor','middle').text(xField.label);
+    svg.append('text').attr('class','axis-label')
+       .attr('transform', `translate(${M.left - 56}, ${M.top + innerH/2}) rotate(-90)`)
+       .attr('text-anchor','middle').text(yField.label);
+
+    // X axis
+    if (xField.kind === 'numeric') {
+        const ax = g.append('g').attr('class','axis').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(xScale).ticks(8).tickSizeOuter(0));
+        ax.selectAll('.tick line').attr('y2', -innerH).attr('class','axis-band-tick');
+    } else {
+        const cats = uniqueCategories(xField.key);
+        const band = innerW / Math.max(1, cats.length);
+        const ax = g.append('g').attr('class','axis').attr('transform', `translate(0,${innerH})`);
+        ax.append('line').attr('x2', innerW).attr('stroke','currentColor').attr('opacity','0.5');
+        cats.forEach((c, i) => {
+            const x = band * (i + 0.5);
+            ax.append('line').attr('x1', x).attr('x2', x).attr('y1', -innerH).attr('y2', 0).attr('class','axis-band-tick');
+            ax.append('text').attr('class','axis-band-label').attr('x', x).attr('y', 18).text(truncate(c, 14));
+        });
+    }
+    // Y axis
+    if (yField.kind === 'numeric') {
+        const ax = g.append('g').attr('class','axis').call(d3.axisLeft(yScale).ticks(8).tickSizeOuter(0));
+        ax.selectAll('.tick line').attr('x2', innerW).attr('class','axis-band-tick');
+    } else {
+        const cats = uniqueCategories(yField.key);
+        const band = innerH / Math.max(1, cats.length);
+        const ax = g.append('g').attr('class','axis');
+        ax.append('line').attr('y2', innerH).attr('stroke','currentColor').attr('opacity','0.5');
+        cats.forEach((c, i) => {
+            const y = band * (i + 0.5);
+            ax.append('line').attr('y1', y).attr('y2', y).attr('x1', 0).attr('x2', innerW).attr('class','axis-band-tick');
+            ax.append('text').attr('class','axis-band-label').attr('x', -10).attr('y', y + 4).attr('text-anchor','end').text(truncate(c, 16));
+        });
+    }
+
+    // Points — small dots with low fill-opacity so density emerges naturally
+    const layer = g.append('g');
+    tracks.forEach(t => {
+        const x = computePos(xField, xField.get(t), xScale, innerW, t);
+        const y = computePos(yField, yField.get(t), yScale, innerH, t);
+        if (x == null || y == null) return;
+        const fill = colourFor(t, AXES.colour);
+        const r    = sizeFor(t, AXES.size);
+        let node;
+        if (AXES.shape) {
+            const symType = SHAPE_TYPES[shapeIndexFor(t, AXES.shape)];
+            node = layer.append('path').attr('class','track-dot')
+                .attr('transform', `translate(${x},${y})`)
+                .attr('d', d3.symbol().type(symType).size(Math.max(14, Math.PI*r*r))());
+        } else {
+            node = layer.append('circle').attr('class','track-dot')
+                .attr('cx', x).attr('cy', y).attr('r', r);
+        }
+        node.attr('fill', fill).attr('fill-opacity', 0.72)
+            .attr('stroke', 'rgba(0,0,0,0.4)').attr('stroke-width', 0.4)
+            .datum(t)
+            .on('click', (_, d) => selectTrack(d))
+            .on('mouseenter', function () { this.setAttribute('fill-opacity', '1'); })
+            .on('mouseleave', function () { this.setAttribute('fill-opacity', '0.72'); });
+    });
+
+    renderLegend();
+}
+
+// Shape encoding (a categorical channel for the scatter).
+const SHAPE_TYPES = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle,
+                     d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
+function shapeIndexFor(track, fieldKey) {
+    const f = FIELD_BY_KEY[fieldKey];
+    if (!f) return 0;
+    const v = f.get(track);
+    if (v == null) return 0;
+    const cats = uniqueCategories(fieldKey);
+    const idx = cats.indexOf(String(v));
+    return idx < 0 ? 0 : (idx % SHAPE_TYPES.length);
+}
+// Stable colour per genre name (same genre keeps its colour across views).
+function genreColour(name) {
+    const cats = uniqueCategories('genre');
+    const idx = cats.indexOf(name);
+    return CAT_PALETTE[(idx < 0 ? 0 : idx) % CAT_PALETTE.length];
+}
+
+function makeScale(field, range) {
+    if (field.kind === 'numeric') {
+        const [lo, hi] = numericExtent(field.key);
+        const pad = (hi - lo) * 0.06 || 1;
+        return d3.scaleLinear().domain([lo - pad, hi + pad]).range(range);
+    }
+    return null;
+}
+function computePos(field, value, scale, extent, track) {
+    if (field.kind === 'numeric') {
+        if (value == null || isNaN(value)) return null;
+        return scale(value);
+    }
+    const cats = uniqueCategories(field.key);
+    if (!cats.length) return null;
+    const idx = cats.indexOf(String(value == null ? '' : value));
+    if (idx < 0) return null;
+    const band = extent / cats.length;
+    const j = ((track.id * 9301 + 49297) % 1000) / 1000 - 0.5;
+    return band * (idx + 0.5) + j * band * 0.62;
+}
+
+// =============================================================
+// GENRES — bubbles sized by how many tracks you own (preferences +
+// gaps). Toggle to a per-decade facet for trends. Click → filter.
+// =============================================================
+function genreCounts(tracks) {
+    const counts = {}; let untagged = 0;
+    for (const t of tracks) {
+        const gs = t.genres || [];
+        if (!gs.length) { untagged++; continue; }
+        for (const g of gs) counts[g.name] = (counts[g.name] || 0) + 1;
+    }
+    return { counts, untagged };
+}
+
+function renderGenres(tracks) {
+    const stage = document.getElementById('stage');
+    document.getElementById('legend-pod').style.display = 'none';
+    stage.innerHTML = '<svg style="position:absolute;inset:0;width:100%;height:100%;"></svg>';
+    const svg = d3.select(stage).select('svg');
+    const W = stage.clientWidth, H = stage.clientHeight;
+    if (W < 10 || H < 10) return;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    if (GENRE_VIEW === 'decade') return renderGenresByDecade(tracks, svg, W, H);
+
+    const { counts, untagged } = genreCounts(tracks);
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) {
+        svg.append('text').attr('x', W/2).attr('y', H/2).attr('text-anchor','middle')
+           .attr('fill', 'var(--text-soft)').text('No genres yet — tag some tracks to map them.');
+        return;
+    }
+    const root = d3.hierarchy({ children: entries.map(([name, n]) => ({ name, n })) }).sum(d => d.n);
+    d3.pack().size([W - 16, H - 30]).padding(4)(root);
+    const g = svg.append('g').attr('transform', 'translate(8,6)');
+    const node = g.selectAll('g').data(root.leaves()).join('g')
+        .attr('transform', d => `translate(${d.x},${d.y})`).style('cursor', 'pointer')
+        .on('click', (_, d) => toggleGenreFilter(d.data.name));
+    node.append('circle').attr('r', d => d.r)
+        .attr('fill', d => genreColour(d.data.name)).attr('fill-opacity', 0.82)
+        .attr('stroke', d => FILTERS.genres.has(d.data.name) ? '#241d10' : 'rgba(0,0,0,0.4)')
+        .attr('stroke-width', d => FILTERS.genres.has(d.data.name) ? 2.5 : 0.6);
+    node.append('title').text(d => `${d.data.name} — ${d.data.n} track${d.data.n === 1 ? '' : 's'}`);
+    const big = node.filter(d => d.r > 18);
+    big.append('text').attr('text-anchor', 'middle').attr('dy', '-0.1em')
+        .style('font-size', d => Math.min(d.r / 2.6, 16) + 'px').style('font-weight', '600')
+        .style('fill', '#f8f1dc').style('pointer-events', 'none')
+        .text(d => truncate(d.data.name, Math.max(4, Math.floor(d.r / 4.2))));
+    big.append('text').attr('text-anchor', 'middle').attr('dy', '1.1em')
+        .style('font-size', '10px').style('fill', 'rgba(248,241,220,0.82)').style('pointer-events', 'none')
+        .text(d => d.data.n);
+    if (untagged) {
+        svg.append('text').attr('x', 12).attr('y', H - 12).attr('fill', 'var(--text-soft)')
+           .style('font-size', '0.76rem').style('font-family', 'var(--font-mono)')
+           .text(`${untagged} track${untagged === 1 ? '' : 's'} untagged — a gap`);
+    }
+}
+
+function renderGenresByDecade(tracks, svg, W, H) {
+    const byDec = {};
+    for (const t of tracks) {
+        if (t.year == null) continue;
+        const dec = Math.floor(t.year / 10) * 10;
+        (byDec[dec] = byDec[dec] || []).push(t);
+    }
+    const decades = Object.keys(byDec).map(Number).sort((a, b) => a - b);
+    if (!decades.length) {
+        svg.append('text').attr('x', W/2).attr('y', H/2).attr('text-anchor','middle')
+           .attr('fill', 'var(--text-soft)').text('No years on these tracks to map by decade.');
+        return;
+    }
+    const colW = W / decades.length;
+    decades.forEach((dec, i) => {
+        const { counts } = genreCounts(byDec[dec]);
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 14);
+        const g = svg.append('g').attr('transform', `translate(${i * colW},0)`);
+        g.append('text').attr('x', colW/2).attr('y', 22).attr('text-anchor', 'middle')
+            .attr('fill', 'var(--text)').style('font-size', '0.85rem')
+            .style('font-family', 'var(--font-serif)').style('font-style', 'italic').text(dec + 's');
+        g.append('text').attr('x', colW/2).attr('y', 38).attr('text-anchor', 'middle')
+            .attr('fill', 'var(--text-soft)').style('font-size', '0.7rem').text(byDec[dec].length + ' tracks');
+        if (i > 0) svg.append('line').attr('x1', i*colW).attr('x2', i*colW).attr('y1', 12).attr('y2', H-12)
+            .attr('stroke', 'var(--line-soft)').attr('stroke-dasharray', '1 4');
+        if (!entries.length) return;
+        const root = d3.hierarchy({ children: entries.map(([name, n]) => ({ name, n })) }).sum(d => d.n);
+        d3.pack().size([colW - 12, H - 64]).padding(2)(root);
+        const node = g.append('g').attr('transform', 'translate(6,52)').selectAll('g')
+            .data(root.leaves()).join('g').attr('transform', d => `translate(${d.x},${d.y})`)
+            .style('cursor', 'pointer').on('click', (_, d) => toggleGenreFilter(d.data.name));
+        node.append('circle').attr('r', d => d.r).attr('fill', d => genreColour(d.data.name))
+            .attr('fill-opacity', 0.82).attr('stroke', 'rgba(0,0,0,0.4)').attr('stroke-width', 0.5);
+        node.append('title').text(d => `${d.data.name} — ${d.data.n} in ${dec}s`);
+        node.filter(d => d.r > 15).append('text').attr('text-anchor', 'middle').attr('dy', '0.32em')
+            .style('font-size', d => Math.min(d.r/2.4, 12) + 'px').style('fill', '#f8f1dc')
+            .style('pointer-events', 'none').text(d => truncate(d.data.name, Math.max(3, Math.floor(d.r/4))));
+    });
+}
+
+// =============================================================
+// WORLD — Leaflet with dark CartoDB tiles
+// =============================================================
+function renderWorld(tracks) {
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '<div id="leaflet-mount" style="position:absolute; inset:0;"></div>';
+
+    LEAFLET_MAP = L.map('leaflet-mount', {
+        zoomControl: true,
+        zoomDelta: 0.5, zoomSnap: 0.5,
+        minZoom: 1.5, maxZoom: 8,
+        worldCopyJump: true,
+    }).setView([28, 8], 2);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
+    }).addTo(LEAFLET_MAP);
+
+    // City labels (separate layer so we can toggle)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 19,
+        opacity: 0.7,
+    }).addTo(LEAFLET_MAP);
+
+    LEAFLET_LAYER = L.layerGroup().addTo(LEAFLET_MAP);
+
+    const jitter = (id, salt) => ((id * 9301 + 49297 * salt) % 1000) / 1000 - 0.5;
+    let unlocated = 0;
+    const pts = [];
+    tracks.forEach(t => {
+        const ll = (WORLD_BY === 'label') ? locateLabel(t) : locateArtist(t);
+        if (!ll) { unlocated++; return; }
+        const [lon, lat] = ll;
+        // Coordinates are precise now, so only a small jitter to separate
+        // artists who share a birthplace.
+        const jl = jitter(t.id, 1) * 0.5;
+        const jx = jitter(t.id, 2) * 0.5;
+        const fill = colourFor(t, AXES.colour);
+        const r    = Math.max(5, sizeFor(t, AXES.size));
+        pts.push([lat + jx, lon + jl]);
+        const m = L.circleMarker([lat + jx, lon + jl], {
+            radius: r,
+            fillColor: fill,
+            color: 'rgba(0,0,0,0.5)',
+            weight: 0.6,
+            fillOpacity: 0.82,
+        }).addTo(LEAFLET_LAYER);
+        m.on('click', () => selectTrack(t));
+        const sub = (WORLD_BY === 'label') ? (t.label || 'no label') : (t.artist_name || 'unknown');
+        const loc = (WORLD_BY === 'label')
+            ? [t.label_city, t.label_country].filter(Boolean).join(' · ')
+            : [t.city, t.country].filter(Boolean).join(' · ');
+        m.bindTooltip(
+            `<div style="font-family:var(--font-serif);font-style:italic;color:#241d10;">${escHtml(t.title || 'untitled')}</div>
+             <div style="color:#2e2718;font-size:0.78rem;">${escHtml(sub)}</div>
+             <div style="color:#6c5d40;font-size:0.72rem;font-family:var(--font-mono);">${escHtml(loc)}</div>`,
+            { direction: 'top', offset: [0, -r], opacity: 0.95 }
+        );
+    });
+
+    // Centre on where your music actually comes from.
+    if (pts.length) {
+        try { LEAFLET_MAP.fitBounds(pts, { padding: [40, 40], maxZoom: 6 }); } catch (_) {}
+    }
+
+    if (unlocated > 0) {
+        const note = L.control({ position: 'bottomleft' });
+        note.onAdd = function () {
+            const div = L.DomUtil.create('div', 'leaflet-control');
+            div.innerHTML = `<div style="background:rgba(245,237,214,0.92); border:1px solid var(--line); border-radius:4px; padding:6px 10px; font-size:0.74rem; color:var(--text-soft);">
+                ${unlocated} track${unlocated === 1 ? '' : 's'} without ${WORLD_BY} location
+            </div>`;
+            return div;
+        };
+        note.addTo(LEAFLET_MAP);
+    }
+
+    renderLegend();
+}
+
+// =============================================================
+// CAMELOT WHEEL
+// =============================================================
+function renderWheel(tracks) {
+    const stage = document.getElementById('stage');
+    stage.innerHTML = '<svg></svg>';
+    const svg = d3.select(stage).select('svg');
+    const W = stage.clientWidth, H = stage.clientHeight;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    const cx = W/2, cy = H/2;
+    const rOuter = Math.min(W, H) * 0.40;
+    const rInner = rOuter * 0.62;
+    const tickR  = rOuter + 22;
+
+    // Outer ring (major / B), inner ring (minor / A)
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', rOuter).attr('fill','none').attr('stroke','var(--line)').attr('stroke-width',0.8);
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', rInner).attr('fill','none').attr('stroke','var(--line)').attr('stroke-width',0.8);
+    // Spokes
+    for (let n = 0; n < 12; n++) {
+        const a = (n / 12) * Math.PI * 2 - Math.PI / 2;
+        svg.append('line')
+            .attr('x1', cx + Math.cos(a) * rInner).attr('y1', cy + Math.sin(a) * rInner)
+            .attr('x2', cx + Math.cos(a) * rOuter).attr('y2', cy + Math.sin(a) * rOuter)
+            .attr('stroke', 'var(--line-soft)').attr('stroke-width', 0.6);
+    }
+    // Hour labels
+    for (let n = 1; n <= 12; n++) {
+        const a = ((n - 1) / 12) * Math.PI * 2 - Math.PI / 2;
+        svg.append('text').attr('class','wheel-letter B')
+           .attr('x', cx + Math.cos(a) * tickR).attr('y', cy + Math.sin(a) * tickR + 4)
+           .text(`${n}B`);
+        svg.append('text').attr('class','wheel-letter')
+           .attr('x', cx + Math.cos(a) * (rInner - 14)).attr('y', cy + Math.sin(a) * (rInner - 14) + 4)
+           .text(`${n}A`);
+    }
+    svg.append('text').attr('class','wheel-centre')
+       .attr('x', cx).attr('y', cy + 4).text('Camelot');
+
+    // Plot tracks
+    const layer = svg.append('g');
+    tracks.forEach(t => {
+        const cam = trackCamelot(t);
+        if (!cam) return;
+        const m = cam.match(/(\d+)([AB])/);
+        if (!m) return;
+        const num = +m[1], letter = m[2];
+        const a = ((num - 1) / 12) * Math.PI * 2 - Math.PI / 2;
+        const j = ((t.id * 9301 + 49297) % 1000) / 1000 - 0.5;
+        // Place in the middle of inner/outer ring depending on A/B
+        const baseR = letter === 'A' ? rInner * 0.78 : (rInner + rOuter) / 2 + (rOuter - rInner) * 0.18;
+        const rr  = baseR + j * (rOuter - rInner) * 0.32;
+        const ang = a + j * 0.16;
+        const x = cx + Math.cos(ang) * rr;
+        const y = cy + Math.sin(ang) * rr;
+        const fill = colourFor(t, AXES.colour);
+        const sz   = sizeFor(t, AXES.size);
+        layer.append('circle').attr('class','track-dot')
+            .attr('cx', x).attr('cy', y).attr('r', sz)
+            .attr('fill', fill).attr('fill-opacity', 0.82)
+            .attr('stroke', 'rgba(0,0,0,0.5)').attr('stroke-width', 0.5)
+            .datum(t)
+            .on('click', (_, d) => selectTrack(d));
+    });
+
+    renderLegend();
+}
+
+// =============================================================
+// LEGEND (for categorical colour)
+// =============================================================
+function renderLegend() {
+    const el = document.getElementById('legend-pod');
+    if (!AXES.colour) { el.style.display = 'none'; return; }
+    const f = FIELD_BY_KEY[AXES.colour];
+    if (!f) { el.style.display = 'none'; return; }
+    if (f.kind === 'numeric') {
+        const [lo, hi] = numericExtent(f.key);
+        el.innerHTML = `
+            <div class="legend-pod__title">${escHtml(f.label)}</div>
+            <div style="width:140px;height:8px;border-radius:2px;background:linear-gradient(to right, ${interpolateScale(0)}, ${interpolateScale(0.5)}, ${interpolateScale(1)});"></div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-soft);margin-top:4px;">
+                <span>${Number.isFinite(lo) ? formatNum(lo) : ''}</span>
+                <span>${Number.isFinite(hi) ? formatNum(hi) : ''}</span>
+            </div>`;
+        el.style.display = 'block';
+        return;
+    }
+    const cats = uniqueCategories(f.key).slice(0, 14);
+    el.innerHTML = `
+        <div class="legend-pod__title">${escHtml(f.label)}</div>
+        ${cats.map((c, i) => `
+            <div class="legend-pod__row">
+                <span class="legend-pod__swatch" style="background:${CAT_PALETTE[i % CAT_PALETTE.length]}"></span>
+                <span>${escHtml(truncate(c, 22))}</span>
+            </div>
+        `).join('')}
+    `;
+    el.style.display = 'block';
+}
+function formatNum(n) {
+    if (Number.isInteger(n)) return n.toString();
+    return Math.abs(n) > 100 ? Math.round(n).toString() : n.toFixed(2);
+}
+
+// =============================================================
+// DETAIL CARD
+// =============================================================
+function selectTrack(t) {
+    SELECTED = t;
+    document.querySelectorAll('.track-dot').forEach(n => n.classList.remove('selected'));
+    d3.selectAll('.track-dot').filter(d => d && d.id === t.id).classed('selected', true);
+    const card = document.getElementById('detail-card');
+    const tags = (t.tags || []).map(x => `<span class="tag-chip">${escHtml(x.name)}</span>`).join(' ');
+    card.innerHTML = `
+        <button class="detail-card__close" onclick="closeDetail()">✕</button>
+        <div class="detail-card__title">${escHtml(t.title || 'untitled')}</div>
+        <div class="detail-card__artist">${escHtml(t.artist_name || 'unknown')}</div>
+        <dl>
+            ${t.year         ? `<dt>Year</dt><dd>${t.year}</dd>` : ''}
+            ${t.bpm          ? `<dt>BPM</dt><dd>${Math.round(t.bpm)}</dd>` : ''}
+            ${t.key_note     ? `<dt>Key</dt><dd>${escHtml(t.key_note)} ${escHtml(t.key_scale || 'major')}${trackCamelot(t) ? ' · ' + trackCamelot(t) : ''}</dd>` : ''}
+            ${t.label        ? `<dt>Label</dt><dd>${escHtml(t.label)}</dd>` : ''}
+            ${(t.city || t.country) ? `<dt>From</dt><dd>${escHtml([t.city, t.country].filter(Boolean).join(', '))}</dd>` : ''}
+            ${t.artist_scene ? `<dt>Scene</dt><dd>${escHtml(t.artist_scene)}</dd>` : ''}
+            ${t.loudness_rms != null  ? `<dt>Loudness</dt><dd>${(+t.loudness_rms).toFixed(2)}</dd>` : ''}
+            ${t.dynamic_range != null ? `<dt>Dynamics</dt><dd>${(+t.dynamic_range).toFixed(2)}</dd>` : ''}
+            ${t.duration_sec != null  ? `<dt>Duration</dt><dd>${formatDuration(t.duration_sec)}</dd>` : ''}
+            ${t.note_count   ? `<dt>Notes</dt><dd>${t.note_count}</dd>` : ''}
+        </dl>
+        ${tags ? `<div class="detail-card__tags">${tags}</div>` : ''}
+        <a class="detail-card__open" href="/place/${PLACE_ID}?track=${t.id}">Open in place →</a>
+    `;
+    card.classList.add('open');
+    document.getElementById('legend-pod').style.display = 'none';
+}
+function closeDetail() {
+    document.getElementById('detail-card').classList.remove('open');
+    SELECTED = null;
+    document.querySelectorAll('.track-dot').forEach(n => n.classList.remove('selected'));
+    renderLegend();
+}
+
+function formatDuration(s) {
+    const m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escAttr(s) { return escHtml(s).replace(/'/g, '&#39;'); }
+function truncate(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+window.addEventListener('resize', () => {
+    if (MODE === 'world' && LEAFLET_MAP) { LEAFLET_MAP.invalidateSize(); }
+    else if (MODE !== 'world') renderAll();
+});
+
+renderAxesBar();
+loadData();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+</body>
+</html>

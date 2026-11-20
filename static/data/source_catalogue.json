@@ -1,0 +1,655 @@
+{
+ "version": "2026-06-25",
+ "note": "Ship-with catalogue of sources + discovery tools the user can SEARCH BY VIBE when adding a source. Link-out by default; feed_url present only where a working feed is known. Health-checked + user-reportable. Edit by hand or regenerate via scripts/update_feed_registry.py. An entry may carry a place {name, lat, lon} — its home, where that is well known — which puts it on the Globe in Explore; an entry without one is universal (it orbits the globe).",
+ "entries": [
+  {
+   "id": "ra",
+   "name": "Resident Advisor",
+   "url": "https://ra.co",
+   "feed_url": "https://ra.co/xml/podcast.xml",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "electronic",
+    "dance",
+    "news",
+    "reviews",
+    "industry",
+    "podcast"
+   ],
+   "blurb": "Electronic music news, reviews and the long-running RA podcast.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "bandcamp-daily",
+   "name": "Bandcamp Daily",
+   "url": "https://daily.bandcamp.com",
+   "feed_url": "https://daily.bandcamp.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "discovery",
+    "new releases",
+    "independent",
+    "all genres",
+    "deep listening",
+    "idea generation"
+   ],
+   "blurb": "Editorial from across Bandcamp — genre guides, label profiles, new finds."
+  },
+  {
+   "id": "crack",
+   "name": "Crack Magazine",
+   "url": "https://crackmagazine.net",
+   "feed_url": "https://crackmagazine.net/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "electronic",
+    "culture",
+    "interviews",
+    "leftfield",
+    "contemporary"
+   ],
+   "blurb": "Independent music and culture, electronic-leaning.",
+   "place": {
+    "name": "Bristol",
+    "lat": 51.4545,
+    "lon": -2.5879
+   }
+  },
+  {
+   "id": "fact",
+   "name": "FACT Magazine",
+   "url": "https://www.factmag.com",
+   "feed_url": "https://www.factmag.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "electronic",
+    "video",
+    "mixes",
+    "culture",
+    "leftfield"
+   ],
+   "blurb": "Music and video — features, mixes and the Against The Clock series.",
+   "place": {
+    "name": "London",
+    "lat": 51.5118,
+    "lon": -0.1167
+   }
+  },
+  {
+   "id": "mixmag",
+   "name": "Mixmag",
+   "url": "https://mixmag.net",
+   "feed_url": "https://mixmag.net/rss.xml",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "dance",
+    "clubbing",
+    "news",
+    "charts"
+   ],
+   "blurb": "Dance music and club culture news and charts.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "the-wire",
+   "name": "The Wire",
+   "url": "https://www.thewire.co.uk",
+   "feed_url": "https://www.thewire.co.uk/home/rss",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "experimental",
+    "avant-garde",
+    "jazz",
+    "deep listening",
+    "adventurous"
+   ],
+   "blurb": "Adventurous music in all its forms — experimental, jazz, electronic, beyond.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "trommel",
+   "name": "Trommel",
+   "url": "https://trommelmusic.com",
+   "feed_url": "https://trommelmusic.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "underground",
+    "house",
+    "techno",
+    "interviews"
+   ],
+   "blurb": "Underground house and techno features and interviews."
+  },
+  {
+   "id": "pitchfork",
+   "name": "Pitchfork",
+   "url": "https://pitchfork.com",
+   "feed_url": "https://pitchfork.com/feed/feed-news/rss",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "indie",
+    "reviews",
+    "news",
+    "all genres"
+   ],
+   "blurb": "Reviews and news across indie, pop and electronic."
+  },
+  {
+   "id": "xlr8r",
+   "name": "XLR8R",
+   "url": "https://xlr8r.com",
+   "feed_url": "https://xlr8r.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "electronic",
+    "new music",
+    "downloads",
+    "podcast"
+   ],
+   "blurb": "Electronic music, premieres and the XLR8R podcast."
+  },
+  {
+   "id": "attack",
+   "name": "Attack Magazine",
+   "url": "https://www.attackmagazine.com",
+   "feed_url": "https://www.attackmagazine.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "production",
+    "tutorials",
+    "gear",
+    "making music",
+    "idea generation"
+   ],
+   "blurb": "Production tutorials, gear and technique for electronic producers."
+  },
+  {
+   "id": "inverted-audio",
+   "name": "Inverted Audio",
+   "url": "https://www.inverted-audio.com",
+   "feed_url": "https://www.inverted-audio.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "electronic",
+    "reviews",
+    "premieres",
+    "leftfield"
+   ],
+   "blurb": "Electronic music reviews, premieres and mixes.",
+   "place": {
+    "name": "Peckham, London",
+    "lat": 51.474,
+    "lon": -0.069
+   }
+  },
+  {
+   "id": "5mag",
+   "name": "5 Mag",
+   "url": "https://5mag.net",
+   "feed_url": "https://5mag.net/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "house",
+    "Chicago",
+    "dance",
+    "history"
+   ],
+   "blurb": "Underground house music, rooted in Chicago.",
+   "place": {
+    "name": "Chicago",
+    "lat": 41.8781,
+    "lon": -87.6298
+   }
+  },
+  {
+   "id": "djmag",
+   "name": "DJ Mag",
+   "url": "https://djmag.com",
+   "feed_url": "https://djmag.com/rss.xml",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "dance",
+    "news",
+    "gear",
+    "charts"
+   ],
+   "blurb": "Dance music news, tech and the Top 100 DJs.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "stamp-the-wax",
+   "name": "Stamp The Wax",
+   "url": "https://stampthewax.com",
+   "feed_url": "https://stampthewax.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "eclectic",
+    "mixes",
+    "premieres",
+    "discovery"
+   ],
+   "blurb": "Eclectic premieres, mixes and features."
+  },
+  {
+   "id": "ransom-note",
+   "name": "The Ransom Note",
+   "url": "https://www.theransomnote.com",
+   "feed_url": "https://www.theransomnote.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "eclectic",
+    "leftfield",
+    "interviews",
+    "mixes"
+   ],
+   "blurb": "Eclectic, leftfield music writing and mixes.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "quietus",
+   "name": "The Quietus",
+   "url": "https://thequietus.com",
+   "feed_url": "https://thequietus.com/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "experimental",
+    "indie",
+    "essays",
+    "deep listening",
+    "adventurous"
+   ],
+   "blurb": "Essays and reviews across experimental, indie and beyond."
+  },
+  {
+   "id": "cdm",
+   "name": "CDM (Create Digital Music)",
+   "url": "https://cdm.link",
+   "feed_url": "https://cdm.link/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "production",
+    "technology",
+    "gear",
+    "making music",
+    "idea generation"
+   ],
+   "blurb": "Music technology, instruments and the craft of making electronic music.",
+   "place": {
+    "name": "Berlin",
+    "lat": 52.52,
+    "lon": 13.405
+   }
+  },
+  {
+   "id": "nts",
+   "name": "NTS Radio",
+   "url": "https://www.nts.live",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "eclectic",
+    "leftfield",
+    "live",
+    "global",
+    "discovery",
+    "deep listening"
+   ],
+   "blurb": "Global online radio — eclectic shows, archived for on-demand listening.",
+   "place": {
+    "name": "Dalston, London",
+    "lat": 51.5465,
+    "lon": -0.075
+   }
+  },
+  {
+   "id": "rinse",
+   "name": "Rinse FM",
+   "url": "https://rinse.fm",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "UK",
+    "dance",
+    "grime",
+    "club",
+    "live"
+   ],
+   "blurb": "London station rooted in UK club and pirate-radio culture.",
+   "place": {
+    "name": "London",
+    "lat": 51.5074,
+    "lon": -0.1278
+   }
+  },
+  {
+   "id": "worldwide-fm",
+   "name": "Worldwide FM",
+   "url": "https://worldwidefm.net",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "jazz",
+    "global",
+    "eclectic",
+    "deep listening",
+    "morning"
+   ],
+   "blurb": "Gilles Peterson's station — jazz, global and broad-minded shows.",
+   "place": {
+    "name": "London",
+    "lat": 51.5617,
+    "lon": -0.076
+   }
+  },
+  {
+   "id": "refuge",
+   "name": "Refuge Worldwide",
+   "url": "https://refugeworldwide.com",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "Berlin",
+    "community",
+    "eclectic",
+    "leftfield"
+   ],
+   "blurb": "Berlin community radio with a fundraising ethos.",
+   "place": {
+    "name": "Neukölln, Berlin",
+    "lat": 52.4811,
+    "lon": 13.435
+   }
+  },
+  {
+   "id": "the-lot",
+   "name": "The Lot Radio",
+   "url": "https://www.thelotradio.com",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "NYC",
+    "eclectic",
+    "live",
+    "club"
+   ],
+   "blurb": "Independent radio from a shipping container in Brooklyn.",
+   "place": {
+    "name": "Brooklyn, New York",
+    "lat": 40.7226,
+    "lon": -73.952
+   }
+  },
+  {
+   "id": "balamii",
+   "name": "Balamii",
+   "url": "https://www.balamii.com",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "London",
+    "eclectic",
+    "club"
+   ],
+   "blurb": "South London community radio.",
+   "place": {
+    "name": "Peckham, London",
+    "lat": 51.47,
+    "lon": -0.0692
+   }
+  },
+  {
+   "id": "kiosk",
+   "name": "Kiosk Radio",
+   "url": "https://kioskradio.com",
+   "feed_url": "",
+   "type": "station",
+   "kind": "station",
+   "tags": [
+    "radio",
+    "Brussels",
+    "eclectic",
+    "club"
+   ],
+   "blurb": "Brussels radio broadcasting from a kiosk in a park.",
+   "place": {
+    "name": "Parc Royal, Bruxelles / Brussel",
+    "lat": 50.8446,
+    "lon": 4.3636
+   }
+  },
+  {
+   "id": "arena",
+   "name": "Are.na",
+   "url": "https://www.are.na",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "photo discovery",
+    "idea generation",
+    "research",
+    "visual",
+    "leftfield",
+    "connect"
+   ],
+   "blurb": "Collaborative visual research — collect images, links and ideas into connected channels."
+  },
+  {
+   "id": "radio-garden",
+   "name": "Radio Garden",
+   "url": "https://radio.garden",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "radio",
+    "world map",
+    "geographic",
+    "live",
+    "explore",
+    "global",
+    "place"
+   ],
+   "blurb": "Spin a globe and drop into live radio anywhere on Earth."
+  },
+  {
+   "id": "ishkur",
+   "name": "Ishkur's Guide to Electronic Music",
+   "url": "https://music.ishkur.com",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "education",
+    "genre map",
+    "electronic",
+    "history",
+    "learning",
+    "idea generation"
+   ],
+   "blurb": "An opinionated, animated genealogy of electronic music genres."
+  },
+  {
+   "id": "recordstores-love",
+   "name": "Record Stores Love",
+   "url": "https://recordstores.love",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "record stores",
+    "world map",
+    "geographic",
+    "crate digging",
+    "place",
+    "shopping"
+   ],
+   "blurb": "A world map of independent record stores."
+  },
+  {
+   "id": "mixcloud",
+   "name": "Mixcloud",
+   "url": "https://www.mixcloud.com",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "mixes",
+    "radio shows",
+    "DJ sets",
+    "discovery",
+    "deep listening"
+   ],
+   "blurb": "Archive of DJ mixes and radio shows."
+  },
+  {
+   "id": "bandcamp",
+   "name": "Bandcamp Discover",
+   "url": "https://bandcamp.com/discover",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "discovery",
+    "new releases",
+    "buy",
+    "independent",
+    "support artists"
+   ],
+   "blurb": "Browse and buy new independent music, direct to artists."
+  },
+  {
+   "id": "soundcloud",
+   "name": "SoundCloud",
+   "url": "https://soundcloud.com",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "mixes",
+    "demos",
+    "discovery",
+    "underground"
+   ],
+   "blurb": "Mixes, demos and unsigned music."
+  },
+  {
+   "id": "discogs",
+   "name": "Discogs",
+   "url": "https://www.discogs.com",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "database",
+    "crate digging",
+    "collection",
+    "research",
+    "marketplace"
+   ],
+   "blurb": "The reference discography database and record marketplace."
+  },
+  {
+   "id": "everynoise",
+   "name": "Every Noise at Once",
+   "url": "https://everynoise.com",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "genre map",
+    "discovery",
+    "scan",
+    "exploration"
+   ],
+   "blurb": "A scannable map of thousands of music genres."
+  },
+  {
+   "id": "musicmap",
+   "name": "Musicmap",
+   "url": "https://musicmap.info",
+   "feed_url": "",
+   "type": "website",
+   "kind": "tool",
+   "tags": [
+    "genre map",
+    "education",
+    "history",
+    "learning",
+    "idea generation"
+   ],
+   "blurb": "A genealogy of popular music genres and their relationships."
+  },
+  {
+   "id": "district",
+   "name": "District Magazine",
+   "url": "https://districtmagazine.ie",
+   "feed_url": "https://districtmagazine.ie/feed/",
+   "type": "publication",
+   "kind": "magazine",
+   "tags": [
+    "irish",
+    "dublin",
+    "culture",
+    "electronic",
+    "news",
+    "features"
+   ],
+   "blurb": "Irish culture and music — Dublin-rooted news, features and interviews.",
+   "place": {
+    "name": "Dublin",
+    "lat": 53.3498,
+    "lon": -6.2603
+   }
+  }
+ ]
+}

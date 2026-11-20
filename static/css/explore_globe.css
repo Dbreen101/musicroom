@@ -1,0 +1,238 @@
+/* explore_globe.css — the Globe in Explore, and the small globe on /myroom.
+   (static/js/explore_globe.js draws it; this is how it sits on the page.)
+
+   The working document (docs/DESIGN.md): the page colour behind, ink marks,
+   hairlines, Instrument Serif for names and Plex Mono for everything else,
+   square corners, one ink fill, red only for the thing that is chosen. Every
+   colour here is a theme token, so Paper and Ink both hold. Every class is
+   gx-…, so nothing here touches another page.
+
+   The top bar of the trial stays up (ui.css: --nav-h), so the view is pinned
+   under it: its top edge is measured from Explore's own header when the view
+   opens, with the same sum as the fallback. */
+
+/* ── where the view sits in Explore ── */
+.gx--view { position: fixed; left: 0; right: 0; bottom: 0; top: calc(var(--nav-h, 53px) + 64px); z-index: 10; display: none; }
+body.view-globe .gx--view { display: block; }
+/* the feed's own furniture steps aside while the globe is up */
+body.view-globe .stage, body.view-globe .arr, body.view-globe .ex-dock, body.view-globe .navhint,
+body.view-globe .empty, body.view-globe #subviews, body.view-globe .ex-filters,
+body.view-globe #btn-filters, body.view-globe #btn-tune { display: none !important; }
+body.view-globe #bg { background-image: none !important; }
+html.is-gr body.view-globe { padding-bottom: 0; }
+/* Explore is one fixed screen in every view; the page-foot line (gr_nav.js) belongs to scrolling pages */
+body[class*="view-"] > .mr-foot { display: none !important; }
+
+.gx { --gx-panel: 296px; --gx-sheet: 344px; font-family: var(--f-mono, ui-monospace, Menlo, monospace); color: var(--text); }
+.gx *, .gx *::before, .gx *::after { box-sizing: border-box; }
+/* (:where keeps this reset weaker than every class below — a mark's own margins must win) */
+:where(.gx) button { appearance: none; -webkit-appearance: none; border-radius: 0; font-family: inherit; margin: 0; }
+.gx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ── the drawing ── */
+.gx-stage { position: absolute; left: var(--gx-panel); right: 0; top: 0; bottom: 0; overflow: hidden; cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none; outline: none; }
+.gx-stage.is-dragging { cursor: grabbing; }
+.gx-stage:focus-visible { box-shadow: inset 0 0 0 1px var(--border2); }
+.gx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gx-note { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); max-width: 360px; padding: 12px 16px; display: none;
+  font-size: .7rem; line-height: 1.6; text-align: center; color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
+.gx-note.on { display: block; }
+.gx-keys { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 5px 10px; white-space: nowrap; pointer-events: none;
+  font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: var(--bg); transition: opacity .5s; }
+.gx-keys.is-off { opacity: 0; }
+
+/* ── the marks ──
+   a thing: a small glyph by kind, and its name on a slip of the page
+   several things: one ink square with how many */
+.gx-marks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.gx-g { display: inline-block; width: 9px; height: 9px; flex: none; border: 1px solid var(--text); background: var(--bg); }
+.gx-g--room { background: var(--text); }
+.gx-g--station { border-radius: 50%; }
+.gx-g--website { transform: rotate(45deg) scale(.84); }
+
+.gx-m { position: absolute; left: 0; top: 0; display: flex; align-items: center; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0;
+  background: none; color: var(--text); cursor: pointer; pointer-events: auto; white-space: nowrap; will-change: transform; }
+.gx-m__g { display: grid; place-items: center; width: 22px; height: 22px; flex: none; font-style: normal; }
+.gx-m__g::before { content: ''; width: 9px; height: 9px; border: 1px solid var(--text); background: var(--bg); }
+.gx-m--room .gx-m__g::before { background: var(--text); }
+.gx-m--station .gx-m__g::before { border-radius: 50%; }
+.gx-m--website .gx-m__g::before { transform: rotate(45deg) scale(.84); }
+.gx-m--n { height: var(--s, 20px); margin: calc(var(--s, 20px) / -2) 0 0 calc(var(--s, 20px) / -2); }
+.gx-m--n .gx-m__g { width: var(--s, 20px); height: var(--s, 20px); background: var(--text); color: var(--bg); font-size: .62rem; letter-spacing: .02em; line-height: 1; }
+.gx-m--n .gx-m__g::before { content: none; }
+.gx-m__l { display: none; margin-left: 1px; padding: 1px 4px 2px; background: var(--bg); font-family: var(--f-display, Georgia, serif); font-size: 1rem; line-height: 1.05; }
+.gx-m__l--place { margin-left: 3px; font-family: inherit; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 3px 4px; }
+.gx-m.has-l .gx-m__l { display: block; }
+.gx-m:hover .gx-m__g, .gx-m:focus-visible .gx-m__g { outline: 1px solid var(--text); outline-offset: 2px; }
+.gx-m:focus { outline: none; }
+.gx-m.is-sel .gx-m__g { outline: 1px solid var(--red); outline-offset: 3px; }
+.gx-m.is-sel { z-index: 2; }
+
+/* the ring's name: a mono tag where the ring reaches furthest right; it lists the universal things */
+.gx-ringtag { position: absolute; left: 0; top: 0; height: 20px; margin-top: -10px; padding: 0 6px; border: 0; background: var(--bg); color: var(--muted);
+  font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; cursor: pointer; pointer-events: auto; }
+.gx-ringtag:hover, .gx-ringtag:focus-visible { color: var(--text); outline: none; text-decoration: underline; text-underline-offset: 3px; }
+
+.gx-tip { position: absolute; left: 0; top: 0; z-index: 3; display: none; max-width: 270px; padding: 8px 11px 9px; pointer-events: none;
+  background: var(--bg); border: 1px solid var(--border2); font-size: .62rem; line-height: 1.55; color: var(--muted); }
+.gx-tip.on { display: block; }
+.gx-tip b { display: block; margin-bottom: 2px; font-family: var(--f-display, Georgia, serif); font-weight: 400; font-size: 1.08rem; line-height: 1.15; color: var(--text); }
+.gx-tip span { display: block; }
+.gx-tip em { display: block; margin-top: 5px; font-style: normal; letter-spacing: .1em; text-transform: uppercase; font-size: .56rem; color: var(--text); }
+
+/* ── the panel on the left: what to show, find, quick views, look ── */
+.gx-panel { position: absolute; left: 0; top: 0; bottom: 0; width: var(--gx-panel); overflow-y: auto; overscroll-behavior: contain; z-index: 5;
+  padding: 2px 18px 22px 22px; background: var(--bg); border-right: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.gx-sum { margin: 0; padding: 6px 0 12px; font-size: .62rem; letter-spacing: .06em; line-height: 1.7; color: var(--muted); }
+.gx-warn { margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--red); font-size: .64rem; line-height: 1.55; color: var(--text); }
+.gx-sec { border-top: 1px solid var(--border); }
+.gx-sec__h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 0; border: 0; background: none; color: var(--text);
+  font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; text-align: left; cursor: pointer; }
+.gx-sec__h i { font-style: normal; color: var(--muted); width: 12px; text-align: center; }
+.gx-sec__h:hover i, .gx-sec__h:focus-visible i { color: var(--text); }
+.gx-sec__h:focus-visible { outline: 1px solid var(--border2); outline-offset: 2px; }
+.gx-sec__b { padding: 0 0 14px; }
+.gx-sec.is-shut .gx-sec__b { display: none; }
+.gx-rule { height: 1px; margin: 7px 0; background: var(--border); }
+.gx-label { margin: 13px 0 7px; font-size: .56rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gx-sec__b > .gx-label:first-child { margin-top: 2px; }
+
+.gx-check { display: flex; align-items: center; gap: 9px; width: 100%; padding: 6px 0; border: 0; background: none; color: var(--text);
+  font-size: .72rem; text-align: left; cursor: pointer; }
+.gx-check--sub { padding: 4px 0 4px 20px; font-size: .66rem; }
+.gx-check__box { width: 11px; height: 11px; flex: none; border: 1px solid var(--text); }
+.gx-check[aria-checked="true"] .gx-check__box { background: var(--text); }
+.gx-check[aria-checked="false"] { color: var(--muted); }
+.gx-check[aria-checked="false"] .gx-check__box { border-color: var(--muted); }
+.gx-check b { margin-left: auto; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gx-check:hover span, .gx-check:focus-visible span { text-decoration: underline; text-underline-offset: 3px; }
+.gx-check:focus { outline: none; }
+
+.gx-find { display: block; width: 100%; padding: 8px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+  font-family: inherit; font-size: .72rem; outline: none; -webkit-appearance: none; appearance: none; }
+.gx-find::placeholder { color: var(--muted); opacity: 1; font-style: normal; }
+.gx-find:focus { border-color: var(--text); }
+.gx-findsay { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 8px 0 10px; font-size: .64rem; color: var(--muted); }
+.gx-link { padding: 0; border: 0; background: none; color: var(--text); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); }
+.gx-link:hover, .gx-link:focus-visible { text-decoration-color: var(--text); outline: none; }
+.gx-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.gx-chip { padding: 4px 7px; border: 1px solid var(--border); background: none; color: var(--muted); font-size: .6rem; letter-spacing: .04em; cursor: pointer; }
+.gx-chip b { margin-left: 6px; font-weight: 400; opacity: .75; }
+.gx-chip:hover, .gx-chip:focus-visible { color: var(--text); border-color: var(--border2); outline: none; }
+.gx-chip.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+.gx-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.gx-btn { padding: 7px 10px; border: 1px solid var(--border2); background: none; color: var(--text); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
+  line-height: 1.2; cursor: pointer; }
+.gx-btn:hover, .gx-btn:focus-visible { border-color: var(--text); outline: none; }
+.gx-btn.on { background: var(--text); border-color: var(--text); color: var(--bg); }
+.gx-btn:disabled { color: var(--muted); border-color: var(--border); cursor: default; }
+.gx-btn--go { background: var(--text); border-color: var(--text); color: var(--bg); }
+.gx-place { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 5px 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer;
+  font-family: var(--f-display, Georgia, serif); font-size: 1rem; line-height: 1.2; }
+.gx-place b { margin-left: auto; font-family: var(--f-mono, monospace); font-weight: 400; font-size: .64rem; color: var(--muted); }
+.gx-place:hover span, .gx-place:focus-visible span { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.gx-place:focus { outline: none; }
+
+/* ── the sheet on the right: a list of what is at a spot, or one thing ── */
+.gx-sheet { position: absolute; right: 0; top: 0; bottom: 0; width: var(--gx-sheet); max-width: 100%; z-index: 6; display: none; flex-direction: column;
+  background: var(--bg); border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.gx-sheet.on { display: flex; }
+.gx-sheet__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px 11px 18px; border-bottom: 1px solid var(--border); flex: none; }
+.gx-kicker { font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gx-kicker--kind { margin: 0 0 8px; }
+.gx-x { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); background: none; color: var(--text); font-size: .7rem; line-height: 1; cursor: pointer; }
+.gx-x:hover, .gx-x:focus-visible { border-color: var(--text); outline: none; }
+.gx-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 24px; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.gx-h { margin: 0 0 6px; font-family: var(--f-display, Georgia, serif); font-weight: 400; font-size: 1.5rem; line-height: 1.1; letter-spacing: -.01em; color: var(--text); }
+.gx-h--big { font-size: 2.1rem; line-height: 1.02; letter-spacing: -.02em; margin-bottom: 10px; overflow-wrap: anywhere; }
+.gx-sub { margin: 0 0 12px; font-size: .66rem; line-height: 1.6; color: var(--muted); }
+.gx-where { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-size: .7rem; color: var(--text); }
+.gx-blurb { margin: 0 0 12px; font-size: .72rem; line-height: 1.65; color: var(--text); overflow-wrap: anywhere; }
+.gx-covers { display: flex; gap: 6px; margin: 0 0 14px; }
+.gx-covers img { width: 68px; height: 68px; object-fit: cover; background: var(--surface2); display: block; }
+.gx-sheet .gx-chips { margin: 0 0 16px; }
+.gx-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.gx-sheet .gx-find { margin: 4px 0 12px; }
+.gx-rows__k { display: flex; justify-content: space-between; margin: 14px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  font-size: .56rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gx-rows__k:first-child { margin-top: 4px; }
+.gx-rows__k b { font-weight: 400; }
+.gx-row { display: grid; grid-template-columns: 9px 1fr; column-gap: 10px; row-gap: 1px; align-items: baseline; width: 100%; padding: 8px 0; border: 0;
+  border-bottom: 1px solid var(--border); background: none; color: var(--text); text-align: left; cursor: pointer; }
+.gx-row .gx-g { align-self: center; }
+.gx-row__n { font-family: var(--f-display, Georgia, serif); font-size: 1.08rem; line-height: 1.15; overflow-wrap: anywhere; }
+.gx-row__s { grid-column: 2; font-size: .6rem; letter-spacing: .04em; color: var(--muted); }
+.gx-row:hover .gx-row__n, .gx-row:focus-visible .gx-row__n { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.gx-row:focus { outline: none; }
+
+/* ── narrow windows: the panel becomes a drawer, the sheet comes up from the bottom ── */
+.gx-drawer { display: none; position: absolute; left: 12px; top: 10px; z-index: 4; padding: 7px 10px; border: 1px solid var(--border2); background: var(--bg); color: var(--text);
+  font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+@media (max-width: 860px) {
+  .gx-stage { left: 0; }
+  .gx-drawer { display: block; }
+  .gx-panel { display: none; top: 44px; width: min(var(--gx-panel), 88vw); border-top: 1px solid var(--border); }
+  .gx--panelopen .gx-panel { display: block; }
+  .gx-sheet { top: auto; left: 0; width: auto; height: 56%; border-left: 0; border-top: 1px solid var(--border); }
+  .gx-sheet__body { padding-bottom: calc(24px + var(--gx-clear, 0px)); }
+  .gx-panel { padding-bottom: calc(22px + var(--gx-clear, 0px)); }
+  .gx-keys { display: none; }
+}
+@media (max-width: 1180px) { .gx-keys { display: none; } }
+.gx--flat .gx-keys, .gx--flat .gx-marks { display: none; }
+
+/* ── the small globe on /myroom ── */
+.gx--pick { position: relative; height: 270px; border: 1px solid var(--border2); background: var(--bg); }
+.gx--pick .gx-stage { left: 0; cursor: crosshair; }
+.gx--pick .gx-stage.is-dragging { cursor: grabbing; }
+.gx-pin { position: absolute; left: 0; top: 0; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; background: var(--red); outline: 1px solid var(--bg); pointer-events: none; display: none; }
+.gx-pickbar { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 4px; }
+.gx-pickbar .gx-btn { padding: 5px 8px; background: var(--bg); }
+.gx--pick .gx-note { font-size: .64rem; max-width: 80%; }
+
+@media (prefers-reduced-motion: reduce) { .gx-keys { transition: none; } }
+
+/* ── the Map of Ireland and Britain (static/js/explore_map.js) wears the same
+   clothes as the globe (.gx-…), with these few of its own ── */
+/* the map's page ends where the deck begins (--snt-clear: the deck says how far
+   up it reaches), so no mark, key or panel line is ever under the deck */
+.gx--view.mx { bottom: var(--snt-clear, 0px); border-bottom: 1px solid var(--border); }
+.mx .gx-m { pointer-events: auto; }
+.mx-keys { margin: 0 0 14px; }
+.mx-off { display: block; margin: -4px 0 12px; text-align: left; }
+.gx--pick.mx .gx-pickbar { flex-wrap: wrap; right: 8px; }
+
+/* ── the map's skins (explore_map.js: SKINS) ──
+   The drawing's stage is given the skin's colours as its own tokens (--bg the slip a name stands on, --text the
+   writing, --muted, --border, --red), so the marks — which are the page's own things — follow the skin with the
+   same rules as above. Every mark stands on a little of its slip, so it reads on any ground: land, sea, a coast. */
+.mx .gx-m__g::before { box-shadow: 0 0 0 2px var(--bg); }
+.mx .gx-m--n .gx-m__g { box-shadow: 0 0 0 2px var(--bg); }
+/* choosing one: a small picture of each, its name beneath; the one that is on has the ink */
+.mx-skins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px 6px; margin: 0 0 6px; }
+.mx-skin { display: block; min-width: 0; padding: 0; border: 0; background: none; color: var(--muted); text-align: left; cursor: pointer; }
+.mx-skin__c { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border: 1px solid var(--border2); }
+.mx-skin__n { display: block; margin-top: 4px; padding: 2px 0 2px 1px; overflow: hidden; white-space: nowrap; text-overflow: clip;
+  font-size: .5rem; letter-spacing: .04em; line-height: 1.2; text-transform: uppercase; }
+.mx-skin:hover, .mx-skin:focus-visible { color: var(--text); outline: none; }
+.mx-skin:hover .mx-skin__c, .mx-skin:focus-visible .mx-skin__c { border-color: var(--text); }
+.mx-skin[aria-checked="true"] { color: var(--text); }
+.mx-skin[aria-checked="true"] .mx-skin__c { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.mx-skin[aria-checked="true"] .mx-skin__n { background: var(--text); color: var(--bg); padding-left: 3px; }
+/* your own: four colours, each a swatch to press and its code to type, and how the land is filled */
+.mx-own { margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border); }
+.mx-own__row { display: grid; grid-template-columns: minmax(0, 1fr) 30px 78px; align-items: center; gap: 8px; padding: 3px 0; font-size: .7rem; color: var(--text); }
+.mx-own__sw { display: block; width: 30px; height: 24px; padding: 0; border: 1px solid var(--border2); border-radius: 0; background: none; cursor: pointer;
+  -webkit-appearance: none; appearance: none; }
+.mx-own__sw::-webkit-color-swatch-wrapper { padding: 0; }
+.mx-own__sw::-webkit-color-swatch { border: 0; border-radius: 0; }
+.mx-own__sw::-moz-color-swatch { border: 0; border-radius: 0; }
+.mx-own__sw:hover, .mx-own__sw:focus-visible { border-color: var(--text); outline: none; }
+.mx-own__hex { width: 78px; padding: 5px 7px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+  font-family: inherit; font-size: .66rem; outline: none; -webkit-appearance: none; appearance: none; }
+.mx-own__hex:focus { border-color: var(--text); }
+.mx-own .gx-label { margin-top: 12px; }
+.mx-own__say { margin: 8px 0 0; }

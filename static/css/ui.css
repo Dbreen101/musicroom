@@ -1,0 +1,436 @@
+/* ui.css — the Music Room's clothes: the working document.
+   After David's deck (Oct 2026): paper and ink, two faces — Instrument Serif
+   for every title and every big number, IBM Plex Mono for labels, chrome and
+   reading — hairline rules instead of boxes, nothing filled but the one
+   primary, square corners, one red for emphasis. Loaded LAST on every page:
+   it restyles what's there and changes no behaviour. Colours come from the
+   theme tokens (themes.py: Paper / Ink). */
+
+@import url("/static/css/record_fonts.css");
+@import url("/static/css/deck_fonts.css");
+
+:root:root {
+  --f-display: "Instrument Serif", "Nyght Serif", Georgia, serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, "Courier New", monospace;
+  --f-grotesk: var(--f-mono);          /* chrome speaks in mono caps now */
+  --f-body: var(--f-mono);             /* and so does the reading */
+  --font-celtic: var(--f-display);
+  --font-serif: var(--f-display);
+  --font-main: var(--f-mono);
+  --font-mono: var(--f-mono);
+  --gr-serif: var(--f-display);
+  --gr-sans: var(--f-mono);
+  --gr-mono: var(--f-mono);
+  --pr-font-title: var(--f-display);
+  --pr-font-body: var(--f-mono);
+  --ui-ease: cubic-bezier(.22, 1, .36, 1);
+  --ui-r: 0px;                         /* print: no rounded corners */
+  --ui-track: .1em;                    /* the tracking on every mono label */
+}
+/* the Ink palette is what the sheets say by default; the Paper theme lands on
+   :root:root from the theme head and out-ranks this */
+:root {
+  --bg:#161513; --bg-floor:#111010; --surface:#1c1b19; --surface2:#232220;
+  --border:rgba(242,239,232,.18); --border2:rgba(242,239,232,.32);
+  --text:#f2efe8; --muted:#9b968a; --muted2:#6e6a61;
+  --accent:#f2efe8; --accent-dim:rgba(242,239,232,.08); --gold:#f2efe8; --gold-soft:#c9c4b8; --well:#f2efe8;
+  --oxblood:#e8554a; --danger:#e8554a; --warning:#e8554a; --red:#e8554a; --lapis:#8fa3c9; --ochre:#c9c4b8;
+  --sheet:#161513; --nav-bg:rgba(22,21,19,.94); --pill-ink:#161513; --shadow:rgba(0,0,0,.5); --ink:#f2efe8;
+  --gr-bg:#161513; --gr-surface:rgba(242,239,232,.04); --gr-line:rgba(242,239,232,.18); --gr-ink:#f2efe8;
+  --gr-muted:#9b968a; --gr-faint:#6e6a61; --gr-accent:#f2efe8; --gr-accent-ink:#161513;
+}
+
+/* ── the page is the paper ── */
+body { font-family: var(--f-mono); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body::before { background: var(--bg) !important; opacity: 1 !important; }
+body.gr-page { background: var(--bg); color: var(--text); font-family: var(--f-mono); }
+::selection { background: var(--text); color: var(--bg); }
+a { color: inherit; }
+
+/* ── the Kells drop-caps and glows are retired ── */
+.nav__logo::first-letter, .place-label::first-letter, .index-title::first-letter,
+.practice-title::first-letter, .explore-header h1::first-letter, .index-card h2::first-letter,
+.help-section h2::first-letter, .help-hero h1::first-letter, .celtic-title::first-letter,
+.settings-title::first-letter, h1::first-letter {
+  font-family: inherit !important; font-size: inherit !important; color: inherit !important;
+  text-shadow: none !important; float: none !important; margin: 0 !important; line-height: inherit !important;
+}
+
+/* ── type: serif titles, mono labels, mono reading ── */
+h1, h2, h3, .index-title, .settings-title, .settings-header h1, .explore-header h1, .celtic-title, .gr-h1, .rb-name, .pr-name,
+.index-card h2, .settings-section h2, .help-hero h1, .help-section h2, .help-section h3, .in-step__h, .lg-side__line {
+  font-family: var(--f-display) !important; font-weight: 400 !important; font-style: normal !important;
+  letter-spacing: -.01em; text-shadow: none; color: var(--text);
+}
+h1, .index-title, .settings-title, .settings-header h1, .explore-header h1, .help-hero h1 {
+  font-size: clamp(2.4rem, 4.4vw, 3.6rem) !important; line-height: .98 !important; letter-spacing: -.02em !important; margin: 0 0 .2em;
+}
+h2 { font-size: 1.6rem; line-height: 1.1; }
+h3 { font-size: 1.2rem; line-height: 1.2; }
+p, li, td, th, label, input, textarea, select, button { font-family: var(--f-mono); }
+.ui-eyebrow, .gr-eyebrow, .rb-eyebrow, .pr-kind, .in-step__n, .lg-form label, .f label, .mr-sec label, .ds-tabs button, .kicker, .help-section .kicker,
+.settings-section h2, .mr-foot, .ui-label {
+  font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track) !important; text-transform: uppercase; font-weight: 400 !important; }
+.gr-eyebrow, .rb-eyebrow, .pr-kind, .in-step__n { color: var(--muted) !important; }
+code, .mono { font-family: var(--f-mono); }
+em { font-style: italic; }
+
+/* ── the rule under a page title: a hairline, the width of the page ── */
+.ui-rule, .gr-hero::after, .settings-title::after, .index-title::after, .usb-wrap h1::after, .mr-wrap h1::after,
+.explore-header h1::after, .help-hero h1::after, .settings-header::after {
+  content: ""; display: block; height: 1px; width: 100%; margin-top: 18px; background: var(--border);
+  -webkit-mask: none; mask: none; opacity: 1;
+}
+.gr-hero::after { margin-top: var(--gr-s3); }
+.settings-header { border-bottom: none !important; padding-bottom: 0 !important; }
+/* a page header carries its section name at the right, in mono caps, like the deck */
+.gr-hero, .settings-header, .explore-header, .help-hero, .tools-scene > div:first-child { position: relative; }
+.mr-section-label { position: absolute; right: 0; top: .9em; font-family: var(--f-mono); font-size: .68rem; letter-spacing: var(--ui-track); text-transform: uppercase; color: var(--muted); }
+
+/* a page title sits at the left, like a slide's; the Tools index was centred */
+.index-title, .tools-scene .index-title { text-align: left !important; }
+.index-title + .index-grid, .index-grid { margin-top: 28px; }
+/* nothing on a document page has a rounded corner — the deck player, the help button and the bubble keep theirs */
+[class$="-layout"] *, [class$="-wrap"] *, .gr-main *, .tools-scene *, .help-shell *, .ds-root *, .ds-side *, .ins *, .insights * { border-radius: 0 !important; }
+
+/* ── print textures (kept for anyone who wants them; nothing uses them now) ── */
+.ui-dots { background-image: radial-gradient(currentColor 1.1px, transparent 1.3px); background-size: 9px 9px; }
+.ui-hatch { background-image: repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 7px); }
+
+/* ── the top bar: one hairline, the wordmark in the serif, mono links, a rule under "here" ── */
+body:not(.is-place):not(.is-well) .nav, body.gr-page .nav, .nav {
+  display: flex; align-items: center; gap: 28px; padding: 0 32px; height: 56px;
+  background: var(--nav-bg, rgba(22,21,19,.94)) !important; border-bottom: 1px solid var(--border) !important;
+  backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100;
+}
+.nav__logo, body:not(.is-place):not(.is-well) .nav__logo, body.gr-page .nav__logo {
+  font-family: var(--f-display) !important; font-size: 1.45rem !important; letter-spacing: -.02em !important; line-height: 1;
+  color: var(--text) !important; text-decoration: none; white-space: nowrap; opacity: 1 !important;
+}
+.nav__logo::before { content: "The "; }
+.nav__logo::after { content: "."; }
+.nav__links, body.gr-page .nav__links { display: flex; gap: 18px; margin: 0 0 0 auto; padding: 0; list-style: none; align-items: center; }
+.nav__links li { white-space: nowrap; }
+.nav__links a, body:not(.is-place):not(.is-well) .nav__links a, body.gr-page .nav__links a {
+  font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track) !important; text-transform: uppercase;
+  color: var(--muted) !important; padding: 6px 0 !important; border-radius: 0 !important; border: none !important; border-bottom: 1px solid transparent !important;
+  background: none !important; text-decoration: none !important; transition: color .2s, border-color .2s;
+}
+.nav__links a:hover, body:not(.is-place):not(.is-well) .nav__links a:hover { color: var(--text) !important; background: none !important; }
+.nav__links a.active, body:not(.is-place):not(.is-well) .nav__links a.active, body.gr-page .nav__links a.active {
+  color: var(--text) !important; background: none !important; border-bottom: 1px solid var(--text) !important;
+}
+.nav__count, body.gr-page .nav__count { background: var(--text) !important; color: var(--bg) !important; font-family: var(--f-mono); border-radius: 0 !important; font-size: .6rem !important; height: 16px !important; line-height: 16px !important; min-width: 16px !important; }
+.mr-theme { margin-left: 8px !important; }
+.mr-theme__btn { border-radius: 0 !important; width: 32px !important; height: 32px !important; border: 1px solid var(--border) !important; }
+@media (max-width: 720px) { .nav, body.gr-page .nav { height: auto; flex-wrap: wrap; padding: 10px 16px; gap: 10px; } .nav__links { flex-wrap: wrap; margin-left: 0; } }
+
+/* the nav icons: tools+settings as one gear, help as a question mark */
+.nav__icons { display: flex; align-items: center; gap: 2px; margin-left: 6px; padding-left: 14px; border-left: 1px solid var(--border); }
+.nav__icons a.nav__icon, body:not(.is-place):not(.is-well) .nav__icons a.nav__icon, body.gr-page .nav__icons a.nav__icon {
+  display: inline-flex !important; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0 !important;
+  color: var(--muted) !important; border-radius: 0 !important; background: none !important; border-bottom: none !important; }
+.nav__icons a.nav__icon svg { width: 17px; height: 17px; display: block; }
+.nav__icons a.nav__icon:hover { color: var(--text) !important; }
+.nav__icons a.nav__icon.active { color: var(--text) !important; }
+
+/* ── buttons: one shape (a hairline box, square), one voice (mono caps), one primary per view (ink) ── */
+.btn, .gr-btn, .settings-save, .settings-choose, .usb-btn, .mr-btn, .btn-ver, .btn-verify, .lg-kind, .lg-tabs button,
+.ds-top button, .add-menu button, .pr-btn, .in-skip, .toolbtn, .chip, button.r3d-cueall, .help-cta, .mr-tip__next, .mr-tip__back, .mr-tip__skip, .rm-btn, .ah-btn, .import-btn, .import-choose, .analyse-btn, .fix-btn, .spo-btn, .rec-btn {
+  font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track) !important; text-transform: uppercase; font-weight: 400;
+  border-radius: 0 !important; border: 1px solid var(--border2) !important; background: none; color: var(--text);
+  padding: 9px 14px; cursor: pointer; transition: background .2s, color .2s, border-color .2s; box-shadow: none !important; transform: none !important;
+}
+.btn:hover, .gr-btn:hover, .settings-save:hover, .settings-choose:hover, .usb-btn:hover, .mr-btn:hover, .btn-ver:hover, .pr-btn:hover, .toolbtn:hover, .chip:hover, .lg-kind:hover, .help-cta:hover {
+  border-color: var(--text) !important; color: var(--text); background: none; text-decoration: none !important;
+}
+.gr-btn--primary, .settings-save, .btn--primary, .usb-btn--primary, .mr-btn--primary, .pr-btn--on, .chip.active, .lg-kind.on, .lg-tabs button.on, .gr-seg button.on, .mr-tip__next, .rm-btn--primary, .import-btn--primary, .ah-btn--primary {
+  background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important;
+}
+.gr-btn--primary:hover, .settings-save:hover, .btn--primary:hover, .mr-tip__next:hover { background: var(--gold-soft) !important; border-color: var(--gold-soft) !important; color: var(--bg) !important; }
+.gr-btn--small, .mr-btn--small, .pr-btn { padding: 5px 10px; font-size: .62rem !important; }
+.gr-btn[disabled], .mr-btn[disabled], .pr-btn[disabled] { opacity: .4; }
+.gr-seg { border-radius: 0 !important; border: 1px solid var(--border2) !important; }
+.gr-seg button { font-family: var(--f-mono) !important; font-size: .64rem; letter-spacing: var(--ui-track); text-transform: uppercase; border-radius: 0 !important; }
+.btn--danger, .gr-btn--danger { color: var(--red) !important; border-color: var(--red) !important; }
+
+/* ── inputs: square, a hairline, the paper behind ── */
+.settings-input, .lg-form input, .lg-form select, .f input[type=text], .f input[type=number], .f textarea, .f select,
+.mr-sec input[type=text], .mr-sec textarea, .gr-search, .rooms__q, .ds-top select, .item input, .usb-row select, input[type=text], input[type=search], input[type=number], textarea, select {
+  font-family: var(--f-mono) !important; font-size: .84rem; border-radius: 0 !important; border: 1px solid var(--border2) !important;
+  background: var(--surface) !important; color: var(--text) !important; box-shadow: none !important;
+}
+.settings-input:focus, .lg-form input:focus, .f input:focus, .f textarea:focus, .rooms__q:focus, input:focus, textarea:focus, select:focus { border-color: var(--text) !important; outline: none; }
+::placeholder { color: var(--muted2); opacity: 1; }
+
+/* ── panels and cards: the page is the sheet; rows are divided by hairlines ── */
+.floor-sheet { background: none !important; border: none !important; border-radius: 0 !important; box-shadow: none !important; }
+.index-grid { gap: 0 48px !important; }
+.index-card { background: none !important; border: none !important; border-top: 1px solid var(--border) !important; border-radius: 0 !important; box-shadow: none !important;
+  padding: 18px 0 28px !important; transition: none !important; position: relative; transform: none !important; }
+.index-card:hover { background: none !important; border-top-color: var(--text) !important; }
+.index-card::before { display: none; }
+.index-card h2 { font-size: 1.7rem !important; margin: 0 0 8px; }
+.index-card p { font-family: var(--f-mono) !important; font-style: normal !important; font-size: .8rem; color: var(--muted); line-height: 1.6; margin: 0; }
+/* a settings section is one row of the document: its name in the left column, the rest to the right */
+.settings-layout { max-width: 980px !important; padding: 48px 32px 120px !important; }
+.settings-section { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 6px 40px; align-items: start;
+  border-top: 1px solid var(--border); padding: 20px 0 24px !important; margin: 0 !important; }
+.settings-section > h2 { grid-column: 1; grid-row: 1 / span 40; margin: 0 !important; padding-top: 4px; font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track) !important;
+  text-transform: uppercase; color: var(--muted) !important; line-height: 1.5 !important; }
+.settings-section > :not(h2) { grid-column: 2; }
+.settings-section p, .settings-hint, .settings-status { font-family: var(--f-mono); font-size: .8rem; line-height: 1.6; }
+.settings-section p { color: var(--text); margin: 0 0 12px !important; }
+.settings-hint { color: var(--muted); }
+@media (max-width: 720px) { .settings-section { grid-template-columns: 1fr; } .settings-section > h2 { grid-row: auto; } .settings-section > :not(h2) { grid-column: 1; } }
+.gr-plan, .in-room, .in-you, .mr-design, .blk, .item, .rcard, .card { border-radius: 0 !important; box-shadow: none !important; }
+.rcard__name, .card__title { font-family: var(--f-display) !important; }
+
+/* ── tables: hairline rows, a mono-caps head, no filled head row ── */
+[class$="-layout"] table, .fix-table, .ah-table { border-collapse: collapse; width: 100%; }
+[class$="-layout"] th, .fix-table th, .ah-table th, table th { background: none !important; color: var(--muted) !important; font-family: var(--f-mono) !important;
+  font-size: .64rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; font-weight: 400 !important; border-bottom: 1px solid var(--border2) !important; }
+[class$="-layout"] td, .fix-table td, .ah-table td, table td { border-bottom: 1px solid var(--border) !important; font-family: var(--f-mono); }
+[class$="-layout"] tr:hover td, table tr:hover td { background: var(--accent-dim) !important; }
+
+.fix-stat__label, .fix-stat small, .stat__label, .ins-label { color: var(--muted) !important; }
+
+/* ── the help manual: paper, hairlines, mono reading ── */
+body.help-body, .help-scene { background: var(--bg) !important; }
+.help-toc { background: none !important; border: none !important; border-left: 1px solid var(--border) !important; border-radius: 0 !important; box-shadow: none !important; padding: 4px 0 4px 18px !important; }
+.help-toc__title { font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; color: var(--muted) !important; font-style: normal !important; }
+.help-toc a { font-family: var(--f-mono) !important; font-size: .76rem !important; color: var(--muted) !important; border-radius: 0 !important; padding: 4px 0 !important; }
+.help-toc a:hover { color: var(--text) !important; background: none !important; }
+.help-hero, .help-section, .help-callout { background: none !important; border: none !important; border-radius: 0 !important; box-shadow: none !important; }
+.help-section { border-top: 1px solid var(--border) !important; padding: 26px 0 8px !important; margin: 0 !important; }
+.help-hero p { font-family: var(--f-mono) !important; font-style: normal !important; font-size: .9rem !important; color: var(--muted) !important; }
+.help-section h2 { font-size: 1.8rem !important; margin: 0 0 12px !important; }
+.help-section h3 { font-size: 1.15rem !important; }
+.help-section p, .help-section li { font-family: var(--f-mono) !important; font-size: .84rem !important; color: var(--text) !important; line-height: 1.65 !important; }
+.help-section em { color: var(--muted) !important; }
+.help-section strong { color: var(--text) !important; font-weight: 600; }
+.help-section code, .term { font-family: var(--f-mono) !important; background: var(--accent-dim) !important; color: var(--text) !important; border-radius: 0 !important; border: none !important; }
+.help-callout, .help-callout p, .help-callout li { border-left: 2px solid var(--text) !important; padding: 4px 0 4px 16px !important; background: none !important; color: var(--text) !important; font-family: var(--f-mono) !important; }
+.help-callout p, .help-callout li { border-left: none !important; padding: 0 !important; }
+.help-callout.warm { border-left-color: var(--red) !important; }
+.help-cta { display: inline-block; }
+
+/* ── the front door: the deck's cover. The name, huge; the meta lines in mono; the soft dark shape ── */
+body.gr-page.lg { background: var(--bg); }
+.lg-side { background: var(--bg) !important; color: var(--text); align-items: flex-end; }
+.lg-side::before { content: ""; position: absolute; inset: 0; opacity: 1; pointer-events: none; filter: blur(22px);
+  background:
+    radial-gradient(closest-side at 74% 30%, color-mix(in srgb, var(--text) 76%, transparent) 0%, color-mix(in srgb, var(--text) 36%, transparent) 42%, transparent 100%),
+    radial-gradient(closest-side at 60% 66%, color-mix(in srgb, var(--text) 58%, transparent) 0%, transparent 100%);
+  background-size: 34% 56%, 30% 46%; background-repeat: no-repeat; background-position: 74% 30%, 60% 66%; }
+.lg-side::after { display: none !important; }
+.lg-side__wordmark { position: static !important; font-family: var(--f-display) !important; font-size: clamp(3.6rem, 8.4vw, 7.4rem) !important; line-height: .92 !important;
+  letter-spacing: -.035em; color: var(--text) !important; max-width: 6.2ch; margin-bottom: 28px; position: relative; z-index: 1; }
+.lg-side__wordmark::before { content: "The "; }
+.lg-side__wordmark::after { content: "."; }
+.lg-side__line { font-family: var(--f-mono) !important; font-size: .78rem !important; letter-spacing: var(--ui-track) !important; line-height: 1.5 !important; text-transform: uppercase; color: var(--muted) !important; max-width: 60ch !important; }
+.lg-side__line em { font-style: normal; color: var(--red); }
+.lg-side__fine { font-family: var(--f-mono); font-size: .76rem; color: var(--muted); max-width: 52ch; line-height: 1.6; }
+.lg-pane { border-left: 1px solid var(--border) !important; }
+.lg-tabs { border-radius: 0 !important; border: 1px solid var(--border2) !important; padding: 0 !important; gap: 0 !important; }
+.lg-tabs button { border-radius: 0 !important; border: none !important; padding: 9px 16px !important; }
+.lg-kinds { gap: 0 !important; border: 1px solid var(--border2); }
+.lg-kind { padding: 10px 6px !important; border: none !important; border-right: 1px solid var(--border2) !important; border-bottom: 1px solid var(--border2) !important; margin: 0; }
+.lg-kind:nth-child(3n) { border-right: none !important; }
+.lg-kind:nth-last-child(-n+3) { border-bottom: none !important; }
+.lg-kind.on { background: var(--text) !important; color: var(--bg) !important; }
+.lg-form label { color: var(--muted) !important; }
+.lg-err { color: var(--red) !important; font-family: var(--f-mono); font-size: .72rem; }
+.lg-server { color: var(--muted) !important; }
+
+/* ── the intro: six pages of the same document ── */
+.in-top__wordmark { font-family: var(--f-display) !important; font-size: 1.45rem !important; letter-spacing: -.02em; }
+.in-top__wordmark::before { content: "The "; } .in-top__wordmark::after { content: "."; }
+.in-step__h { font-size: clamp(2.6rem, 5vw, 4.4rem) !important; line-height: .96 !important; letter-spacing: -.025em !important; }
+.in-step__h em { font-style: normal; color: var(--red); }
+.in-step__p { font-family: var(--f-mono); font-size: .9rem !important; color: var(--text) !important; line-height: 1.6; }
+.in-grid i, .in-lock i, .in-room .m i, .in-you .m i { border-radius: 0 !important; box-shadow: none !important; }
+.in-lock i.b::after, .in-lock i.y::after { border-radius: 0 !important; }
+.in-lock i.b::after { background: var(--red) !important; color: #fff !important; }
+.in-room, .in-you { border: 1px solid var(--border) !important; background: none !important; }
+.in-room small { color: var(--muted) !important; }
+.in-you em { font-family: var(--f-mono) !important; font-size: .8rem; color: var(--muted); }
+.in-fb { border-radius: 0 !important; box-shadow: none !important; background: none !important; border-color: var(--border2) !important; }
+.in-line i { background: var(--text) !important; height: 1px !important; top: 0 !important; }
+.in-skip { border: none !important; color: var(--muted) !important; }
+
+/* ── green-room pages (gr.css): the lede and plans as rows of the document ── */
+.gr-h1 { font-size: clamp(2.6rem, 5.2vw, 4rem) !important; }
+.gr-lede { font-family: var(--f-mono); font-size: .92rem !important; color: var(--text) !important; }
+.gr-fine, .gr-status, .gr-empty, .gr-checkout__sum, .gr-result { font-family: var(--f-mono); }
+.gr-fine { color: var(--muted) !important; font-size: .76rem !important; }
+.gr-plans { gap: 0 36px !important; }
+.gr-plan { background: none !important; border: none !important; border-top: 1px solid var(--border) !important; padding: 18px 0 22px !important; min-height: 0 !important; gap: 10px !important; }
+.gr-plan:hover { border-top-color: var(--text) !important; background: none !important; }
+.gr-plan--on { outline: none !important; border-top: 2px solid var(--text) !important; padding-top: 17px !important; }
+.gr-plan__name { font-style: normal !important; font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; color: var(--muted) !important; order: 2; }
+.gr-plan__price { font-family: var(--f-display) !important; font-size: 3.2rem !important; line-height: 1 !important; order: 1; }
+.gr-plan__price small { font-family: var(--f-mono) !important; font-size: .68rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; margin-left: 6px; }
+.gr-plan__blurb { order: 3; font-size: .8rem !important; color: var(--text) !important; }
+.gr-plan__cta { order: 4; color: var(--text) !important; }
+.gr-plan--on .gr-plan__cta::before { content: "✓ "; }
+.gr-line { border-bottom: 1px solid var(--border) !important; }
+.gr-line__x { color: var(--muted) !important; }
+.gr-line__x:hover { color: var(--red) !important; }
+.gr-line__t, .gr-sec h2, .pr-sec h2, .rb-h, .pr-rec__t, .rb-pick__t, .gr-line__cov span, .pr-rec__cov span { font-family: var(--f-display) !important; font-style: normal !important; }
+.gr-line__t { font-size: 1.2rem !important; }
+.gr-line__s, .pr-rec__s, .rb-pick__s, .pr-pick__s, .rb-cap { font-family: var(--f-mono); font-size: .72rem !important; color: var(--muted) !important; }
+.rb-tag, .pr-tag { font-family: var(--f-mono) !important; font-style: normal !important; font-size: .78rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; color: var(--muted) !important; }
+.pr-rec__cov, .gr-line__cov, .rb-hero__img, .rb-image img, .pr-head__img, .rb-gallery__row img, .rb-place i { border-radius: 0 !important; box-shadow: none !important; }
+.gr-line__cov, .pr-rec__cov { background: var(--surface2) !important; }
+body.gr-page .pr-rec:hover .pr-rec__cov { transform: none !important; box-shadow: none !important; }
+body.gr-page .pr-bar { background: var(--nav-bg) !important; border-bottom: 1px solid var(--border); color: var(--muted); font-family: var(--f-mono); font-size: .68rem; letter-spacing: var(--ui-track); text-transform: uppercase; }
+body.gr-page .pr-bar a, body.gr-page .pr-bar button { border-radius: 0 !important; font-family: var(--f-mono); font-size: .64rem; letter-spacing: var(--ui-track); text-transform: uppercase; }
+body.gr-page .pr-links a, .rb-links a { font-family: var(--f-mono); font-size: .7rem; letter-spacing: var(--ui-track); text-transform: uppercase; }
+.rb-body, body.gr-page .pr-bio, .rb-bio { font-family: var(--f-mono) !important; font-size: .88rem !important; line-height: 1.65 !important; }
+.rb-hero--cover { border-radius: 0 !important; }
+body.gr-page a { color: var(--text); }
+
+/* ── the designer of the public room (my_room.html) ── */
+.ds-main { background: var(--bg-floor) !important; }
+.ds-tabs button { color: var(--muted) !important; border-bottom: 1px solid transparent !important; }
+.ds-tabs button.on { color: var(--text) !important; border-bottom-color: var(--text) !important; }
+.blk { border: 1px solid var(--border) !important; background: none !important; }
+.blk.sel { border-color: var(--text) !important; }
+.blk__k { color: var(--muted) !important; }
+.blk button, .item .item__bar button { color: var(--muted) !important; }
+.blk button:hover, .item .item__bar button:hover { color: var(--text) !important; }
+.thumb, .rec img, .rec .cov { background: var(--surface2) !important; border-radius: 0 !important; }
+.thumb.on { border-color: var(--text) !important; }
+.ds-live { background: var(--text) !important; color: var(--bg) !important; border-radius: 0 !important; }
+.err, .lg-err, .gr-result--bad { color: var(--red) !important; }
+.hint, .empty, .ds-status { color: var(--muted) !important; font-family: var(--f-mono); }
+.add-menu button { border: 1px solid var(--border) !important; }
+.add-menu small { color: var(--muted) !important; }
+
+/* ── the rooms directory and the world (explore3d) ── */
+.views { border: 1px solid var(--border2) !important; border-radius: 0 !important; padding: 0 !important; gap: 0 !important; background: none !important; }
+.views button { font-family: var(--f-mono) !important; font-size: .66rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; border-radius: 0 !important; padding: 8px 14px !important; color: var(--muted) !important; background: none !important; }
+.views button.on { background: var(--text) !important; color: var(--bg) !important; }
+.views--sub { margin-left: 10px; }
+.top__row h1 { font-family: var(--f-display) !important; font-style: normal !important; font-size: 1.7rem !important; letter-spacing: -.02em; }
+.rooms__q { font-family: var(--f-mono) !important; }
+.rcard { border: none !important; border-top: 1px solid var(--border) !important; background: none !important; }
+
+/* ── tips, feedback, the theme switch: all quiet, all the same shape ── */
+.mr-tip, .mr-tip__card { border-radius: 0 !important; background: var(--sheet) !important; border: 1px solid var(--border2) !important; box-shadow: none !important; color: var(--text); font-family: var(--f-mono); }
+.mr-tip__kicker { font-family: var(--f-mono) !important; letter-spacing: var(--ui-track); color: var(--muted) !important; }
+.mr-tip__next, .mr-tip__back, .mr-tip__skip { padding: 7px 12px !important; }
+
+/* ── the 3D room's chrome (room3d / forest3d): same voice, same shapes; nothing about the scene changes ── */
+.r3d-btn, .r3d-nav__btn, .r3d-iconbtn, .r3d-cueall, .r3d-fchip, .r3d-facet, .r3d-hiddenfilter, #r3d-hiddenfilter, .r3d-arr {
+  font-family: var(--f-mono) !important; letter-spacing: var(--ui-track); border-radius: 0 !important; text-transform: uppercase; font-size: .66rem !important;
+}
+.r3d-nav__menu, .r3d-filt, .r3d-pop, .r3d-explore, .r3d-pilepop, .r3d-ctx, .r3d-detail { border-radius: 0 !important; }
+.r3d-nav__menu a { font-family: var(--f-mono) !important; font-size: .8rem !important; }
+.r3d-filt__label { font-family: var(--f-mono) !important; letter-spacing: var(--ui-track) !important; font-size: .64rem !important; }
+.r3d-hud .r3d-title, .r3d-title, .r3d-overlay__title { font-family: var(--f-display) !important; letter-spacing: -.02em !important; font-weight: 400; }
+.r3d-title, .r3d-count, .r3d-btn { filter: none !important; }
+.r3d-overlay__title { font-size: 2.4rem !important; }
+.r3d-count { font-family: var(--f-mono) !important; }
+html.is-gr .r3d-top .r3d-grp--views { border: 1px solid var(--border2) !important; background: none !important; padding: 0 !important; border-radius: 0 !important; }
+html.is-gr .r3d-top .r3d-btn { padding: 8px 12px !important; }
+html.is-gr .r3d-top .r3d-btn.active { color: var(--bg) !important; background: var(--text) !important; }
+html.is-gr .r3d-iconbtn, html.is-gr .r3d-nav__btn, html.is-gr .r3d-search input, html.is-gr .r3d-cueall { border-radius: 0 !important; background: none !important; border: 1px solid var(--border2) !important; }
+html.is-gr .r3d-top { background: linear-gradient(180deg, var(--bg) 58%, transparent) !important; }
+.gcard__t { font-family: var(--f-display); }
+
+/* explore's backdrop is the page colour; the ambient picture rides on top only in the stream */
+#bg { background-color: var(--bg) !important; }
+body.view-rooms #bg, body.view-wall #bg { background-image: none !important; }
+
+/* ── the wall of blocks (room_canvas.css): square, hairline, the same keys ── */
+.rc-block, .rc-tools, .rc-addmenu, .rc-sheet, .rc-add, .rc-btn, .rc-list, .rc-chip, .rc-rec__acts button, .rc-pl__acts button, .rc-pl__play, .rc-pl__cover, .rc-list__row img { border-radius: 0 !important; }
+.rc-block, .rc-tools, .rc-addmenu, .rc-sheet { box-shadow: none !important; }
+.rc-block.live { box-shadow: none !important; outline: 1px solid var(--text); }
+.rc-block.sel { outline: 1px solid var(--text) !important; outline-offset: 0 !important; }
+.rc-add { box-shadow: none !important; border: 1px solid var(--text) !important; }
+.rc-tools button[data-act="fill"] { color: var(--text) !important; }
+
+/* ── Just Listen: the sit-back lens stays a dark page (a dark slide), in the same two faces ── */
+body:has(.jl-wrap) { --jl-gold: #f2efe8; --jl-ink: #f2efe8; --jl-muted: #9b968a; --jl-accent: #f2efe8; background: #161513 !important; font-family: var(--f-mono) !important; }
+.jl-title { font-family: var(--f-display) !important; font-style: normal !important; color: #f2efe8 !important; text-shadow: none !important; font-size: clamp(1.8rem, 4vh, 2.8rem) !important; letter-spacing: -.02em; }
+.jl-artist { font-family: var(--f-mono) !important; font-size: .72rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; opacity: 1 !important; color: #9b968a !important; }
+.jl-art, .jl-art__fallback, .jl-play, .jl-crow, .jl-crow__art, .jl-top a, .jl-top button { border-radius: 0 !important; }
+.jl-art { animation: none !important; }
+.jl-art-shadow { display: none !important; }
+.jl-art__fallback { font-family: var(--f-display) !important; font-style: normal !important; color: #9b968a !important; background: #232220 !important; }
+.jl-play { background: #f2efe8 !important; color: #161513 !important; box-shadow: none !important; }
+.jl-play:hover { transform: none !important; }
+.jl-btn:hover { transform: none !important; color: #f2efe8 !important; }
+.jl-scrub, .jl-vol__slider { background: rgba(242,239,232,.2) !important; border-radius: 0 !important; height: 2px !important; }
+.jl-top a, .jl-top button { font-family: var(--f-mono) !important; font-size: .64rem !important; letter-spacing: var(--ui-track); text-transform: uppercase; background: none !important; border: 1px solid rgba(242,239,232,.32) !important; color: #9b968a !important; transform: none !important; }
+.jl-top a:hover, .jl-top button:hover { color: #f2efe8 !important; border-color: #f2efe8 !important; transform: none !important; }
+.jl-counter, .jl-times, .jl-vol__ic { font-family: var(--f-mono) !important; color: #9b968a !important; opacity: 1 !important; }
+.jl-wrap, .jl-btn { color: #f2efe8; }
+.jl-empty, .jl-cue__empty { font-style: normal !important; font-family: var(--f-mono) !important; color: #9b968a !important; }
+.jl-cue { background: rgba(22,21,19,.94) !important; border-left: 1px solid rgba(242,239,232,.18); }
+.jl-cue__head { font-family: var(--f-display) !important; font-style: normal !important; color: #f2efe8 !important; font-size: 1.4rem !important; }
+.jl-crow.active { background: rgba(242,239,232,.08) !important; }
+.jl-crow__t, .jl-crow__a { font-family: var(--f-mono) !important; }
+.jl-crow__art--blank { background: #232220 !important; color: #9b968a !important; font-style: normal !important; font-family: var(--f-display) !important; }
+
+/* ── the deck player keeps its shape (an object), but speaks mono ── */
+#seinnteoir-bar, #seinnteoir-tab, #snt-qpop, #snt-volpop, #snt-err-toast { font-family: var(--f-mono) !important; }
+
+/* ── the foot of every page, like the foot of every slide ── */
+.mr-foot { display: flex; justify-content: space-between; gap: 24px; max-width: 1180px; margin: 64px auto 0; padding: 14px 32px 0; border-top: 1px solid var(--border); color: var(--muted); }
+.mr-foot span { font-family: var(--f-mono); font-size: .66rem; letter-spacing: var(--ui-track); text-transform: uppercase; }
+
+/* ── the trial build: the top bar STAYS, on every page. (It used to hide and
+   come down when the pointer went up to the top edge — but in full screen the
+   Mac's own menu bar comes down at that same edge and sat on top of it. David,
+   2026-11-14: "leave it up there but don't have it disappear".) One slim bar;
+   its words sit LOW in it, so they stay clear of the Mac's menu bar even when
+   that has come down. --nav-h is its height: anything pinned to the top of a
+   page measures from it. ── */
+html.is-gr { --nav-h: 54px; }
+html.is-gr .nav, html.is-gr body:not(.is-place):not(.is-well) .nav, html.is-gr body.gr-page .nav {
+  position: fixed !important; top: 0; left: 0; right: 0; z-index: 1000; height: var(--nav-h); box-sizing: border-box; padding: 0 24px 10px;
+  align-items: flex-end; gap: 24px; background: var(--bg) !important; backdrop-filter: none; transform: none; box-shadow: none;
+}
+html.is-gr .nav__logo, html.is-gr body.gr-page .nav__logo { font-size: 1.3rem !important; padding-bottom: 1px; }
+html.is-gr .nav__links a { padding: 4px 0 3px !important; }
+html.is-gr .nav__icons a.nav__icon { width: 28px; height: 24px; }
+html.is-gr body { padding-top: var(--nav-h); }
+/* …but a page with no bar of its own (the front door, the six opening screens, anything the script below marks) keeps its top */
+html.is-gr body.lg, html.is-gr body.in, html.is-gr.no-nav body { padding-top: 0; }
+/* things pinned to the top of a page start under the bar */
+html.is-gr body[class*="view-"] .top { top: var(--nav-h) !important; }
+/* The flow: the one thing on show ends above the deck (--snt-clear = how far up it reaches), so the deck
+   never lies on its picture; the strip of thumbnails rides above the deck too; and the keys' reminder sits in
+   the clear band beside the deck, away from the item's buttons and from the two round keys in the corner. */
+html.is-gr body.view-stream .stage { inset: calc(var(--nav-h) + 120px) 0 calc(var(--snt-clear, 0px) + 40px) !important; }   /* +40: the strip's grip rests in that band, off the item's buttons */
+html.is-gr .ex-dock { bottom: var(--snt-clear, 0px); }
+html.is-gr .navhint { right: 84px; bottom: 26px; }
+html.is-gr body.view-wall .wall { inset: calc(var(--nav-h) + 120px) 0 0 0 !important; }
+/* the walls of cards scroll behind the deck: their last row can be brought clear of it */
+html.is-gr .wall, html.is-gr .rooms, html.is-gr .pubg { padding-bottom: calc(var(--snt-clear, 0px) + 40px) !important; }
+html.is-gr #forest3d, html.is-gr .forest3d { inset: var(--nav-h) 0 0 0 !important; }
+html.is-gr .cv-bar { top: var(--nav-h) !important; }
+html.is-gr .fix-header, html.is-gr .fix-toolbar { top: var(--nav-h) !important; }
+/* Explore's side panels (sources · tune · wishlist · import), its reader, its video and wishlist-game screens, and a
+   room opened over it all began at the very top of the window — under the bar, which is always there now, so each
+   one's ✕ sat behind it and could not be pressed (David, 2026-11-15: "I am not able to close the sources pop out
+   window"). They start under the bar. */
+html.is-gr .ex-reader, html.is-gr .ex-video, html.is-gr #wishplay, html.is-gr .rooms-open { top: var(--nav-h) !important; }
+/* …and the side panels start under Explore's own row as well (its doors and its tune · sources · wishlist ·
+   filters keys: --ex-top-h, measured by the page), so that row stays in sight and in reach while one is open */
+html.is-gr .ex-panel { top: calc(var(--nav-h) + var(--ex-top-h, 58px)) !important; border-top: 1px solid var(--border); }
+/* a page opened inside another (over the room, in Explore's room window) brings
+   its own bar; the one behind steps aside so there is never two */
+html.is-gr body.r3d-toolopen > .nav { display: none !important; }
+@media (max-width: 720px) { html.is-gr { --nav-h: 84px; } html.is-gr .nav, html.is-gr body.gr-page .nav { padding: 8px 16px; align-items: center; } }
+/* the last row of any scrolling page can clear the deck */
+/* The two round keys in the corner (this page's introduction, feedback). A page with a panel open on the right
+   moves them to the panel's left edge (--mr-keys-right). If that would put them on the deck — a narrow window —
+   they stand ABOVE the deck instead: the clamp below is 0 when there is room beside it, and the deck's height
+   when there isn't. */
+html.is-gr { --mr-keys-bottom: calc(16px + clamp(0px, calc((var(--snt-right, 0px) - (100vw - var(--mr-keys-right, 16px) - 44px)) * 9999), var(--snt-clear, 0px))); }
+html.is-gr body { padding-bottom: max(150px, calc(var(--snt-clear, 0px) + 24px)); }      /* (--snt-clear: how far up the deck reaches) */
+html.is-gr body.view-stream, html.is-gr body.view-wall, html.is-gr body.view-rooms { padding-bottom: 0; }

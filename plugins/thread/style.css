@@ -1,0 +1,14 @@
+.th-start { display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: start; margin: 4px 0 18px; }
+.th-threads { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.th-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.th-head p { margin: 0; }
+.th-why { margin-top: 4px; font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.th-find { width: min(460px, 100%); margin: 6px 0 14px; }
+.th-rows { display: flex; flex-direction: column; max-width: 720px; }
+.th-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 6px 0; border: 0;
+  border-bottom: 1px solid var(--border); background: none; text-align: left; cursor: pointer; }
+.th-row .mr-card__cover { width: 40px; }
+.th-row:hover span:nth-child(2), .th-row:focus-visible span:nth-child(2) { text-decoration: underline; text-underline-offset: 3px; }
+.th-row:focus { outline: none; }
+.th-row .mr-muted { font-size: .62rem; }
+.th-blank { background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--bg) 6px 12px); }

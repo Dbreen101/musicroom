@@ -1,0 +1,23 @@
+{
+  "updated": "2026-06-22",
+  "count": 17,
+  "by_netloc": {
+    "5mag.net": "https://5mag.net/feed/",
+    "attackmagazine.com": "https://www.attackmagazine.com/feed/",
+    "cdm.link": "https://cdm.link/feed/",
+    "crackmagazine.net": "https://crackmagazine.net/feed/",
+    "daily.bandcamp.com": "https://daily.bandcamp.com/feed/",
+    "djmag.com": "https://djmag.com/rss.xml",
+    "factmag.com": "https://www.factmag.com/feed/",
+    "inverted-audio.com": "https://www.inverted-audio.com/feed/",
+    "mixmag.net": "https://mixmag.net/rss.xml",
+    "pitchfork.com": "https://pitchfork.com/feed/feed-news/rss",
+    "ra.co": "https://ra.co/xml/podcast.xml",
+    "stampthewax.com": "https://stampthewax.com/feed/",
+    "thequietus.com": "https://thequietus.com/feed/",
+    "theransomnote.com": "https://www.theransomnote.com/feed/",
+    "thewire.co.uk": "https://www.thewire.co.uk/home/rss",
+    "trommelmusic.com": "https://trommelmusic.com/feed/",
+    "xlr8r.com": "https://xlr8r.com/feed/"
+  }
+}

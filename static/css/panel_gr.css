@@ -1,0 +1,181 @@
+/* panel_gr.css — the record's side panel in the trial build, as a page of the
+   working document (David, 2026-11-14: "redesign the popup window … in the same
+   design style as the rest of the app. Keep the font randomness element").
+
+   The panel is templates/place.html shown chrome-less inside My Room
+   (?panelonly=1). It used to wear its own dark "desk" palette whatever the
+   theme; here it takes the app's theme (Paper / Ink) and the document's
+   manners: hairline rows, mono-caps labels, square corners, one ink fill (the
+   play key), red only for what removes. The one thing left as it was: every
+   value in the metadata wears the record's OWN face (--record-font, drawn
+   from its cover) — and so does the name at the top.
+
+   Loaded after ui.css. Everything is scoped to the trial + the embedded panel,
+   so the tester build's panel is untouched. */
+
+html.is-gr body.panel-only .track-panel {
+  /* back to the theme's own tokens (the old desk palette was pinned on this element) */
+  --bg: inherit; --surface: inherit; --surface2: inherit; --border: inherit; --border2: inherit;
+  --text: inherit; --muted: inherit; --muted2: inherit; --accent: inherit; --accent-dim: inherit; --gold: inherit;
+  --radius: 0px;
+  background: var(--bg) !important; color: var(--text); font-family: var(--f-mono); border-left: 1px solid var(--border);
+  -webkit-font-smoothing: antialiased;
+}
+html.is-gr body.panel-only .track-panel *, html.is-gr body.panel-only .track-panel *::before { border-radius: 0 !important; box-shadow: none !important; }
+html.is-gr body.panel-only .track-panel button, html.is-gr body.panel-only .track-panel input,
+html.is-gr body.panel-only .track-panel select, html.is-gr body.panel-only .track-panel textarea { font-family: var(--f-mono) !important; }
+
+/* ── the top: the record's name in its own face, then the transport ── */
+html.is-gr body.panel-only .track-panel__player-bar {
+  background: var(--bg) !important; border: 0 !important; border-bottom: 1px solid var(--text) !important; padding: 22px 26px 16px !important;
+}
+html.is-gr body.panel-only .player__track-info {
+  font-family: var(--record-font, var(--f-display)); font-size: 1.5rem; line-height: 1.15; color: var(--text); letter-spacing: -.005em;
+  white-space: normal; margin: 0 44px 16px 0; overflow: visible;
+}
+html.is-gr body.panel-only .player__track-info[data-note]::after {
+  content: attr(data-note); display: block; margin-top: 8px; font-family: var(--f-mono); font-size: .64rem; letter-spacing: .08em;
+  text-transform: uppercase; line-height: 1.4; color: var(--red, #c9412f);
+}
+html.is-gr body.panel-only .player__controls { gap: 10px; flex-wrap: wrap; }
+html.is-gr body.panel-only .player__btn {
+  width: 34px; height: 34px; border: 1px solid var(--border2) !important; background: none; color: var(--text); font-size: .8rem;
+  transition: background .2s, color .2s, border-color .2s; transform: none !important; animation: none !important;
+}
+html.is-gr body.panel-only .player__btn:hover { border-color: var(--text) !important; color: var(--text); }
+html.is-gr body.panel-only #player-play-btn { width: 44px; height: 34px; background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important; }
+html.is-gr body.panel-only .player__btn.playing { background: var(--text) !important; color: var(--bg) !important; }
+html.is-gr body.panel-only .player__time { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .04em; color: var(--muted); min-width: 92px; font-variant-numeric: tabular-nums; }
+html.is-gr body.panel-only .player__scrub { height: 1px !important; background: var(--text) !important; min-width: 90px; transition: none; }
+html.is-gr body.panel-only .player__scrub::-webkit-slider-thumb { width: 9px; height: 15px; background: var(--text); transform: none !important; }
+html.is-gr body.panel-only .player__capture {
+  border: 1px solid var(--border2) !important; background: none !important; color: var(--text); padding: 7px 11px; font-size: .62rem;
+  letter-spacing: .1em; text-transform: uppercase; transform: none !important; transition: border-color .2s;
+}
+html.is-gr body.panel-only .player__capture:hover { border-color: var(--text) !important; color: var(--text); }
+html.is-gr body.panel-only .player__capture.captured { background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important; }
+html.is-gr body.panel-only .player__volume { margin-top: 14px; gap: 10px; }
+html.is-gr body.panel-only .player__volume > span { font-size: 0 !important; }
+html.is-gr body.panel-only .player__volume > span::before { content: "vol"; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+html.is-gr body.panel-only .player__volume input { height: 1px; background: var(--border2); }
+html.is-gr body.panel-only .player__volume input::-webkit-slider-thumb { width: 7px; height: 11px; background: var(--text); }
+
+/* ── the body: sections under mono-caps headings, ruled rows ── */
+html.is-gr body.panel-only .track-panel__body { padding: 20px 26px 190px !important; background: var(--bg) !important; }
+html.is-gr body.panel-only .track-panel__section { border: 0 !important; background: none !important; padding: 0 !important; margin: 30px 0 0 !important; }
+html.is-gr body.panel-only .track-panel__section-heading {
+  font-family: var(--f-mono) !important; font-size: .64rem !important; letter-spacing: .1em !important; text-transform: uppercase; font-weight: 400 !important;
+  color: var(--muted) !important; opacity: 1 !important; border: 0 !important; border-bottom: 1px solid var(--text) !important; padding: 0 0 8px !important; margin: 0 0 2px !important;
+}
+html.is-gr body.panel-only .track-panel__section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+html.is-gr body.panel-only .track-panel__section-heading > span { float: none !important; }
+html.is-gr body.panel-only .track-panel__section--meta { margin-top: 22px !important; }
+/* a borrowed record plays in the deck: the keys that need this page's own player step aside */
+html.is-gr body.panel-only .is-borrowed .player__time, html.is-gr body.panel-only .is-borrowed .player__scrub,
+html.is-gr body.panel-only .is-borrowed #capture-btn, html.is-gr body.panel-only .is-borrowed #handoff-btn,
+html.is-gr body.panel-only .is-borrowed .player__volume, html.is-gr body.panel-only .is-borrowed #player-prev-btn,
+html.is-gr body.panel-only .is-borrowed #player-next-btn, html.is-gr body.panel-only .is-borrowed #player-queue-btn { display: none !important; }
+
+/* cover: its actions and where it came from */
+html.is-gr body.panel-only .panel-artwork__actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; }
+html.is-gr body.panel-only .panel-artwork__source { font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 10px; display: flex; gap: 10px; }
+html.is-gr body.panel-only .panel-artwork__source * { font-size: inherit !important; color: var(--muted) !important; font-style: normal; background: none !important; padding: 0 !important; border: 0 !important; }
+
+/* every small key in the panel: a hairline box, mono caps */
+html.is-gr body.panel-only .panel-artwork__actions button,
+html.is-gr body.panel-only .btn-ver, html.is-gr body.panel-only .file-version-actions .btn-ver,
+html.is-gr body.panel-only .btn-verify, html.is-gr body.panel-only .self-release-btn,
+html.is-gr body.panel-only .track-panel .btn, html.is-gr body.panel-only .track-panel .btn--small,
+html.is-gr body.panel-only .track-panel .btn--danger, html.is-gr body.panel-only .voice-recorder__btn {
+  appearance: none; background: none !important; border: 1px solid var(--border2) !important; color: var(--text) !important;
+  font-size: .62rem !important; letter-spacing: .1em !important; text-transform: uppercase; font-style: normal !important; font-weight: 400 !important;
+  padding: 6px 10px !important; line-height: 1.2; cursor: pointer; transform: none !important; transition: border-color .2s, background .2s, color .2s;
+}
+html.is-gr body.panel-only .panel-artwork__actions button:hover, html.is-gr body.panel-only .btn-ver:hover,
+html.is-gr body.panel-only .btn-verify:hover, html.is-gr body.panel-only .self-release-btn:hover,
+html.is-gr body.panel-only .track-panel .btn:hover, html.is-gr body.panel-only .voice-recorder__btn:hover { border-color: var(--text) !important; color: var(--text) !important; }
+html.is-gr body.panel-only .self-release-btn.active, html.is-gr body.panel-only .btn-verify.verified { background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important; }
+html.is-gr body.panel-only .btn-ver.danger:hover, html.is-gr body.panel-only .track-panel .btn--danger {
+  color: var(--red, #c9412f) !important; border-color: var(--red, #c9412f) !important;
+}
+html.is-gr body.panel-only .track-panel .btn--danger { opacity: 1 !important; }
+html.is-gr body.panel-only .track-panel .btn--danger:hover { background: var(--red, #c9412f) !important; color: var(--bg) !important; }
+html.is-gr body.panel-only .voice-recorder__btn { filter: grayscale(1); }
+
+/* the fields: label in mono caps, the value in the record's own face */
+html.is-gr body.panel-only .edit-field { gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); align-items: baseline; flex-wrap: wrap; }
+html.is-gr body.panel-only .edit-field:last-child { border-bottom: 1px solid var(--border); }
+html.is-gr body.panel-only .edit-field__label { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); min-width: 132px; }
+html.is-gr body.panel-only .edit-field__value { font-size: 1.18rem; line-height: 1.25; padding: 0; min-height: 0; color: var(--text); }
+html.is-gr body.panel-only .edit-field__value:hover { background: none; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+html.is-gr body.panel-only .edit-field__value.empty { font-family: var(--f-mono) !important; font-size: .74rem; font-style: normal; color: var(--muted); }
+html.is-gr body.panel-only .edit-field__value.self-release { color: var(--text); }
+html.is-gr body.panel-only .edit-field__input { background: none; border: 0; border-bottom: 1px solid var(--text); color: var(--text); padding: 2px 0; font-size: .9rem; }
+
+/* the file */
+html.is-gr body.panel-only .file-version-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+html.is-gr body.panel-only .file-version-row:last-child { border-bottom: 1px solid var(--border); }
+html.is-gr body.panel-only .file-fmt-badge { font-size: .62rem; letter-spacing: .1em; padding: 4px 7px; border: 1px solid var(--border2); color: var(--text); }
+html.is-gr body.panel-only .file-fmt-badge.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+html.is-gr body.panel-only .file-version-meta { font-size: .7rem; letter-spacing: .03em; color: var(--muted); }
+html.is-gr body.panel-only .file-version-path { font-size: .62rem; color: var(--muted); margin-top: 8px; word-break: break-all; opacity: 1; }
+html.is-gr body.panel-only .file-version-actions .btn-play-ver:hover { background: var(--text) !important; color: var(--bg) !important; }
+
+/* tags and genres: square chips; the add line is a line */
+html.is-gr body.panel-only .tags-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0 2px; }
+html.is-gr body.panel-only .tag {
+  border-width: 1px !important; border-style: solid !important; border-color: var(--border2); background: none !important; color: var(--text) !important;
+  font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; display: inline-flex; align-items: center; gap: 7px;
+}
+html.is-gr body.panel-only [id^="genres-list-"] .tag { border-color: var(--border2) !important; }
+html.is-gr body.panel-only [id^="tags-list-"] .tag[style*="border-color"] { border-left-width: 5px !important; }
+html.is-gr body.panel-only .tag:hover { color: var(--text) !important; }
+html.is-gr body.panel-only .tag__remove { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; font-size: .62rem; }
+html.is-gr body.panel-only .tag__remove:hover { color: var(--red, #c9412f); }
+html.is-gr body.panel-only .track-panel__body input[type=text], html.is-gr body.panel-only .track-panel__body select,
+html.is-gr body.panel-only .track-panel__body textarea {
+  background: none !important; border: 0 !important; border-bottom: 1px solid var(--border2) !important; color: var(--text) !important;
+  padding: 8px 0 !important; font-size: .8rem !important; outline: none;
+}
+html.is-gr body.panel-only .track-panel__body textarea { border: 1px solid var(--border2) !important; padding: 10px !important; width: 100%; box-sizing: border-box; line-height: 1.55; }
+html.is-gr body.panel-only .track-panel__body input[type=text]:focus, html.is-gr body.panel-only .track-panel__body textarea:focus { border-color: var(--text) !important; }
+html.is-gr body.panel-only .track-panel__body ::placeholder { color: var(--muted); opacity: 1; }
+html.is-gr body.panel-only .genre-suggest, html.is-gr body.panel-only .album-apply { background: none !important; border: 0 !important; border-top: 1px solid var(--border) !important; padding: 10px 0 0 !important; }
+html.is-gr body.panel-only .album-apply__btn { font-style: normal; font-size: .7rem; color: var(--muted); }
+html.is-gr body.panel-only .album-apply__btn:hover { color: var(--text); text-decoration: underline; }
+
+/* notes */
+html.is-gr body.panel-only .note-row { border-bottom: 1px solid var(--border); padding: 11px 0; grid-template-columns: 52px 1fr; }
+html.is-gr body.panel-only .note-row__ts { font-size: .68rem; letter-spacing: .04em; color: var(--text); background: none !important; border: 0 !important; padding: 2px 0 0 !important; font-variant-numeric: tabular-nums; }
+html.is-gr body.panel-only .note-row__ts.no-ts { color: var(--muted); }
+html.is-gr body.panel-only .note-row__body { font-size: .82rem; line-height: 1.55; color: var(--text); }
+html.is-gr body.panel-only .note-row__meta { font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+html.is-gr body.panel-only .note-timestamp-input { max-width: 64px; }
+html.is-gr body.panel-only .voice-recorder { margin-top: 10px; }
+
+/* the "only here" line, the artist's music room, small print */
+html.is-gr body.panel-only #gr-room-links { font-size: .7rem !important; letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 0 !important; }
+html.is-gr body.panel-only #gr-room-links a { color: var(--text) !important; border-bottom: 1px solid var(--text); text-decoration: none !important; }
+html.is-gr body.panel-only .panel-flag {
+  background: none !important; border: 0 !important; border-left: 2px solid var(--text) !important; color: var(--text) !important;
+  font-style: normal !important; font-size: .7rem !important; letter-spacing: .06em !important; text-transform: uppercase; padding: 2px 0 2px 10px !important; margin: 14px 0 0 !important;
+}
+html.is-gr body.panel-only .panel-flag--ask { text-transform: none; letter-spacing: .02em !important; font-size: .76rem !important; padding: 6px 0 6px 12px !important; }
+html.is-gr body.panel-only .panel-flag--ask div { font-style: normal !important; color: var(--text) !important; }
+html.is-gr body.panel-only .panel-flag--ask div:first-child { color: var(--muted) !important; }
+html.is-gr body.panel-only .track-panel__body a { color: var(--text); }
+
+/* the cover picker */
+html.is-gr body.panel-only .panel-cover { border: 1px solid var(--border2) !important; background: var(--surface2, transparent); transform: none !important; }
+html.is-gr body.panel-only .panel-cover:hover, html.is-gr body.panel-only .panel-cover.is-current { border-color: var(--text) !important; outline: 1px solid var(--text); }
+html.is-gr body.panel-only .panel-cover__lbl { background: var(--text); color: var(--bg); font-size: .56rem; letter-spacing: .08em; text-transform: uppercase; }
+html.is-gr body.panel-only .panel-covers__hint { font-style: normal; font-size: .68rem; color: var(--muted); }
+
+/* the page's own bottom sheets wait just under the frame — their shadows mustn't lean up onto the paper */
+html.is-gr body.panel-only .decks-overlay, html.is-gr body.panel-only .deisigh-overlay, html.is-gr body.panel-only .stiudio-overlay,
+html.is-gr body.panel-only .eist-overlay, html.is-gr body.panel-only .bosca-overlay, html.is-gr body.panel-only .set-peek-overlay { box-shadow: none !important; }
+html.is-gr body.panel-only .track-panel ::placeholder { font-style: normal !important; }
+
+/* a thin scrollbar, the page's own colours */
+html.is-gr body.panel-only .track-panel__body::-webkit-scrollbar { width: 8px; }
+html.is-gr body.panel-only .track-panel__body::-webkit-scrollbar-thumb { background: var(--border2); }

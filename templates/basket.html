@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basket — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+
+<main class="gr-main gr-main--narrow">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">Basket</div>
+        <h1 class="gr-h1">Set aside</h1>
+        <p class="gr-lede">Records you've put by to borrow or buy. Flip any line between the two, then take them all at once.</p>
+    </header>
+
+    <div id="lines"></div>
+
+    <div class="gr-checkout" id="checkout" style="display:none">
+        <div class="gr-checkout__sum" id="sum"></div>
+        <button class="gr-btn gr-btn--primary" id="go" onclick="checkout()">Borrow &amp; buy</button>
+    </div>
+    <div class="gr-status" id="status"></div>
+    <div class="gr-results" id="results"></div>
+</main>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script>
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = c => '€' + ((c || 0) / 100).toFixed(2);
+let ITEMS = [], ME = null;
+
+async function load(){
+    const [b, st] = await Promise.all([fetch('/api/gr/basket').then(r => r.json()), fetch('/api/gr/status').then(r => r.json())]);
+    ITEMS = b.items || []; ME = st.me || null;
+    render();
+}
+
+function render(){
+    const box = document.getElementById('lines');
+    const co = document.getElementById('checkout');
+    if (!ITEMS.length) { box.innerHTML = '<div class="gr-empty">Nothing set aside yet. Open someone\'s room under <a href="/explore3d?view=rooms">Explore → Music rooms</a>: every record you don\'t own has a <b>+ basket</b> button. Borrow or buy each one from here.</div>'; co.style.display = 'none'; return; }
+    box.innerHTML = `<div class="gr-lines">${ITEMS.map(it => `
+        <div class="gr-line" data-id="${it.id}">
+            ${it.has_art ? `<img class="gr-line__cov" src="/api/gr/art/${it.server_track_id}?v=${it.art_v || 0}" alt="">`
+                         : `<div class="gr-line__cov gr-line__cov--blank"><span>${esc((it.title || '♪').trim().charAt(0).toUpperCase())}</span></div>`}
+            <div class="gr-line__main">
+                <div class="gr-line__t">${esc(it.title || 'Untitled')}</div>
+                <div class="gr-line__s">${esc(it.artist || '')}${it.owner_name ? ` · <a href="/rooms/${esc(it.owner_handle)}">${esc(it.owner_name)}</a>` : ''}</div>
+            </div>
+            <div class="gr-seg" role="group">
+                <button class="${it.mode === 'borrow' ? 'on' : ''}" onclick="setMode(${it.id}, 'borrow')">borrow</button>
+                <button class="${it.mode === 'buy' ? 'on' : ''}" onclick="setMode(${it.id}, 'buy')">buy ${it.price_cents != null ? euro(it.price_cents) : ''}</button>
+            </div>
+            <button class="gr-line__x" title="Remove" onclick="removeLine(${it.id})">✕</button>
+        </div>`).join('')}</div>`;
+    const buys = ITEMS.filter(i => i.mode === 'buy'), borrows = ITEMS.filter(i => i.mode === 'borrow');
+    const buyTotal = buys.reduce((s, i) => s + (i.price_cents || 0), 0);
+    let bits = [];
+    if (borrows.length) bits.push(`${borrows.length} to borrow${ME && ME.plan ? '' : ' — <a href="/subscribe?next=/basket">choose a subscription first</a>'}`);
+    if (buys.length) bits.push(`${buys.length} to buy, up to ${euro(buyTotal)}${ME && ME.credit_cents ? ' before credit' : ''}`);
+    document.getElementById('sum').innerHTML = bits.join(' · ');
+    co.style.display = '';
+    document.getElementById('go').disabled = borrows.length > 0 && !(ME && ME.plan);
+    if (window.gsap && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+        gsap.from('.gr-line', { y: 12, opacity: 0, duration: .45, stagger: .05, ease: 'power3.out' });
+}
+
+async function setMode(id, mode){
+    const d = await (await fetch(`/api/gr/basket/${id}/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) })).json();
+    ITEMS = d.items || []; render();
+}
+async function removeLine(id){
+    const el = document.querySelector(`.gr-line[data-id="${id}"]`);
+    if (window.gsap && el) await gsap.to(el, { x: 24, opacity: 0, duration: .25 });
+    const d = await (await fetch(`/api/gr/basket/${id}`, { method: 'DELETE' })).json();
+    ITEMS = d.items || []; render(); if (window.grNavCount) grNavCount();
+}
+async function checkout(){
+    const btn = document.getElementById('go'); btn.disabled = true; btn.textContent = 'working…';
+    const r = await fetch('/api/gr/basket/checkout', { method: 'POST' });
+    const d = await r.json();
+    btn.disabled = false; btn.textContent = 'Borrow & buy';
+    if (!r.ok) { document.getElementById('status').textContent = d.error || 'that did not work'; if (d.error && /subscription/.test(d.error)) location.href = '/subscribe?next=/basket'; return; }
+    document.getElementById('results').innerHTML = d.results.map(x => `<div class="gr-result ${x.ok ? '' : 'gr-result--bad'}">
+        ${x.ok ? '✓' : '✕'} ${esc(x.title || 'record')} — ${x.mode === 'buy' ? (x.ok ? 'bought' + (x.paid_cents ? ' for ' + euro(x.paid_cents) : ', your credit covered it') : esc(x.error)) : (x.ok ? 'borrowed — it\'s in your room' : esc(x.error))}</div>`).join('');
+    ITEMS = d.basket || []; render(); if (window.grNavCount) grNavCount();
+}
+load();
+</script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

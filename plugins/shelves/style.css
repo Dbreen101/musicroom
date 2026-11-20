@@ -1,0 +1,14 @@
+.sh-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 -22px 10px; padding: 10px 22px;
+  background: var(--bg); border-bottom: 1px solid var(--border); }
+.sh-count { margin-left: auto; font-size: .62rem; }
+.sh-shelf { margin: 18px 0 8px; }
+.sh-shelf h2 { margin-bottom: 8px; }
+.sh-n { font-family: var(--f-mono); font-size: .7rem; }
+.sh-row { display: grid; grid-auto-flow: column; grid-auto-columns: 132px; gap: 14px; overflow-x: auto; padding-bottom: 8px;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.sh-card { padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.sh-card:focus { outline: none; }
+.sh-card:focus-visible .mr-card__cover, .sh-card:hover .mr-card__cover { border-color: var(--text); }
+.sh-card.on .mr-card__cover { outline: 2px solid var(--red); outline-offset: 2px; }
+.sh-card.on .mr-card__t::before { content: '✓ '; color: var(--red); }
+.sh-blank { background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--bg) 6px 12px); }

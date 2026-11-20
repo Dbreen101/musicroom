@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/record_fonts.css">
+    <script src="/static/js/path_picker.js"></script>
+    <style>
+        .settings-layout {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 36px 24px 100px;
+        }
+
+        .settings-header {
+            margin-bottom: 36px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .settings-header h1 {
+            font-family: var(--font-serif);
+            font-size: 2.1rem;
+            font-weight: 400;
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .settings-section {
+            margin-bottom: 40px;
+        }
+
+        .settings-section h2 {
+            font-family: var(--font-serif);
+            font-size: 1.2rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .settings-section p {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 14px;
+            line-height: 1.55;
+        }
+
+        .settings-field {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .settings-choose {
+            background: rgba(168,130,44,0.14); border: 1px solid rgba(168,130,44,0.45);
+            color: #6f5316; border-radius: 100px; padding: 8px 14px; cursor: pointer;
+            font-family: var(--font-main); font-size: 0.84rem; white-space: nowrap;
+        }
+        .settings-choose:hover { background: rgba(168,130,44,0.26); }
+
+        .settings-input {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            padding: 9px 12px;
+            border-radius: var(--radius);
+            transition: border-color var(--transition);
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .settings-save {
+            background: var(--accent-dim);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-family: var(--font-main);
+            font-size: 0.82rem;
+            padding: 9px 18px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all var(--transition);
+        }
+
+        .settings-save:hover { background: rgba(45,255,120,0.1); }
+
+        .settings-hint {
+            font-size: 0.75rem;
+            color: var(--muted2);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        /* Keyboard shortcuts table */
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: 50px 1fr;
+            gap: 8px 12px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .shortcut-key-label {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--accent);
+            text-align: center;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 0;
+        }
+
+        .shortcut-name-input {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.86rem;
+            padding: 7px 12px;
+            border-radius: var(--radius);
+            transition: border-color var(--transition);
+            width: 100%;
+        }
+
+        .shortcut-name-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .settings-status {
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .settings-status.visible { opacity: 1; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="settings-layout floor-sheet">
+    <div class="settings-header">
+        <h1>Settings</h1>
+    </div>
+
+    <!-- How you use Music Room: local vs external drive -->
+    <div class="settings-section">
+        <h2>How you use Music Room</h2>
+        <p>Music Room adapts to where your music lives — pick the one that matches you. You can switch
+           any time, and nothing breaks either way.</p>
+        <label class="mr-loc" style="display:block; margin:10px 0; cursor:pointer;">
+            <input type="radio" name="music-location" value="local" onchange="saveMusicLocation('local')">
+            <strong>On this computer.</strong> Music, library and backups all live here — simplest, no
+            drive needed. You can still mirror everything to a spare drive any time with
+            “Back up everything to a drive” below.
+        </label>
+        <label class="mr-loc" style="display:block; margin:10px 0; cursor:pointer;">
+            <input type="radio" name="music-location" value="external" onchange="saveMusicLocation('external')">
+            <strong>On an external drive.</strong> Your music lives on a drive, which becomes a portable
+            Music Room: the database is mirrored onto it every launch, so you can plug it into another
+            computer running Music Room and your whole library is there. (It’s carry-your-library, not
+            two-way sync — this computer stays the source of truth.)
+        </label>
+        <div class="settings-hint" id="music-location-hint"></div>
+        <div class="settings-status" id="music-location-status">Saved.</div>
+    </div>
+
+    <!-- Music library folder -->
+    <div class="settings-section">
+        <h2>Music library folder</h2>
+        <p>The folder where your audio files live — an external drive, a folder on your laptop, anywhere.
+           This pre-fills the <strong>Import</strong> screen so you don't have to type the path each time.
+           Music Room never moves or alters your files; it reads them where they sit.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="music-library-input"
+                   placeholder="/Volumes/MY DRIVE/Music   or   ~/Music">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('music-library-input','folder')">📁 Choose…</button>
+            <button class="settings-save" onclick="saveMusicLibrary()">Save</button>
+        </div>
+        <div class="settings-hint">Tip: in Finder, right-click a folder → Hold Option → “Copy as Pathname”, then paste it here.</div>
+        <div class="settings-status" id="music-library-status">Saved.</div>
+    </div>
+
+    <!-- Music Room Library folder (the organise destination) -->
+    <div class="settings-section">
+        <h2>Music Room Library folder</h2>
+        <p>The one tidy folder Music Room organises everything into —
+           <code>…/Music Room Library/A/Artist/Album/…</code>. When you copy or move on import, this is
+           where files go by default (you can still override per-import). Set it once here and forget it.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="library-dest-input"
+                   placeholder="/Volumes/MY DRIVE/Music Room Library">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('library-dest-input','folder')">📁 Choose…</button>
+            <button class="settings-save" onclick="saveLibraryDest()">Save</button>
+        </div>
+        <div class="settings-hint">Leave blank and Music Room will figure it out from where your files already live.</div>
+        <div class="settings-status" id="library-dest-status">Saved.</div>
+    </div>
+
+    <!-- Data folder (where Music Room keeps everything) -->
+    <div class="settings-section">
+        <h2>Where Music Room keeps your data</h2>
+        <p>Your library database, artwork, voice notes, moodboard images and ambient sounds all live here.
+           Back this folder up and you've backed up your whole Music Room. (You can't change this — it's chosen
+           automatically per machine — but here's where to find it.)</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="data-folder-display" readonly
+                   style="opacity:0.8; font-family:var(--font-mono); font-size:0.8rem;">
+            <button class="settings-save" onclick="revealDataFolder()">Reveal in Finder</button>
+        </div>
+    </div>
+
+    <!-- Preferred browser -->
+    <div class="settings-section">
+        <h2>Preferred browser</h2>
+        <p>When you click a magazine, station, article, or any external link in Music Room,
+           it opens here. Leave blank to use the system default.</p>
+        <div class="settings-field">
+            <select class="settings-input" id="preferred-browser-input">
+                <option value="">System default</option>
+                <option value="Safari">Safari</option>
+                <option value="Google Chrome">Chrome</option>
+                <option value="Firefox">Firefox</option>
+                <option value="Arc">Arc</option>
+                <option value="Brave Browser">Brave</option>
+                <option value="Microsoft Edge">Edge</option>
+            </select>
+            <button class="settings-save" onclick="savePreferredBrowser()">Save</button>
+        </div>
+        <div class="settings-hint">Custom app name? Type into Other (you can paste any .app name like <code>DuckDuckGo</code>).</div>
+        <div class="settings-status" id="preferred-browser-status">Saved.</div>
+    </div>
+
+    <!-- Autoplay on track click -->
+    <div class="settings-section">
+        <h2>Autoplay on click</h2>
+        <p>When you click a track in a place, should it start playing immediately?
+           If off, clicking just opens the track panel — you press ▶ when you're ready.
+           If the Seinnteoir is already playing, it always takes priority and a click never overrides it.</p>
+        <div class="settings-field">
+            <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="autoplay-input" onchange="saveAutoplay()" style="accent-color:var(--accent);width:16px;height:16px;">
+                <span>Start playing on click</span>
+            </label>
+        </div>
+        <div class="settings-status" id="autoplay-status">Saved.</div>
+    </div>
+
+    <!-- 3D room controls -->
+    <div class="settings-section">
+        <h2>3D room controls</h2>
+        <p>How the trackpad moves the camera in the Music Room's cloud views.</p>
+        <div class="settings-field" style="display:flex; flex-direction:column; gap:8px;">
+            <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="invert-y-input" onchange="saveRoomControls()" style="accent-color:var(--accent);width:16px;height:16px;">
+                <span>Invert two-finger up/down</span>
+            </label>
+            <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="invert-x-input" onchange="saveRoomControls()" style="accent-color:var(--accent);width:16px;height:16px;">
+                <span>Invert two-finger left/right</span>
+            </label>
+        </div>
+        <div class="settings-status" id="room-controls-status">Saved.</div>
+    </div>
+
+    <div class="settings-section">
+        <h2>Record typography</h2>
+        <p>By default every record in the room wears a typeface drawn from its own cover — so
+           each one has its own character. Prefer one consistent font across the whole room
+           instead? Turn the per-cover faces off and pick a single typeface here.</p>
+        <div class="settings-field">
+            <select class="settings-input" id="record-font-input" onchange="saveRecordFont()" style="max-width:360px;">
+                <option value="auto">✦ Each record draws its own face (default)</option>
+                <optgroup label="Serif">
+                    <option value='"EB Garamond",Georgia,serif'>EB Garamond</option>
+                    <option value='"Didot","Bodoni 72",serif'>Didot</option>
+                    <option value='"Bodoni 72","Didot",serif'>Bodoni 72</option>
+                    <option value='"Baskerville",serif'>Baskerville</option>
+                    <option value='"Hoefler Text",serif'>Hoefler Text</option>
+                    <option value='"Palatino","Palatino Linotype",serif'>Palatino</option>
+                    <option value='"Cochin",serif'>Cochin</option>
+                    <option value='"Iowan Old Style","Palatino",serif'>Iowan Old Style</option>
+                    <option value='"Superclarendon","Rockwell",serif'>Superclarendon</option>
+                    <option value='"American Typewriter",serif'>American Typewriter</option>
+                    <option value='"Copperplate",serif'>Copperplate</option>
+                </optgroup>
+                <optgroup label="Sans-serif">
+                    <option value='"Futura","Avenir Next",sans-serif'>Futura</option>
+                    <option value='"Avenir Next","Futura",sans-serif'>Avenir Next</option>
+                    <option value='"Optima",sans-serif'>Optima</option>
+                    <option value='"Gill Sans","Gill Sans MT",sans-serif'>Gill Sans</option>
+                    <option value='"Helvetica Neue","Inter",-apple-system,sans-serif'>Helvetica Neue</option>
+                </optgroup>
+                <optgroup label="Art-house (open-licensed, ships with the app)">
+                    <option value='"Fraunces",serif'>Fraunces</option>
+                    <option value='"Young Serif",serif'>Young Serif</option>
+                    <option value='"Instrument Serif",serif'>Instrument Serif</option>
+                    <option value='"Bagnard",serif'>Bagnard</option>
+                    <option value='"Basteleur",serif'>Basteleur</option>
+                    <option value='"Nyght Serif",serif'>Nyght Serif</option>
+                    <option value='"Sorts Mill Goudy",serif'>Sorts Mill Goudy</option>
+                    <option value='"Bricolage Grotesque",sans-serif'>Bricolage Grotesque</option>
+                    <option value='"Apfel Grotezk",sans-serif'>Apfel Grotezk</option>
+                    <option value='"Le Murmure",sans-serif'>Le Murmure</option>
+                    <option value='"League Gothic","Oswald",sans-serif'>League Gothic</option>
+                </optgroup>
+            </select>
+        </div>
+        <div id="record-font-preview" style="margin-top:14px; min-height:2.6rem;
+             line-height:1.2; color:var(--ink);"></div>
+        <div class="settings-status" id="record-font-status">Saved.</div>
+    </div>
+
+    <!-- Room atmosphere (3D room defaults) -->
+    <div class="settings-section">
+        <h2>Room atmosphere</h2>
+        <p>Defaults for the 3D Music Room. <strong>Backdrop dimming</strong> darkens a place's
+           background image so record covers stay readable in front of it.
+           <strong>Ambient volume</strong> is the starting level for a place's looping sound when you
+           haven't set one yourself. (Each place can still override both from its own
+           “✦ make this place yours” panel.)</p>
+        <div class="settings-field" style="display:flex; flex-direction:column; gap:14px; max-width:440px;">
+            <label style="display:flex; align-items:center; gap:12px; font-size:0.85rem;">
+                <span style="flex:0 0 140px;">Backdrop dimming</span>
+                <input type="range" id="room-bg-dim-input" min="0" max="100" step="5"
+                       oninput="document.getElementById('room-bg-dim-display').textContent=this.value+'%';"
+                       onchange="saveRoomAtmosphere()" style="flex:1; accent-color:var(--accent);">
+                <span id="room-bg-dim-display" style="flex:0 0 44px; text-align:right;">45%</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:12px; font-size:0.85rem;">
+                <span style="flex:0 0 140px;">Ambient volume</span>
+                <input type="range" id="ambient-vol-input" min="0" max="100" step="any"
+                       oninput="document.getElementById('ambient-vol-display').textContent=Math.round(this.value)+'%';"
+                       onchange="saveRoomAtmosphere()" style="flex:1; accent-color:var(--accent);">
+                <span id="ambient-vol-display" style="flex:0 0 44px; text-align:right;">35%</span>
+            </label>
+        </div>
+        <div class="settings-status" id="room-atmosphere-status">Saved.</div>
+    </div>
+
+    <!-- Audio devices -->
+    <div class="settings-section">
+        <h2>Audio devices</h2>
+        <p>Which microphone recordings use (voice notes, set recordings, interludes) and — where the
+           system allows it — which output the in-app players speak through. Click "Find devices"
+           once to let the app see their names.</p>
+        <div class="settings-field" style="display:flex; flex-direction:column; gap:10px; max-width:420px;">
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.85rem;">
+                Audio in (microphone)
+                <select id="audio-in-select" onchange="saveAudioDevices()"><option value="">System default</option></select>
+            </label>
+            <label style="display:flex; flex-direction:column; gap:4px; font-size:0.85rem;">
+                Audio out
+                <select id="audio-out-select" onchange="saveAudioDevices()"><option value="">System default</option></select>
+            </label>
+            <button class="btn" style="align-self:flex-start;" onclick="findAudioDevices()">Find devices</button>
+        </div>
+        <div class="settings-status" id="audio-devices-status">Saved.</div>
+    </div>
+
+    <!-- Artwork search behaviour -->
+    <div class="settings-section">
+        <h2>Artwork search</h2>
+        <p>By default, the batch artwork search skips tracks already attempted and marked
+           "not found" — so the progress bar reflects new finds, not endless retries against
+           the same misses. Enable this if a new source (Spotify, Discogs) has been added
+           and you want to retry the tracks that came up empty before.</p>
+        <div class="settings-field">
+            <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="artwork-retry-not-found-input"
+                       onchange="saveArtworkRetry()"
+                       style="width:16px; height:16px; accent-color:var(--accent);">
+                <span>Retry tracks where artwork wasn't found previously</span>
+            </label>
+        </div>
+        <div class="settings-status" id="artwork-retry-status">Saved.</div>
+    </div>
+
+    <!-- Discogs token -->
+    <div class="settings-section">
+        <h2>Discogs API token</h2>
+        <p>Used to look up record labels when MusicBrainz doesn't know one — Discogs has stronger
+           coverage for electronic / vinyl / indie releases. Optional; without it, label lookup still
+           works via MusicBrainz alone. Generate a free personal token at
+           <a href="#" onclick="openExternal('https://www.discogs.com/settings/developers'); return false;">discogs.com/settings/developers</a>
+           — click "Generate new token".</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="discogs-token-input"
+                   placeholder="Paste your personal token">
+            <button class="settings-save" onclick="saveDiscogsToken()">Save</button>
+        </div>
+        <div class="settings-hint">Rate limit: ~60 requests/min with a token, ~25/min without.</div>
+        <div class="settings-status" id="discogs-token-status">Saved.</div>
+    </div>
+
+    <!-- Last.fm API key -->
+    <div class="settings-section">
+        <h2>Last.fm API key</h2>
+        <p>Optional — adds Last.fm's user-tagged top tags to the genre suggestions in the
+           track panel. Get a free key at
+           <a href="#" onclick="openExternal('https://www.last.fm/api/account/create'); return false;">last.fm/api/account/create</a>
+           (any application name is fine; ignore "Application homepage"). Without it, suggestions
+           still work via Discogs, MusicBrainz, Deezer, and iTunes.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="lastfm-key-input"
+                   placeholder="Paste your API key">
+            <button class="settings-save" onclick="saveLastfmKey()">Save</button>
+        </div>
+        <div class="settings-hint">Last.fm tags are noisy but catch real-world genre language Discogs/MB miss.</div>
+        <div class="settings-status" id="lastfm-key-status">Saved.</div>
+    </div>
+
+    <!-- Pixabay key -->
+    <div class="settings-section">
+        <h2>Pixabay API key</h2>
+        <p>For browsing real photographs to use as place moodboards. Get a free key from
+           <a href="#" onclick="openExternal('https://pixabay.com/accounts/register/'); return false;">pixabay.com/accounts/register</a>
+           — sign up, then copy your key from
+           <a href="#" onclick="openExternal('https://pixabay.com/api/docs/'); return false;">pixabay.com/api/docs</a> (logged in, scroll to "Your API key").</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="pixabay-key-input"
+                   placeholder="Paste your API key">
+            <button class="settings-save" onclick="savePixabayKey()">Save</button>
+        </div>
+        <div class="settings-hint">Free tier: 100 requests per minute.</div>
+        <div class="settings-status" id="pixabay-key-status">Saved.</div>
+    </div>
+
+    <!-- Account — who you are here, your subscription (play money during the trial) -->
+    <div class="settings-section" id="gr-settings">
+        <h2>Account</h2>
+        <p>Your account, your subscription, and borrowing and buying from other music rooms. During the
+           trial this runs on play money — nothing real changes hands.</p>
+        <div id="gr-set-join">
+            <div class="settings-field">
+                <input type="text" class="settings-input" id="gr-set-server" placeholder="Server address, e.g. http://192.168.1.20:5301">
+                <input type="text" class="settings-input" id="gr-set-device" placeholder="Name this laptop (optional)" style="max-width:240px;">
+            </div>
+            <div class="settings-hint" style="margin-top:10px;">New here? Make your account at the <a href="/login" style="color:var(--accent);">front door</a> (it shows the house rules first).</div>
+            <div class="settings-hint" style="margin-top:10px;">…or sign in with your account code:</div>
+            <div class="settings-field">
+                <input type="text" class="settings-input" id="gr-set-code" placeholder="Invite code, e.g. gr-xxxxxx" style="max-width:220px;">
+                <button class="settings-save" onclick="grSettingsJoin()">Join</button>
+            </div>
+            <div class="settings-hint" id="gr-set-err" style="color:#d48080;"></div>
+        </div>
+        <div id="gr-set-status" style="display:none; font-size:0.86rem; line-height:1.9;"></div>
+        <div class="settings-hint" id="gr-set-hint"></div>
+    </div>
+
+    <!-- Your own look: CSS of your own, on this laptop only -->
+    <div class="settings-section" id="own-look">
+        <h2>Your own look</h2>
+        <p>CSS of your own, laid over the whole app on this laptop: colours, type, spacing, what shows and what
+           doesn't. It changes nothing for anyone else. If something goes wrong, open any page with
+           <code>?plain=1</code> on its address to see it without your CSS, and clear the box here.</p>
+        <textarea class="settings-input" id="own-css" spellcheck="false" style="width:100%; min-height:180px; font-family:var(--f-mono, monospace); font-size:.8rem;"
+                  placeholder="/* for example */&#10;:root { --bg: #f4f1ea; }&#10;.nav { letter-spacing: .02em; }"></textarea>
+        <div class="settings-field" style="margin-top:10px;">
+            <button class="settings-save" onclick="ownCssSave()">Save</button>
+            <button class="settings-save settings-save--quiet" onclick="document.getElementById('own-css').value=''; ownCssSave()">Clear</button>
+            <span class="settings-hint" id="own-css-said"></span>
+        </div>
+    </div>
+
+    <!-- Export directory -->
+    <div class="settings-section">
+        <h2>Export directory</h2>
+        <p>Where Rekordbox XML files are saved when you export a set or place. Leave blank to use the default
+           (<code>~/Library/rekordbox/rekordbox/MusicRoom/</code>). Point Rekordbox at any XML in this folder via
+           Preferences → Advanced → Database → rekordbox xml.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="export-dir-input"
+                   placeholder="/Volumes/EXTERNAL HARD DRIVE 1/Music Room">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('export-dir-input','folder')">📁 Choose…</button>
+            <button class="settings-save" onclick="saveExportDir()">Save</button>
+        </div>
+        <div class="settings-hint">Paste or type the full folder path. The folder will be created if it doesn't exist.</div>
+        <div class="settings-status" id="export-dir-status">Saved.</div>
+    </div>
+
+    <!-- Éisteacht keyboard shortcuts -->
+    <div class="settings-section">
+        <h2>Deep Listening — keyboard shortcuts</h2>
+        <p>Keys 1–8 are bound to note categories during an active listening session. Edit the names below.
+           Press a key in the Deep Listening panel to instantly tag a note with that category.</p>
+        <div class="shortcuts-grid" id="shortcuts-grid">
+            <!-- rendered by JS -->
+        </div>
+        <button class="settings-save" onclick="saveShortcuts()">Save shortcuts</button>
+        <div class="settings-status" id="shortcuts-status">Saved.</div>
+    </div>
+
+    <!-- Removed-files folder -->
+    <div class="settings-section">
+        <h2>“Removed from Music Room” folder</h2>
+        <p>When you Remove a track (not delete), its file is moved here and skipped on future imports —
+           a safety net so nothing's lost. Leave blank to keep them in a folder inside your data folder.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="removed-dir-input"
+                   placeholder="(default: inside your data folder)">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('removed-dir-input','folder')">📁 Choose…</button>
+            <button class="settings-save" onclick="saveRemovedDir()">Save</button>
+        </div>
+        <div class="settings-status" id="removed-dir-status">Saved.</div>
+    </div>
+
+    <!-- Backup directory -->
+    <div class="settings-section">
+        <h2>Backup directory</h2>
+        <p>Where your <strong>database + metadata</strong> (artwork, voice notes, moodboards) gets backed up.
+           Runs automatically on startup if the destination is reachable. <strong>Music files are never copied
+           here</strong> — use “Back up everything to a drive” below for the audio. Leave blank to back up into a
+           <code>backups/</code> folder beside your data.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="backup-dir-input"
+                   placeholder="/Volumes/MY DRIVE/Music Room Backup">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('backup-dir-input','folder')">📁 Choose…</button>
+            <button class="settings-save" onclick="saveBackupDir()">Save</button>
+        </div>
+        <div class="settings-hint" id="backup-drive-hint"></div>
+        <div class="settings-status" id="backup-dir-status">Saved.</div>
+    </div>
+
+    <!-- Backup now -->
+    <div class="settings-section">
+        <h2>Backup now</h2>
+        <p>Back up immediately to the path below. Edit the path to back up to a different location — useful for copying to multiple destinations.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="backup-dest-input" placeholder="/Volumes/…">
+            <button class="settings-save" id="backup-btn" onclick="runBackup()">Backup now</button>
+        </div>
+        <div class="settings-hint" id="backup-hint" style="margin-top:8px;"></div>
+        <div class="settings-status" id="backup-status">Backup started.</div>
+    </div>
+
+    <!-- Full backup to a drive (database + ALL music) -->
+    <div class="settings-section">
+        <h2>Back up everything to a drive</h2>
+        <p>Plug in a spare external drive and copy <strong>everything</strong> onto it — the database, all
+           metadata, and every music file in your Music Room Library. Run it whenever you like; repeat runs
+           only copy what changed. The destination must be an external drive (not this laptop), and not the
+           drive your library already lives on.</p>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="full-backup-input" placeholder="/Volumes/BACKUP DRIVE">
+            <button type="button" class="settings-choose" onclick="mrChooseInto('full-backup-input','folder')">📁 Choose…</button>
+            <button class="settings-save" id="full-backup-btn" onclick="runFullBackup()">Back up everything</button>
+        </div>
+        <div class="settings-hint" id="full-backup-hint" style="margin-top:8px;"></div>
+        <div class="settings-status" id="full-backup-status"></div>
+    </div>
+
+    <div class="settings-section" id="telemetry">
+        <h2>Anonymous telemetry — off by default</h2>
+        <p>Off-device measurement, to design the app and see whether it drives real support to artists.
+           It is <b>opt-in and OFF by default</b>, sends only <b>aggregate monthly rollups</b> of a small
+           fixed list (never a per-event stream, never what you listen to or buy), behind an anonymous id that
+           <b>rotates every month</b>, to a server <b>you run</b>.
+           <a href="#" onclick="telPreview();return false;">Preview exactly what would be sent →</a></p>
+        <div id="tel-charter" class="settings-hint" style="margin-top:0;"></div>
+
+        <div style="display:flex;flex-direction:column;gap:11px;margin:16px 0;">
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:.84rem;color:var(--text);cursor:pointer;">
+                <input type="checkbox" id="tel-usage" style="margin-top:3px;flex:0 0 auto;">
+                <span>Usage analytics — coarse counts of how much the app is used</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:.84rem;color:var(--text);cursor:pointer;">
+                <input type="checkbox" id="tel-purchase" style="margin-top:3px;flex:0 0 auto;">
+                <span>Purchase tracking — buy-clicks → bought, by store (the artist-impact signal)</span></label>
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:.8rem;color:var(--muted);cursor:pointer;">
+                <input type="checkbox" id="tel-autosend" checked style="margin-top:3px;flex:0 0 auto;">
+                <span>Send automatically once a month (otherwise use “Send this month” by hand)</span></label>
+        </div>
+        <div class="settings-field">
+            <input type="text" class="settings-input" id="tel-url" placeholder="https://your-server/ingest">
+            <button class="settings-save" onclick="telSaveConsent()">Save consent</button>
+        </div>
+        <div class="settings-hint">Your own ingest server (see <code>telemetry_server/</code> in the repo). Nothing sends until both a consent and a URL are set.</div>
+
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+            <button class="settings-choose" onclick="telPreview()">👁 Preview payload</button>
+            <button class="settings-choose" onclick="telSend()">↑ Send this month</button>
+            <button class="settings-choose" onclick="telWithdraw()" style="border-color:rgba(200,90,80,.5);color:#c86a5e;background:rgba(200,90,80,.08);">✕ Withdraw + delete</button>
+        </div>
+        <pre id="tel-preview" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:.72rem;color:var(--text);overflow:auto;max-height:300px;margin-top:12px;white-space:pre-wrap;"></pre>
+        <div class="settings-hint" id="tel-never" style="margin-top:12px;"></div>
+        <div class="settings-status" id="tel-status"></div>
+    </div>
+</div>
+
+<script>
+const KEYS = ['1','2','3','4','5','6','7','8'];
+let currentShortcuts = {};
+
+async function init() {
+    const res  = await fetch('/api/settings');
+    const data = await res.json();
+
+    document.getElementById('export-dir-input').value = data.export_dir || '';
+    document.getElementById('backup-dir-input').value  = data.backup_dir || '';
+    const fb = document.getElementById('full-backup-input');
+    if (fb) fb.value = data.last_full_backup_dest || '';
+    if (data.last_full_backup_at) {
+        const fh = document.getElementById('full-backup-hint');
+        if (fh) fh.textContent = 'Last full backup: ' + data.last_full_backup_at.replace('T',' ').replace('Z',' UTC');
+    }
+
+    const ml = document.getElementById('music-library-input');
+    if (ml) ml.value = data.music_library_path || '';
+    const ld = document.getElementById('library-dest-input');
+    if (ld) ld.value = data.library_dest || '';
+
+    // How you use Music Room (resolved: explicit choice or inferred)
+    const loc = (data.music_location === 'external') ? 'external' : 'local';
+    const locRadio = document.querySelector(`input[name="music-location"][value="${loc}"]`);
+    if (locRadio) locRadio.checked = true;
+    renderMusicLocationHint(loc, data.library_dest || '');
+    const rd = document.getElementById('removed-dir-input');
+    if (rd) rd.value = data.removed_dir || '';
+    const df = document.getElementById('data-folder-display');
+    if (df) df.value = data.data_dir || '';
+
+    const browserSelect = document.getElementById('preferred-browser-input');
+    if (browserSelect) browserSelect.value = data.preferred_browser || '';
+
+    const pk = document.getElementById('pixabay-key-input');
+    if (pk) pk.value = data.pixabay_api_key || '';
+    const dt = document.getElementById('discogs-token-input');
+    if (dt) dt.value = data.discogs_token || '';
+    const lf = document.getElementById('lastfm-key-input');
+    if (lf) lf.value = data.lastfm_api_key || '';
+    const ar = document.getElementById('artwork-retry-not-found-input');
+    if (ar) ar.checked = (data.artwork_retry_not_found === '1');
+
+    const ap = document.getElementById('autoplay-input');
+    if (ap) ap.checked = data.autoplay_on_click === '1';
+
+    const iy = document.getElementById('invert-y-input');
+    if (iy) iy.checked = data.room_invert_y === '1';
+    const ix = document.getElementById('invert-x-input');
+    if (ix) ix.checked = data.room_invert_x === '1';
+
+    const rf = document.getElementById('record-font-input');
+    if (rf) {
+        rf.value = data.record_font || 'auto';
+        if (rf.selectedIndex < 0) rf.value = 'auto';   // an unknown stored value → fall back to per-cover
+        updateRecordFontPreview();
+    }
+
+    const bgd = document.getElementById('room-bg-dim-input');
+    if (bgd) { const v = (data.room_bg_dim != null && data.room_bg_dim !== '') ? data.room_bg_dim : '45';
+        bgd.value = v; document.getElementById('room-bg-dim-display').textContent = v + '%'; }
+    const av = document.getElementById('ambient-vol-input');
+    if (av) { const v = (data.ambient_volume_default != null && data.ambient_volume_default !== '') ? data.ambient_volume_default : '35';
+        av.value = v; document.getElementById('ambient-vol-display').textContent = Math.round(parseFloat(v)) + '%'; }
+
+    _audioSettings = { in: data.audio_input_id || '', out: data.audio_output_id || '' };
+    populateAudioDevices();
+
+    try {
+        currentShortcuts = JSON.parse(data.listening_shortcuts || '{}');
+    } catch(e) {
+        currentShortcuts = {};
+    }
+    renderShortcuts();
+    await refreshBackupStatus();
+}
+
+let _audioSettings = { in: '', out: '' };
+async function findAudioDevices() {
+    try {
+        // a one-off grant so device labels become visible, then stop the stream
+        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+        s.getTracks().forEach(t => t.stop());
+    } catch (e) { /* user declined or unavailable — list what we can */ }
+    await populateAudioDevices();
+}
+async function populateAudioDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    let devices = [];
+    try { devices = await navigator.mediaDevices.enumerateDevices(); } catch (e) { return; }
+    const fill = (sel, kind, chosen) => {
+        const el = document.getElementById(sel);
+        el.innerHTML = '<option value="">System default</option>' + devices
+            .filter(d => d.kind === kind)
+            .map((d, i) => `<option value="${d.deviceId}" ${d.deviceId === chosen ? 'selected' : ''}>${
+                (d.label || (kind === 'audioinput' ? 'Microphone ' : 'Output ') + (i + 1))
+                .replace(/</g, '&lt;')}</option>`).join('');
+    };
+    fill('audio-in-select', 'audioinput', _audioSettings.in);
+    fill('audio-out-select', 'audiooutput', _audioSettings.out);
+}
+async function saveAudioDevices() {
+    _audioSettings.in = document.getElementById('audio-in-select').value;
+    _audioSettings.out = document.getElementById('audio-out-select').value;
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ audio_input_id: _audioSettings.in, audio_output_id: _audioSettings.out }),
+    });
+    flash('audio-devices-status');
+}
+
+function updateRecordFontPreview() {
+    const sel  = document.getElementById('record-font-input');
+    const prev = document.getElementById('record-font-preview');
+    if (!sel || !prev) return;
+    if (sel.value === 'auto') {
+        prev.style.fontFamily = '';
+        prev.style.fontStyle  = 'italic';
+        prev.style.fontSize   = '0.95rem';
+        prev.style.opacity    = '0.65';
+        prev.textContent = 'Each record keeps its own face — drawn from its album art.';
+    } else {
+        prev.style.fontFamily = sel.value;
+        prev.style.fontStyle  = 'normal';
+        prev.style.fontSize   = '2rem';
+        prev.style.opacity    = '1';
+        prev.textContent = sel.options[sel.selectedIndex].textContent + ' — Music Room';
+    }
+}
+
+async function saveRecordFont() {
+    const val = document.getElementById('record-font-input').value;
+    updateRecordFontPreview();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ record_font: val }),
+    });
+    flash('record-font-status');
+}
+
+async function saveRoomAtmosphere() {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            room_bg_dim: document.getElementById('room-bg-dim-input').value,
+            ambient_volume_default: document.getElementById('ambient-vol-input').value,
+        }),
+    });
+    flash('room-atmosphere-status');
+}
+
+async function saveRoomControls() {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            room_invert_y: document.getElementById('invert-y-input').checked ? '1' : '0',
+            room_invert_x: document.getElementById('invert-x-input').checked ? '1' : '0',
+        }),
+    });
+    flash('room-controls-status');
+}
+
+async function savePreferredBrowser() {
+    const val = document.getElementById('preferred-browser-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({preferred_browser: val})
+    });
+    flash('preferred-browser-status');
+}
+
+async function saveAutoplay() {
+    const val = document.getElementById('autoplay-input').checked ? '1' : '0';
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({autoplay_on_click: val}),
+    });
+    flash('autoplay-status');
+}
+
+async function saveArtworkRetry() {
+    const checked = document.getElementById('artwork-retry-not-found-input').checked;
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ artwork_retry_not_found: checked ? '1' : '' }),
+    });
+    flash('artwork-retry-status');
+}
+
+async function saveDiscogsToken() {
+    const val = document.getElementById('discogs-token-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ discogs_token: val }),
+    });
+    flash('discogs-token-status');
+}
+
+async function savePixabayKey() {
+    const val = document.getElementById('pixabay-key-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pixabay_api_key: val})
+    });
+    flash('pixabay-key-status');
+}
+
+async function saveLastfmKey() {
+    const val = document.getElementById('lastfm-key-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lastfm_api_key: val})
+    });
+    flash('lastfm-key-status');
+}
+
+async function saveMusicLibrary() {
+    const val = document.getElementById('music-library-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({music_library_path: val})
+    });
+    flash('music-library-status');
+}
+
+async function saveLibraryDest() {
+    const val = document.getElementById('library-dest-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({library_dest: val})
+    });
+    flash('library-dest-status');
+}
+
+async function saveRemovedDir() {
+    const val = document.getElementById('removed-dir-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({removed_dir: val})
+    });
+    flash('removed-dir-status');
+}
+
+async function revealDataFolder() {
+    const p = document.getElementById('data-folder-display').value.trim();
+    if (!p) return;
+    await fetch('/api/reveal-path', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({path: p})
+    });
+}
+
+async function openExternal(url) {
+    await fetch('/api/open-url', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+    });
+}
+
+async function refreshBackupStatus() {
+    try {
+        const d = await fetch('/api/backup/status').then(r => r.json());
+        const hint      = document.getElementById('backup-hint');
+        const driveHint = document.getElementById('backup-drive-hint');
+        const btn       = document.getElementById('backup-btn');
+        const destInput = document.getElementById('backup-dest-input');
+
+        // Pre-fill backup-dest-input from saved setting if still empty
+        if (destInput && !destInput.value && d.backup_dir) {
+            destInput.value = d.backup_dir;
+        }
+
+        // Drive status in the directory section
+        if (driveHint) {
+            driveHint.textContent = d.drive_mounted
+                ? 'External drive is mounted.'
+                : 'External drive not detected — auto-backup on startup will be skipped.';
+        }
+
+        if (!hint) return;
+        if (d.running) {
+            hint.textContent = 'Backup running…';
+            hint.style.color = 'var(--accent)';
+            if (btn) btn.disabled = true;
+            setTimeout(refreshBackupStatus, 3000);
+        } else {
+            const ts = d.last_backup_at
+                ? 'Last backup: ' + d.last_backup_at.replace('T',' ').replace('Z',' UTC')
+                : 'Never backed up.';
+            hint.textContent = ts;
+            hint.style.color = 'var(--muted2)';
+            if (btn) btn.disabled = false;
+        }
+    } catch(e) {}
+}
+
+async function saveBackupDir() {
+    const val = document.getElementById('backup-dir-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({backup_dir: val})
+    });
+    // Keep backup-dest-input in sync
+    const destInput = document.getElementById('backup-dest-input');
+    if (destInput) destInput.value = val;
+    flash('backup-dir-status');
+}
+
+function renderMusicLocationHint(loc, libraryDest) {
+    const h = document.getElementById('music-location-hint');
+    if (!h) return;
+    if (loc === 'external') {
+        const onDrive = (libraryDest || '').startsWith('/Volumes/');
+        h.textContent = onDrive
+            ? 'Your library: ' + libraryDest + ' — backed up to this drive every launch.'
+            : 'Set your “Music Room Library folder” below to a path on the external drive.';
+        h.style.color = onDrive ? 'var(--accent)' : 'var(--oxblood)';
+    } else {
+        h.textContent = 'Everything stays on this computer. The database backs up locally each launch.';
+        h.style.color = 'var(--muted)';
+    }
+}
+
+async function saveMusicLocation(val) {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({music_location: val})
+    });
+    const ld = document.getElementById('library-dest-input');
+    renderMusicLocationHint(val, ld ? ld.value : '');
+    flash('music-location-status');
+}
+
+async function runBackup() {
+    const btn       = document.getElementById('backup-btn');
+    const hint      = document.getElementById('backup-hint');
+    const destInput = document.getElementById('backup-dest-input');
+    const dest      = destInput ? destInput.value.trim() : '';
+    if (btn) btn.disabled = true;
+    if (hint) { hint.textContent = 'Starting…'; hint.style.color = 'var(--accent)'; }
+    await fetch('/api/backup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(dest ? {dest} : {})
+    });
+    flash('backup-status');
+    let polls = 0;
+    const poll = async () => {
+        polls++;
+        await refreshBackupStatus();
+        const d = await fetch('/api/backup/status').then(r => r.json());
+        if (d.running && polls < 60) setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 1500);
+}
+
+async function runFullBackup() {
+    const btn  = document.getElementById('full-backup-btn');
+    const hint = document.getElementById('full-backup-hint');
+    const dest = (document.getElementById('full-backup-input') || {}).value?.trim() || '';
+    if (!dest) { if (hint) { hint.textContent = 'Choose a backup drive first.'; hint.style.color = 'var(--oxblood)'; } return; }
+    if (btn) btn.disabled = true;
+    if (hint) { hint.textContent = 'Starting…'; hint.style.color = 'var(--accent)'; }
+    const r = await fetch('/api/backup/full', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dest})
+    }).then(r => r.json()).catch(() => ({ok:false, error:'request failed'}));
+    if (!r.ok) {
+        if (hint) { hint.textContent = r.error || 'Could not start.'; hint.style.color = 'var(--oxblood)'; }
+        if (btn) btn.disabled = false;
+        return;
+    }
+    let polls = 0;
+    const poll = async () => {
+        polls++;
+        const d = await fetch('/api/backup/full/status').then(r => r.json());
+        if (hint) {
+            if (d.running) { hint.textContent = 'Copying ' + (d.phase || '') + '…'; hint.style.color = 'var(--accent)'; }
+            else if (d.phase === 'error') { hint.textContent = '⚠ ' + (d.error || 'failed'); hint.style.color = 'var(--oxblood)'; }
+            else if (d.last_full_backup_at) { hint.textContent = '✓ Backed up to ' + (d.last_full_backup_dest || dest); hint.style.color = 'var(--accent)'; }
+        }
+        if (d.running && polls < 2400) setTimeout(poll, 3000);
+        else if (btn) btn.disabled = false;
+    };
+    setTimeout(poll, 1500);
+}
+
+function renderShortcuts() {
+    const grid = document.getElementById('shortcuts-grid');
+    if (!grid) return;
+    grid.innerHTML = KEYS.map(k =>
+        `<span class="shortcut-key-label">${k}</span>
+         <input type="text" class="shortcut-name-input" id="shortcut-${k}"
+                value="${escHtml(currentShortcuts[k] || '')}"
+                placeholder="Category name…">`
+    ).join('');
+}
+
+async function saveExportDir() {
+    const val = document.getElementById('export-dir-input').value.trim();
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({export_dir: val})
+    });
+    flash('export-dir-status');
+}
+
+// Import lives in its own page now — /import (linked from Tools).
+
+async function saveShortcuts() {
+    const shortcuts = {};
+    KEYS.forEach(k => {
+        const el = document.getElementById(`shortcut-${k}`);
+        if (el && el.value.trim()) shortcuts[k] = el.value.trim();
+    });
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({listening_shortcuts: JSON.stringify(shortcuts)})
+    });
+    currentShortcuts = shortcuts;
+    flash('shortcuts-status');
+}
+
+function flash(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), 2200);
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+
+// ── Anonymous telemetry (data charter Phase 2) ──
+async function telemetryInit() {
+    const s = await fetch('/api/telemetry/status').then(r => r.json()).catch(() => null);
+    if (!s) return;
+    document.getElementById('tel-usage').checked = !!s.usage_consent;
+    document.getElementById('tel-purchase').checked = !!s.purchase_consent;
+    document.getElementById('tel-autosend').checked = s.autosend !== false;
+    document.getElementById('tel-url').value = s.ingest_url || '';
+    const m = s.manifest || {};
+    document.getElementById('tel-charter').textContent = m.charter_line || '';
+    document.getElementById('tel-never').innerHTML = (m.never_collected || []).length
+        ? '<b>Never collected:</b> ' + m.never_collected.map(escHtml).join(' · ') : '';
+    const on = s.usage_consent || s.purchase_consent;
+    const auto = s.autosend !== false
+        ? (s.last_send_month ? `Auto-send on (last sent ${s.last_send_month}).` : 'Auto-send on (will send once this month).')
+        : 'Auto-send off — send by hand.';
+    document.getElementById('tel-status').textContent = on
+        ? `On. ${auto} Anonymous id this month: ${s.install_hash || '—'}. ${(s.outbox || []).length} rollup(s) in the local log.`
+        : 'Off — nothing leaves this machine.';
+}
+async function telSaveConsent() {
+    const body = {
+        usage: document.getElementById('tel-usage').checked,
+        purchase: document.getElementById('tel-purchase').checked,
+        autosend: document.getElementById('tel-autosend').checked,
+        ingest_url: document.getElementById('tel-url').value.trim(),
+    };
+    const r = await fetch('/api/telemetry/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(x => x.json());
+    if (r.error) { document.getElementById('tel-status').textContent = r.error; return; }
+    telemetryInit();
+}
+async function telPreview() {
+    const r = await fetch('/api/telemetry/preview', { method: 'POST' }).then(x => x.json());
+    const pre = document.getElementById('tel-preview');
+    pre.style.display = 'block';
+    pre.textContent = JSON.stringify(r.rollups || r, null, 2);
+}
+async function telSend() {
+    const r = await fetch('/api/telemetry/send', { method: 'POST' }).then(x => x.json());
+    document.getElementById('tel-status').textContent = r.error ? r.error
+        : 'Sent: ' + (r.sent || []).map(x => `${x.kind} ${x.ok ? '✓' : '✗ (' + x.status + ')'}`).join(', ');
+    telemetryInit();
+}
+async function telWithdraw() {
+    if (!confirm('Withdraw consent, clear the local log, and ask your server to delete this device’s data?')) return;
+    await fetch('/api/telemetry/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delete_remote: true }) });
+    document.getElementById('tel-usage').checked = false;
+    document.getElementById('tel-purchase').checked = false;
+    document.getElementById('tel-preview').style.display = 'none';
+    telemetryInit();
+}
+
+init();
+telemetryInit();
+
+// ── GREEN ROOM ──────────────────────────────────────────────────────────
+async function grSettingsLoad() {
+    const st = await (await fetch('/api/gr/status')).json();
+    const join = document.getElementById('gr-set-join');
+    const box  = document.getElementById('gr-set-status');
+    const hint = document.getElementById('gr-set-hint');
+    if (!st.joined || !st.server_url) {
+        join.style.display = ''; box.style.display = 'none';
+        hint.textContent = 'Not joined yet. Ask for the server address and an invite code.';
+        return;
+    }
+    join.style.display = 'none'; box.style.display = '';
+    const me = st.me;
+    const euro = c => '€' + ((c || 0) / 100).toFixed(2);
+    const lines = [
+        `Signed in as <strong>${st.name || '—'}</strong> at <code>${st.server_url}</code>`
+            + ` — ${st.reachable ? '<span style="color:#6fae7d;">connected</span>' : '<span style="color:#d48080;">not reachable right now</span>'}`,
+    ];
+    if (me) {
+        lines.push(`Wallet <strong>${euro(me.wallet_cents)}</strong> (play money${me.topups_cents ? `, topped up ${euro(me.topups_cents)} so far` : ''})`);
+        if (!me.plan) {
+            lines.push(`No subscription yet — <a href="/subscribe?next=/settings" style="color:var(--accent);">choose one</a> (needed to borrow)`);
+        } else if (me.per_borrow_cents) {
+            lines.push(`Plan <strong>${me.plan_name}</strong> — ${euro(me.per_borrow_cents)} a borrow, ${me.borrows_this_month} this month · <a href="/subscribe?next=/settings" style="color:var(--muted);">change</a>`);
+        } else {
+            lines.push(`Plan <strong>${me.plan_name}</strong>, ${euro(me.sub_price_cents)} for a month of borrowing — ${me.sub_active ? 'this month is paid' : 'charged on your first borrow of the month'}`
+                + `; ${me.borrows_this_month} of ${me.per_month} used this month`
+                + (me.credit_cents ? `, buyout credit ${euro(me.credit_cents)} per track` : '')
+                + ` · <a href="/subscribe?next=/settings" style="color:var(--muted);">change</a>`);
+        }
+        lines.push(`Your account code: <code>${st.invite_code || '—'}</code> — sign in with it on another device, or here after logging out. Keep it private: it is your password.`);
+        const kinds = { artist: 'an artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
+        if (me.kind_requested) lines.push(`Your request to be ${kinds[me.kind_requested] || me.kind_requested} is waiting for the Music Room.`);
+        if (me.room_hidden) lines.push(`<span style="color:var(--red, #c9412f);">Your public room has been taken down</span>${me.room_hidden_note ? ': ' + escHtml(me.room_hidden_note) : ''}. Change it, then say so with the feedback button.`);
+        if (me.is_master) lines.push(`<a href="/master" style="color:var(--accent);">Open the master page</a> — accounts, records waiting, reports, feedback, the version`);
+    }
+    try {
+        const v = await (await fetch('/api/gr/version')).json();
+        lines.push(`This app is version <code>${escHtml(v.mine || '—')}</code>` + (v.update
+            ? ` — <strong>version ${escHtml(v.want.version)} is ready</strong>: <a href="#" data-open-url="${escHtml(v.want.url)}" style="color:var(--accent);">get it</a>${v.want.note ? ' · ' + escHtml(v.want.note) : ''}` : ''));
+    } catch (_) {}
+    lines.push(`${(st.borrowed || []).length} borrowed record${(st.borrowed || []).length === 1 ? '' : 's'} in your room`
+        + ` · <a href="/explore3d?view=rooms" style="color:var(--accent);">explore music rooms</a>`);
+    lines.push(`<div style="margin-top:12px;"><button class="settings-save settings-save--quiet" onclick="grSettingsLeave()">Log out of this device</button></div>`);
+    box.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+    box.querySelectorAll('[data-open-url]').forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: a.dataset.openUrl }) });
+    }));
+    hint.textContent = '';
+}
+
+async function ownCssLoad() {
+    try { const d = await (await fetch('/api/settings')).json(); document.getElementById('own-css').value = d.user_css || ''; } catch (_) {}
+}
+async function ownCssSave() {
+    const css = document.getElementById('own-css').value;
+    const said = document.getElementById('own-css-said');
+    if (css.length > 60000) { said.textContent = 'That is too long to keep (60,000 characters at most).'; return; }
+    const r = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_css: css }) });
+    said.textContent = r.ok ? 'Saved. It shows on the next page you open.' : 'That wasn’t saved.';
+}
+ownCssLoad();
+
+async function grSettingsJoin() {
+    const err = document.getElementById('gr-set-err');
+    err.textContent = '';
+    const r = await fetch('/api/gr/join', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            server_url: document.getElementById('gr-set-server').value,
+            invite_code: document.getElementById('gr-set-code').value,
+            device_name: document.getElementById('gr-set-device').value }) });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error || 'that did not work'; return; }
+    grSettingsLoad();
+}
+
+async function grSettingsSignup() {
+    const err = document.getElementById('gr-set-err');
+    err.textContent = '';
+    const r = await fetch('/api/gr/signup', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            server_url: document.getElementById('gr-set-server').value,
+            name: document.getElementById('gr-set-name').value,
+            device_name: document.getElementById('gr-set-device').value }) });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error || 'that did not work'; return; }
+    grSettingsLoad();
+}
+
+async function grSettingsLeave() {
+    if (!confirm('Log out on this laptop? Your borrowed records stay where they are. You can sign back in with your account code.')) return;
+    await fetch('/api/gr/leave', { method: 'POST' });
+    {% if is_gr %}
+    location.href = '/login';          // the front door takes over from here
+    {% else %}
+    grSettingsLoad();
+    {% endif %}
+}
+
+grSettingsLoad();
+</script>
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

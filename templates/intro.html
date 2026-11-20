@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <style>
+        /* One idea per screen. Six screens. A line that fills in as you go.
+           Arrow keys, click, or skip. Nothing to read twice. */
+        body.gr-page.in { min-height: 100vh; overflow: hidden; }
+        .in-wrap { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; }
+        .in-top { display: flex; align-items: center; justify-content: space-between; padding: var(--gr-s3) var(--gr-s4); }
+        .in-top__wordmark { font-family: var(--font-celtic, var(--gr-serif)); font-size: 1.25rem; color: var(--gr-ink); }
+        .in-skip { font-family: var(--gr-sans); font-size: var(--gr-t5); color: var(--gr-faint); background: none; border: none; cursor: pointer; }
+        .in-skip:hover { color: var(--gr-ink); }
+        .in-stage { position: relative; }
+        .in-step { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--gr-s5);
+            padding: 0 var(--gr-s5); visibility: hidden; opacity: 0; }
+        .in-step.on { visibility: visible; opacity: 1; }
+        .in-step__n { font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .14em; text-transform: uppercase; color: var(--gr-accent); margin-bottom: var(--gr-s3); }
+        .in-step__h { font-family: var(--gr-serif); font-weight: 400; font-size: clamp(2.2rem, 4.4vw, 3.6rem); line-height: 1.02; letter-spacing: -.012em; margin: 0 0 var(--gr-s3); max-width: 14ch; }
+        .in-step__h em { font-style: italic; color: var(--gr-accent); }
+        .in-step__p { font-size: var(--gr-t3); line-height: 1.6; color: var(--gr-muted); max-width: 42ch; margin: 0; }
+        .in-art { position: relative; height: min(56vh, 520px); display: flex; align-items: center; justify-content: center; }
+        /* small, honest drawings of the thing itself — not illustrations of a feeling */
+        .in-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: min(100%, 420px); }
+        .in-grid i { display: block; aspect-ratio: 1; border-radius: 6px; background: var(--c, #2a241a); box-shadow: 0 10px 26px rgba(0,0,0,.45); }
+        .in-lock { width: min(100%, 420px); display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .in-lock i { display: block; aspect-ratio: 1; border-radius: 6px; background: var(--c, #2a241a); position: relative; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
+        .in-lock i.b::after { content: 'borrowed'; position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: #1d160d; background: rgba(230,201,122,.95); padding: 2px 6px; border-radius: 3px; }
+        .in-lock i.y::after { content: 'yours'; position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gr-ink); background: rgba(255,255,255,.16); padding: 2px 6px; border-radius: 3px; }
+        .in-rooms { width: min(100%, 460px); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .in-room { border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px; background: var(--gr-surface); }
+        .in-room b { display: block; font-family: var(--gr-serif); font-weight: 400; font-size: 1.05rem; margin-bottom: 4px; }
+        .in-room small { font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gr-accent); }
+        .in-room .m { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 10px; }
+        .in-room .m i { display: block; aspect-ratio: 1; border-radius: 3px; background: var(--c, #2a241a); }
+        .in-you { width: min(100%, 440px); border: 1px solid var(--gr-line); border-radius: 16px; padding: 22px; background: var(--gr-surface); }
+        .in-you b { font-family: var(--gr-serif); font-weight: 400; font-size: 1.7rem; display: block; }
+        .in-you em { font-family: var(--gr-serif); color: var(--gr-muted); }
+        .in-you .m { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+        .in-you .m i { display: block; aspect-ratio: 1; border-radius: 5px; background: var(--c, #2a241a); }
+        .in-fb { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--gr-line); background: var(--gr-surface); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--gr-ink); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+        .in-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--gr-s3); padding: var(--gr-s3) var(--gr-s4) var(--gr-s4); }
+        .in-line { flex: 1; height: 1px; background: var(--gr-line); position: relative; }
+        .in-line i { position: absolute; left: 0; top: -1px; height: 3px; background: var(--gr-accent); width: 0; transition: width .6s var(--gr-ease); }
+        .in-nav { display: flex; gap: var(--gr-s2); }
+        @media (max-width: 760px) { .in-step { grid-template-columns: 1fr; align-content: center; gap: var(--gr-s4); padding: 0 var(--gr-s4); } .in-art { height: 32vh; } }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page in">
+<div class="in-wrap">
+    <div class="in-top">
+        <div class="in-top__wordmark">Music Room</div>
+        <button class="in-skip" onclick="finish()">skip</button>
+    </div>
+
+    <div class="in-stage" id="stage">
+        <section class="in-step on">
+            <div>
+                <div class="in-step__n">1 · Your room</div>
+                <h1 class="in-step__h">This is <em>your</em> room.</h1>
+                <p class="in-step__p">Your records, as a grid or a cloud, with your own tags, places and notes. Nothing here is recommended to you. You arrange it.</p>
+            </div>
+            <div class="in-art"><div class="in-grid">
+                <i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#3a2a3a"></i><i style="--c:#4a4a2a"></i>
+                <i style="--c:#2a4a3a"></i><i style="--c:#5a3a2a"></i><i style="--c:#2a2a3a"></i><i style="--c:#6a5a3a"></i>
+                <i style="--c:#3a4a5a"></i><i style="--c:#4a2a2a"></i><i style="--c:#2a3a2a"></i><i style="--c:#5a4a4a"></i>
+            </div></div>
+        </section>
+
+        <section class="in-step">
+            <div>
+                <div class="in-step__n">2 · Your files</div>
+                <h1 class="in-step__h">Your music stays <em>yours.</em></h1>
+                <p class="in-step__p">Bring in the files already on your laptop. The Music Room reads them, never moves them without asking, never uploads them anywhere.</p>
+            </div>
+            <div class="in-art"><div class="in-grid" style="grid-template-columns:repeat(3,1fr)">
+                <i style="--c:#2a241a"></i><i style="--c:#2a241a"></i><i style="--c:#2a241a"></i>
+                <i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#2a241a"></i>
+            </div></div>
+        </section>
+
+        <section class="in-step">
+            <div>
+                <div class="in-step__n">3 · Borrow &amp; buy</div>
+                <h1 class="in-step__h">Borrow records. <em>Keep</em> them.</h1>
+                <p class="in-step__p">A borrowed record stays on your machine for good — it just only plays in here. Buy it any time and it becomes an ordinary file of yours, with what you've paid this month taken off the price.</p>
+            </div>
+            <div class="in-art"><div class="in-lock">
+                <i class="b" style="--c:#7a4a2a"></i><i class="b" style="--c:#2a3a4a"></i><i class="y" style="--c:#4a4a2a"></i>
+            </div></div>
+        </section>
+
+        <section class="in-step">
+            <div>
+                <div class="in-step__n">4 · Other rooms</div>
+                <h1 class="in-step__h">Walk into <em>other</em> rooms.</h1>
+                <p class="in-step__p">Artists, record shops, labels, venues — each with a room of their own. Borrow and buy straight from the people who made the music.</p>
+            </div>
+            <div class="in-art"><div class="in-rooms">
+                <div class="in-room"><small>artist</small><b>Moss Records</b><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#4a4a2a"></i></div></div>
+                <div class="in-room"><small>record shop</small><b>All City</b><div class="m"><i style="--c:#3a2a3a"></i><i style="--c:#2a4a3a"></i><i style="--c:#5a3a2a"></i></div></div>
+            </div></div>
+        </section>
+
+        <section class="in-step">
+            <div>
+                <div class="in-step__n">5 · Your public room</div>
+                <h1 class="in-step__h">Make a room <em>others</em> can visit.</h1>
+                <p class="in-step__p">Choose what to show and how it looks. Keep it private while you work on it; make it public when it's ready.</p>
+            </div>
+            <div class="in-art"><div class="in-you"><em>listener · music room</em><b id="in-you-name">Your name</b><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#3a2a3a"></i><i style="--c:#4a4a2a"></i></div></div></div>
+        </section>
+
+        <section class="in-step">
+            <div>
+                <div class="in-step__n">6 · One more thing</div>
+                <h1 class="in-step__h">Tell us what you <em>think.</em></h1>
+                <p class="in-step__p">This is a trial. The small button in the corner of every page sends a thought, a bug, an idea — straight to the people making this.</p>
+            </div>
+            <div class="in-art"><div class="in-fb">💬</div></div>
+        </section>
+    </div>
+
+    <div class="in-bottom">
+        <div class="in-line"><i id="line"></i></div>
+        <div class="in-nav">
+            <button class="gr-btn" id="back" onclick="step(-1)">back</button>
+            <button class="gr-btn gr-btn--primary" id="next" onclick="step(1)">next</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script>
+const NEXT_URL = {{ next_url|tojson }};
+const steps = [...document.querySelectorAll('.in-step')];
+let i = 0, busy = false;
+const motion = !!window.gsap && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+fetch('/api/gr/status').then(r => r.json()).then(s => { if (s.name) document.getElementById('in-you-name').textContent = s.name; }).catch(() => {});
+
+function paint(){
+    document.getElementById('line').style.width = ((i + 1) / steps.length * 100) + '%';
+    document.getElementById('back').style.visibility = i === 0 ? 'hidden' : 'visible';
+    document.getElementById('next').textContent = i === steps.length - 1 ? 'into the room' : 'next';
+}
+async function step(d){
+    if (busy) return;
+    const j = i + d;
+    if (j >= steps.length) { finish(); return; }
+    if (j < 0) return;
+    busy = true;
+    const from = steps[i], to = steps[j];
+    if (motion) {
+        await gsap.to(from.querySelectorAll('.in-step__n, .in-step__h, .in-step__p, .in-art > *'), { y: -14 * d, opacity: 0, duration: .32, stagger: .03, ease: 'power2.in' });
+    }
+    from.classList.remove('on'); to.classList.add('on'); i = j; paint();
+    if (motion) {
+        gsap.fromTo(to.querySelectorAll('.in-step__n, .in-step__h, .in-step__p'), { y: 22 * d, opacity: 0 }, { y: 0, opacity: 1, duration: .7, stagger: .08, ease: 'power3.out' });
+        gsap.fromTo(to.querySelectorAll('.in-art > *'), { scale: .96, opacity: 0 }, { scale: 1, opacity: 1, duration: .8, ease: 'power3.out', delay: .1 });
+        gsap.fromTo(to.querySelectorAll('.in-art i'), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: .5, stagger: .04, ease: 'power3.out', delay: .2 });
+    }
+    busy = false;
+}
+function finish(){
+    try { fetch('/api/gr/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'intro_done', data: { step: i + 1, of: steps.length } }), keepalive: true }); } catch (_) {}
+    location.href = NEXT_URL;
+}
+addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'Enter') step(1); if (e.key === 'ArrowLeft') step(-1); if (e.key === 'Escape') finish(); });
+paint();
+if (motion) {
+    gsap.from('.in-step.on .in-step__n, .in-step.on .in-step__h, .in-step.on .in-step__p', { y: 22, opacity: 0, duration: .8, stagger: .08, ease: 'power3.out' });
+    gsap.from('.in-step.on .in-art i', { opacity: 0, y: 10, duration: .5, stagger: .04, ease: 'power3.out', delay: .2 });
+}
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

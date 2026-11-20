@@ -1,0 +1,378 @@
+{# -- Practice — the imaginary gig generator --
+   Conjures a situation. You build a set for it.
+   Becomes a real Set in your library with the situation as research notes.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practice — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        body {
+            margin: 0;
+            background: #12100c;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .practice-scene {
+            min-height: calc(100vh - 53px);
+            background: transparent;
+            padding: 60px 24px 100px;
+            position: relative;
+        }
+
+        .practice-wrap {
+            max-width: 760px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .practice-intro {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1rem;
+            color: #9a8c6c;
+            margin-bottom: 30px;
+            letter-spacing: 0.02em;
+        }
+
+        .practice-title {
+            font-family: var(--font-celtic);
+            font-size: 2.6rem;
+            font-weight: 400;
+            color: #efe6cf;
+            margin: 0 0 60px;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 28px rgba(245,230,176,0.16);
+        }
+
+        /* The card — the situation */
+        .situation-card {
+            background: rgba(26,22,16,0.92);
+            border: 1px solid rgba(245,230,176,0.16);
+            border-radius: 14px;
+            padding: 38px 42px 32px;
+            backdrop-filter: blur(10px);
+            text-align: left;
+            margin-bottom: 30px;
+            position: relative;
+            box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+        }
+
+        .situation-card__where {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.55rem;
+            color: #efe6cf;
+            line-height: 1.35;
+            margin-bottom: 22px;
+        }
+
+        .situation-lines {
+            display: grid;
+            grid-template-columns: 90px 1fr;
+            row-gap: 10px;
+            column-gap: 16px;
+        }
+        .situation-lines dt {
+            font-size: 0.66rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #9a8c6c;
+            padding-top: 4px;
+        }
+        .situation-lines dd {
+            margin: 0;
+            font-size: 1rem;
+            color: #efe6cf;
+            line-height: 1.5;
+        }
+
+        .situation-constraint {
+            margin-top: 26px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(245,230,176,0.16);
+            font-family: var(--font-serif);
+            font-style: italic;
+            color: #9a8c6c;
+            font-size: 1.05rem;
+            line-height: 1.5;
+        }
+        .situation-constraint::before {
+            content: '✦ ';
+            color: #f5e6b0;
+        }
+
+        .practice-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .practice-btn {
+            background: rgba(245,230,176,0.06);
+            border: 1px solid rgba(245,230,176,0.28);
+            color: #efe6cf;
+            padding: 11px 22px;
+            border-radius: 100px;
+            font-family: var(--font-main);
+            font-size: 0.92rem;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            transition: all 0.2s ease;
+            letter-spacing: 0.02em;
+        }
+        .practice-btn:hover {
+            border-color: #f5e6b0;
+            background: rgba(245,230,176,0.14);
+            color: #efe6cf;
+        }
+        .practice-btn--primary {
+            background: rgba(245,230,176,0.14);
+            border-color: rgba(245,230,176,0.5);
+            color: #f5e6b0;
+        }
+        .practice-btn--primary:hover {
+            background: rgba(245,230,176,0.24);
+        }
+
+        .practice-footer {
+            text-align: center;
+            margin-top: 60px;
+            font-family: var(--font-serif);
+            font-style: italic;
+            color: #9a8c6c;
+            font-size: 0.88rem;
+            letter-spacing: 0.03em;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="practice-scene">
+    <div class="practice-wrap">
+        <h1 class="practice-title">Practice</h1>
+
+        <div class="situation-card" id="situation-card">
+            <!-- filled by JS -->
+        </div>
+
+        <div class="practice-actions">
+            <button class="practice-btn" onclick="conjure()">↺ Another situation</button>
+            <button class="practice-btn practice-btn--primary" onclick="acceptSituation()">Build a set for this</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// =============================================================
+// SITUATION PARTS — the building blocks
+// Mix evocative + specific. Avoid SaaS-y phrasing.
+// =============================================================
+const WHERES = [
+    "a small Irish pub in winter, six regulars and a peat fire",
+    "a rooftop in Lisbon, four hours before sunrise",
+    "a forest clearing in May, a 40-person rave with no electricity except yours",
+    "the back room of a bookshop, after the staff have gone home",
+    "an off-season hotel ballroom in West Cork, marble pillars and bad lighting",
+    "a friend's kitchen at 3am — three of them slow-dancing, one of them crying happy tears",
+    "a midsummer beach in Donegal, the tide coming in, you've got two hours",
+    "a converted barn outside Dublin, low ceiling, condensation on the walls",
+    "a quiet boat moving through a fjord at twilight",
+    "an outdoor festival's smallest stage, 5pm, the sun still high",
+    "your living room — but you've told yourself it's the closing night of a club that's about to be demolished",
+    "a tube carriage at 3am, headphones for one person who didn't ask",
+    "a Galway bar at 2am after a wedding has emptied out",
+    "a cathedral with the lights off, a generator outside, fifty candles inside",
+    "an early-morning yoga class in a converted post office, they want you weird",
+    "a basement in Berlin where the previous DJ played techno for four hours straight — you take over now",
+    "a school sports hall, a leaving-cert afters, no one drinks the punch",
+    "a community hall in West Kerry, the local pipe band watching politely from the bar",
+    "a sunrise set on a Croatian island, no one prepped you, 90 minutes",
+    "a long taxi ride between two parties — you DJ for the driver",
+];
+
+const CROWDS = [
+    "twelve people who all know each other",
+    "ninety people, half there for the music",
+    "a stranger and their three nervous friends",
+    "two hundred dancers, hungry, already hot",
+    "a wedding crowd, the parents staying past midnight",
+    "your favourite DJs are in the room. Pretend they aren't.",
+    "no audience at all — record it for later",
+    "six people, one of whom is your ex",
+    "thirty teenagers who only know songs from before they were born",
+    "a hundred people who've been awake too long",
+    "the bar staff, deep in the weeds, no time to listen but they will remember",
+    "industry heads at a daytime listening event, the worst",
+    "kids — actual children — they'll bounce",
+    "an older crowd who'd rather sit, but they will if you nudge them",
+];
+
+const LENGTHS = [
+    "45 minutes",
+    "90 minutes",
+    "2 hours",
+    "30 minutes — opener slot",
+    "4 hours, closing",
+    "6 hours, you and the room",
+    "one B2B half — 60 minutes alongside another DJ",
+    "an all-nighter with one break",
+];
+
+const SHIFTS = [
+    "stay in one room throughout — no big arcs",
+    "start small, end massive",
+    "open hot, settle into something hypnotic, close quiet",
+    "three peaks, two valleys",
+    "no peaks at all — one long breath",
+    "build for the first half, drift down for the second",
+    "begin with one mood, end somewhere unrelated and earned",
+    "tease the climax for the entire set; never quite get there",
+];
+
+const CONSTRAINTS = [
+    "open with a track in a minor key — and don't leave it for 20 minutes",
+    "include at least three tracks released before you were born",
+    "no vocal tracks for the first 30 minutes",
+    "every track must be under 110 BPM",
+    "find a way to play one track you usually wouldn't — something embarrassing or sentimental",
+    "use at least one of your own recordings or edits",
+    "two consecutive tracks must share a label",
+    "include one cover of a famous song — or a famous song covered by someone obscure",
+    "you must play one track in a language you don't speak",
+    "the last track has to be older than the first",
+    "no harmonic mixing — choose each transition for feeling, not Camelot",
+    "one track must be a one-shot or sample longer than 60 seconds",
+    "play a piece of music that has nothing to do with dancing, somewhere in the middle",
+    "the set must end on the same key it started in",
+    "no transitions — clean cuts between every track",
+    "include one track an audience member shouted for last time you played, even if it doesn't fit",
+];
+
+const WEATHERS = [
+    "raining hard outside, condensation on the windows",
+    "snow on the ground, low cloud",
+    "a heatwave, everyone sweating before the first track",
+    "still and clear, a full moon",
+    "thick fog rolling in from the coast",
+    "wind howling outside, warm in here",
+    "the morning after a storm — wet ground, sun coming through",
+    "a dry summer evening, the kind that holds the day's heat",
+];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+let current = null;
+
+function conjure() {
+    current = {
+        where:      pick(WHERES),
+        crowd:      pick(CROWDS),
+        length:     pick(LENGTHS),
+        shift:      pick(SHIFTS),
+        weather:    pick(WEATHERS),
+        constraint: pick(CONSTRAINTS),
+    };
+
+    const card = document.getElementById('situation-card');
+    card.innerHTML = `
+        <div class="situation-card__where">${esc(current.where)}.</div>
+        <dl class="situation-lines">
+            <dt>Crowd</dt>    <dd>${esc(current.crowd)}</dd>
+            <dt>Length</dt>   <dd>${esc(current.length)}</dd>
+            <dt>Arc</dt>      <dd>${esc(current.shift)}</dd>
+            <dt>Weather</dt>  <dd>${esc(current.weather)}</dd>
+        </dl>
+        <div class="situation-constraint">${esc(current.constraint)}</div>
+    `;
+}
+
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+}
+
+async function acceptSituation() {
+    if (!current) return;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Cut a short name from the location
+    const shortWhere = current.where.split(',')[0].replace(/^(a |an |the )/i, '');
+    const name = `Practice — ${shortWhere}`;
+
+    const research = [
+        current.where + '.',
+        '',
+        'Crowd:     ' + current.crowd,
+        'Length:    ' + current.length,
+        'Arc:       ' + current.shift,
+        'Weather:   ' + current.weather,
+        '',
+        'Constraint:',
+        '  ' + current.constraint,
+    ].join('\n');
+
+    const res = await fetch('/api/sets', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            set_date: today,
+            set_type: 'charted',
+            research,
+            notes:   `Imagined gig. Generated ${new Date().toLocaleDateString('en-IE')}.`,
+        }),
+    });
+
+    if (res.ok) {
+        const s = await res.json();
+        window.location.href = `/set/${s.id}`;
+    } else {
+        alert('Could not create the set. Try again?');
+    }
+}
+
+conjure();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

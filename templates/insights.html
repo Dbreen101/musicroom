@@ -1,0 +1,204 @@
+{# Insights — the local "measure the impact" dashboard (VISION §4.14 Phase 1).
+   LOCAL ONLY: every number here is computed on this machine from data the app
+   already generates. Nothing is uploaded. Phase-2 telemetry (separate, opt-in,
+   default OFF) sends bucketed ROLLUPS of a small allowlisted subset only. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insights — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        :root { --ink: #efe6cf; --ink2: #a8946f; --gold: #f5e6b0; --line: rgba(245,230,176,.14); }
+        body { margin: 0; background: #14110b; color: var(--ink); min-height: 100vh;
+               font-family: var(--font-serif, 'EB Garamond', serif); }
+        .iw { max-width: 1080px; margin: 0 auto; padding: 40px 24px 100px; }
+        .ih { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--line);
+              padding-bottom: 16px; margin-bottom: 28px; }
+        .ih h1 { font-family: var(--font-celtic, var(--font-serif), serif); font-size: 2rem; margin: 0;
+                 letter-spacing: .04em; color: var(--ink); }
+        .ih__sub { color: var(--ink2); font-style: italic; font-size: .9rem; }
+        .ih__local { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: .64rem;
+                     letter-spacing: .1em; text-transform: uppercase; color: var(--ink2);
+                     border: 1px solid var(--line); border-radius: 100px; padding: 4px 11px; }
+        .sec { margin: 0 0 34px; }
+        .sec__h { font-family: 'JetBrains Mono', monospace; font-size: .64rem; letter-spacing: .16em;
+                  text-transform: uppercase; color: var(--ink2); margin: 0 0 14px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .card { background: rgba(245,230,176,.035); border: 1px solid var(--line); border-radius: 12px;
+                padding: 16px 16px 14px; }
+        .card.hero { grid-column: span 2; background: rgba(245,230,176,.06); border-color: rgba(245,230,176,.28); }
+        .card__n { font-size: 2.1rem; line-height: 1; color: var(--gold); font-feature-settings: "tnum" 1; }
+        .card.hero .card__n { font-size: 2.7rem; }
+        .card__l { font-size: .82rem; color: var(--ink2); margin-top: 7px; }
+        .card__sub { font-size: .72rem; color: var(--ink2); margin-top: 4px; opacity: .8; }
+        .bars { display: flex; flex-direction: column; gap: 7px; margin-top: 4px; }
+        .bar { display: grid; grid-template-columns: 130px 1fr 46px; align-items: center; gap: 10px;
+               font-size: .82rem; }
+        .bar__name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bar__track { height: 9px; background: rgba(245,230,176,.08); border-radius: 100px; overflow: hidden; }
+        .bar__fill { height: 100%; background: var(--gold); border-radius: 100px; }
+        .bar__v { font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--ink2); text-align: right; }
+        .list { display: flex; flex-direction: column; gap: 8px; }
+        .row { display: flex; align-items: baseline; gap: 10px; font-size: .9rem; padding: 7px 0;
+               border-bottom: 1px solid var(--line); }
+        .row:last-child { border-bottom: none; }
+        .row__rank { font-family: 'JetBrains Mono', monospace; color: var(--ink2); font-size: .72rem; width: 22px; }
+        .row__main { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row__a { color: var(--ink2); }
+        .row__v { font-family: 'JetBrains Mono', monospace; color: var(--gold); font-size: .82rem; }
+        .panel { background: rgba(245,230,176,.035); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } .card.hero { grid-column: span 1; } }
+        .foot { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink2);
+                font-size: .82rem; font-style: italic; }
+        .foot a { color: var(--gold); }
+        .empty { color: var(--ink2); font-style: italic; font-size: .86rem; padding: 6px 0; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="iw">
+    <div class="ih">
+        <h1>Insights</h1>
+        <span class="ih__sub">what the app is generating — measured on this machine</span>
+        <span class="ih__local" title="Nothing on this page is uploaded.">local · offline</span>
+    </div>
+    <div id="ins-body"><div class="empty">Loading…</div></div>
+</div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = n => (n == null ? '—' : Number(n).toLocaleString());
+const pct = n => (n == null ? '—' : n + '%');
+
+function card(n, label, sub, hero) {
+    return `<div class="card${hero ? ' hero' : ''}"><div class="card__n">${n}</div>
+        <div class="card__l">${esc(label)}</div>${sub ? `<div class="card__sub">${esc(sub)}</div>` : ''}</div>`;
+}
+function bars(obj, labelMap) {
+    const ent = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]);
+    if (!ent.length) return `<div class="empty">No data yet.</div>`;
+    const max = Math.max(...ent.map(e => e[1]), 1);
+    return `<div class="bars">${ent.map(([k, v]) => `
+        <div class="bar"><span class="bar__name">${esc((labelMap && labelMap[k]) || k)}</span>
+            <span class="bar__track"><span class="bar__fill" style="width:${Math.round(v / max * 100)}%"></span></span>
+            <span class="bar__v">${num(v)}</span></div>`).join('')}</div>`;
+}
+
+async function load() {
+    let d;
+    try { d = await fetch('/api/insights').then(r => r.json()); }
+    catch (_) { $('#ins-body').innerHTML = `<div class="empty">Couldn’t load insights.</div>`; return; }
+    const A = d.artist_support, L = d.listening, Lib = d.library, Disc = d.discovery;
+
+    const supportCards =
+        card(num(A.supported_artists), 'artists supported', 'bought-direct + supported wishlist', true) +
+        card(A.bandcamp_share == null ? '—' : pct(A.bandcamp_share), 'direct via Bandcamp', 'of all supported') +
+        card(A.conversion_rate == null ? '—' : pct(A.conversion_rate), 'intent → bought', `${num(A.intents.bought)} of ${num(A.intents.logged)} buy-clicks`) +
+        card(num(A.wishlist.wishing), 'on the wishlist', 'still wishing') +
+        card(num(A.wishlist.supported), 'wishlist supported', 'marked bought');
+
+    const storeMix = {};
+    for (const [k, v] of Object.entries(A.intents_by_store || {})) storeMix[k] = (storeMix[k] || 0) + v;
+    for (const [k, v] of Object.entries(A.wishlist_by_via || {})) storeMix[k] = (storeMix[k] || 0) + v;
+
+    const topTracks = (L.top_tracks || []).length
+        ? `<div class="list">${L.top_tracks.map((t, i) => `
+            <div class="row"><span class="row__rank">${i + 1}</span>
+                <span class="row__main">${esc(t.title || '—')} <span class="row__a">· ${esc(t.artist_name || '')}</span></span>
+                <span class="row__v">${num(t.plays)}</span></div>`).join('')}</div>`
+        : `<div class="empty">No plays in this window yet.</div>`;
+
+    const provRows = (Disc.by_provenance || []).length
+        ? `<div class="list">${Disc.by_provenance.map(p => `
+            <div class="row"><span class="row__main">${esc(p.provenance)}</span>
+                <span class="row__v">${num(p.n)}</span></div>`).join('')}</div>`
+        : `<div class="empty">Nothing imported yet — import a tracklist or Shazams in Explore.</div>`;
+
+    const REASON_LABELS = { sentimental: 'Sentimental', djing: 'For DJing', research: 'Research',
+        support: 'Support the artist', collection: 'For the collection', other: 'Other' };
+    const buyReasonsBlock = Object.keys(A.buy_reasons || {}).length
+        ? bars(A.buy_reasons, REASON_LABELS)
+        : `<div class="empty">No reasons logged yet — they come from playing your wishlist in Explore.</div>`;
+
+    $('#ins-body').innerHTML = `
+        <div class="sec">
+            <div class="sec__h">Artist support — the whole point</div>
+            <div class="cards">${supportCards}</div>
+            <div class="grid2" style="margin-top:14px;">
+                <div class="panel"><div class="sec__h">Where support went</div>${bars(storeMix, { bandcamp: 'Bandcamp (direct)', other: 'Elsewhere', unknown: 'Unrecorded' })}</div>
+                <div class="panel"><div class="sec__h">Buy funnel</div>${bars({ 'Buy-clicks logged': A.intents.logged, 'Bought': A.intents.bought, 'Still pending': A.intents.pending, 'Dismissed': A.intents.dismissed })}</div>
+            </div>
+            <div class="panel" style="margin-top:14px;"><div class="sec__h">Why you buy</div>${buyReasonsBlock}</div>
+        </div>
+
+        <div class="sec">
+            <div class="sec__h">Listening · last ${d.window_days} days</div>
+            <div class="cards">
+                ${card(num(L.plays_window), 'plays', `${num(L.plays_all_time)} all-time`)}
+                ${card(num(L.hours_window), 'hours listened', 'in window')}
+                ${card(L.completion_rate == null ? '—' : pct(L.completion_rate), 'completion rate', 'finished vs started')}
+                ${card(num(L.never_played), 'never played', 'in the library')}
+            </div>
+            <div class="grid2" style="margin-top:14px;">
+                <div class="panel"><div class="sec__h">Top tracks</div>${topTracks}</div>
+                <div class="panel"><div class="sec__h">What leads playback</div>${bars(L.by_source)}</div>
+            </div>
+        </div>
+
+        <div class="sec">
+            <div class="sec__h">Collection &amp; discovery</div>
+            <div class="cards">
+                ${card(num(Lib.tracks), 'tracks')}
+                ${card(num(Lib.with_art), 'with cover art', Lib.tracks ? Math.round(Lib.with_art / Lib.tracks * 100) + '% of the library' : '')}
+                ${card(num(Lib.artists), 'artists')}
+                ${card(num(Lib.labels), 'labels')}
+                ${card(num(Lib.genres), 'genres')}
+            </div>
+            <div class="grid2" style="margin-top:14px;">
+                <div class="panel"><div class="sec__h">Wishlist by source</div>${bars(Disc.by_source)}</div>
+                <div class="panel"><div class="sec__h">Where wishlist items came from</div>${provRows}</div>
+            </div>
+        </div>
+
+        <div class="foot">Everything above is computed locally and never leaves this machine.
+            Off-device measurement is separate, opt-in and OFF by default —
+            <a href="/settings#telemetry">manage anonymous telemetry</a>.</div>`;
+}
+load();
+</script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

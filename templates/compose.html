@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compose — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+    /* ============================================================
+       COMPOSE — the output lens (VISION §4.4, research/04).
+       Assemble moments + references + prose into a publishable
+       document, then export it. Explore-desk register: dark surface,
+       cream ink, gold the one accent. The user writes every word.
+       ============================================================ */
+    body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+
+    /* lens bar — same family as /listen and /listen/canvas */
+    .cmp-lensbar { display: flex; align-items: center; gap: 14px; height: 39px; padding: 0 18px;
+        background: rgba(16,14,10,0.92); border-bottom: 1px solid var(--border); }
+    .cmp-lensbar__title { font-family: var(--font-serif, 'EB Garamond', serif); font-size: 1.06rem; color: var(--text); }
+    .cmp-lens { display: flex; gap: 4px; }
+    .cmp-lens a { padding: 5px 14px; border-radius: 100px; font-size: 0.8rem; text-decoration: none;
+        color: var(--muted); border: 1px solid transparent; transition: all 0.18s ease; }
+    .cmp-lens a.active { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+    .cmp-lens a:not(.active):hover { color: var(--text); border-color: var(--muted2, var(--muted)); }
+    .cmp-lensbar__hint { font-family: var(--font-serif, serif); font-style: italic; font-size: 0.78rem;
+        color: var(--muted2, var(--muted)); margin-left: auto; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; }
+
+    .cmp { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: calc(100vh - 95px); }
+
+    /* ── source rail ─────────────────────────────────────────── */
+    .cmp-rail { display: flex; flex-direction: column; min-height: 0;
+        background: rgba(16,14,10,0.6); border-right: 1px solid var(--border); }
+    .cmp-rail__head { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+    .cmp-railh { font-family: var(--font-mono, monospace); font-size: 0.6rem; text-transform: uppercase;
+        letter-spacing: 0.14em; color: var(--gold); margin: 0 0 8px; }
+    .cmp-search { width: 100%; box-sizing: border-box; background: var(--surface); color: var(--text);
+        border: 1px solid var(--border); border-radius: 100px; padding: 7px 13px; font-size: 0.84rem;
+        outline: none; font-family: var(--font-main, sans-serif); }
+    .cmp-search:focus { border-color: var(--gold); }
+    .cmp-railtabs { display: flex; gap: 4px; margin-top: 9px; }
+    .cmp-railtabs button { flex: 1; background: var(--surface); border: 1px solid var(--border);
+        color: var(--muted); border-radius: 8px; padding: 5px 0; font-size: 0.72rem; cursor: pointer;
+        font-family: var(--font-main, sans-serif); transition: all 0.15s; }
+    .cmp-railtabs button.active { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+    .cmp-addref-btn { width: 100%; margin-top: 9px; background: none; border: 1px dashed var(--border2, var(--border));
+        color: var(--muted); border-radius: 8px; padding: 7px 0; font-size: 0.76rem; cursor: pointer;
+        font-family: var(--font-main, sans-serif); transition: all 0.15s; }
+    .cmp-addref-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .cmp-addref { display: none; margin-top: 9px; padding: 10px; background: var(--surface);
+        border: 1px solid var(--border); border-radius: 10px; }
+    .cmp-addref.open { display: block; }
+    .cmp-arin { width: 100%; box-sizing: border-box; background: var(--bg); color: var(--text);
+        border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 0.78rem;
+        margin-bottom: 6px; outline: none; font-family: var(--font-main, sans-serif); }
+    .cmp-arin:focus { border-color: var(--gold); }
+    .cmp-arrow { display: flex; gap: 6px; align-items: center; }
+    .cmp-arrow .cmp-tool { padding: 5px 11px; font-size: 0.75rem; }
+    .cmp-arhint { font-size: 0.68rem; color: var(--muted2, var(--muted)); margin-top: 6px; min-height: 0.9em;
+        font-family: var(--font-mono, monospace); }
+    .cmp-sourcelist { flex: 1 1 auto; overflow-y: auto; padding: 8px; }
+    .cmp-src { display: flex; gap: 9px; align-items: flex-start; padding: 8px; border-radius: 10px;
+        cursor: pointer; transition: background 0.15s; }
+    .cmp-src:hover { background: rgba(245,230,176,0.07); }
+    .cmp-src__art { width: 38px; height: 38px; border-radius: 6px; flex: 0 0 auto; object-fit: cover;
+        background: var(--surface2, #241b10); display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-serif, serif); font-size: 1rem; color: var(--gold); overflow: hidden; }
+    .cmp-src__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cmp-src__main { flex: 1; min-width: 0; }
+    .cmp-src__txt { font-size: 0.8rem; color: var(--text); overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; }
+    .cmp-src__sub { font-size: 0.68rem; color: var(--muted); font-style: italic;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmp-src__add { flex: 0 0 auto; background: none; border: 1px solid var(--border); color: var(--gold);
+        border-radius: 100px; width: 24px; height: 24px; cursor: pointer; font-size: 0.9rem; line-height: 1;
+        transition: all 0.15s; }
+    .cmp-src__add:hover { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+    .cmp-src__kind { font-size: 0.6rem; font-family: var(--font-mono, monospace); color: var(--muted2, var(--muted));
+        text-transform: uppercase; letter-spacing: 0.1em; }
+
+    /* ── the document ────────────────────────────────────────── */
+    .cmp-doc { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+    .cmp-doc__head { padding: 16px 28px 12px; border-bottom: 1px solid var(--border); }
+    .cmp-pickrow { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .cmp-picker, .cmp-kind { background: var(--surface); color: var(--text); border: 1px solid var(--border);
+        border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-family: var(--font-main, sans-serif);
+        outline: none; cursor: pointer; }
+    .cmp-newbtn, .cmp-tool, .cmp-del { background: var(--surface); border: 1px solid var(--border);
+        color: var(--text); border-radius: 100px; padding: 6px 13px; font-size: 0.8rem; cursor: pointer;
+        font-family: var(--font-main, sans-serif); transition: all 0.15s; white-space: nowrap; }
+    .cmp-newbtn:hover, .cmp-tool:hover { border-color: var(--gold); color: var(--gold); }
+    .cmp-del:hover { border-color: var(--danger, #d4756a); color: var(--danger, #d4756a); }
+    .cmp-save { font-size: 0.7rem; color: var(--muted2, var(--muted)); font-family: var(--font-mono, monospace);
+        margin-left: auto; white-space: nowrap; }
+    .cmp-title { width: 100%; box-sizing: border-box; background: none; border: none; outline: none;
+        color: var(--text); font-family: var(--font-serif, 'EB Garamond', serif); font-size: 1.9rem;
+        font-style: italic; padding: 2px 0; }
+    .cmp-title::placeholder { color: var(--muted2, var(--muted)); }
+    .cmp-sub { width: 100%; box-sizing: border-box; background: none; border: none; outline: none;
+        color: var(--muted); font-family: var(--font-serif, serif); font-size: 0.95rem; padding: 2px 0; }
+    .cmp-toolbar { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    .cmp-tool--accent { border-color: rgba(245,230,176,0.5); color: var(--gold); }
+    .cmp-export { position: relative; }
+    .cmp-export__menu { position: absolute; top: 110%; right: 0; z-index: 20; min-width: 180px;
+        background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 5px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; }
+    .cmp-export.open .cmp-export__menu { display: block; }
+    .cmp-export__menu button { display: block; width: 100%; text-align: left; background: none; border: none;
+        color: var(--text); padding: 8px 11px; border-radius: 7px; font-size: 0.82rem; cursor: pointer;
+        font-family: var(--font-main, sans-serif); }
+    .cmp-export__menu button:hover { background: rgba(245,230,176,0.1); color: var(--gold); }
+
+    /* a writing field — a character measure (not pixels), centred and quiet, so
+       composing reads as deliberate authorship rather than a form. */
+    .cmp-blocks { flex: 1 1 auto; overflow-y: auto; padding: 40px 28px 120px; max-width: 68ch;
+        width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .cmp-empty { color: var(--muted2, var(--muted)); font-style: italic; font-family: var(--font-serif, serif);
+        text-align: center; padding: 60px 20px; line-height: 1.7; }
+
+    .cmp-block { position: relative; display: flex; gap: 8px; align-items: flex-start; margin: 4px 0;
+        padding: 4px 4px 4px 0; border-radius: 8px; }
+    .cmp-block:hover { background: rgba(255,255,255,0.02); }
+    .cmp-block.dragover { box-shadow: inset 0 2px 0 var(--gold); }
+    .cmp-handle { flex: 0 0 auto; width: 18px; cursor: grab; color: var(--muted2, var(--muted));
+        text-align: center; user-select: none; opacity: 0; transition: opacity 0.15s; padding-top: 6px; font-size: 0.9rem; }
+    .cmp-block:hover .cmp-handle { opacity: 1; }
+    .cmp-bkill { position: absolute; top: 4px; right: 4px; background: none; border: none; cursor: pointer;
+        color: var(--muted2, var(--muted)); font-size: 0.85rem; opacity: 0; transition: opacity 0.15s; }
+    .cmp-block:hover .cmp-bkill { opacity: 1; }
+    .cmp-bkill:hover { color: var(--danger, #d4756a); }
+    .cmp-bbody { flex: 1; min-width: 0; }
+
+    .cmp-h1, .cmp-h2 { width: 100%; box-sizing: border-box; background: none; border: none; outline: none;
+        color: var(--text); font-family: var(--font-serif, 'EB Garamond', serif); padding: 4px 0; }
+    .cmp-h1 { font-size: 1.85rem; font-weight: 600; }
+    .cmp-h2 { font-size: 1.32rem; font-style: italic; color: var(--gold); }
+    .cmp-text { width: 100%; box-sizing: border-box; background: none; border: none; outline: none;
+        resize: none; color: var(--text); font-family: var(--font-serif, 'EB Garamond', serif);
+        font-size: 1.18rem; line-height: 1.62; padding: 4px 0; overflow: hidden; }
+    .cmp-text::placeholder, .cmp-h1::placeholder, .cmp-h2::placeholder { color: var(--muted2, var(--muted)); }
+    .cmp-hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; flex: 1; }
+    .cmp-lvl { background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+        border-radius: 6px; font-size: 0.62rem; cursor: pointer; padding: 2px 6px; font-family: var(--font-mono, monospace); }
+
+    /* embedded moment / reference cards */
+    .cmp-cite { display: flex; gap: 11px; align-items: flex-start; background: var(--surface);
+        border: 1px solid var(--border); border-left: 2px solid var(--gold); border-radius: 10px;
+        padding: 11px 13px; }
+    .cmp-cite__art { width: 44px; height: 44px; border-radius: 6px; flex: 0 0 auto; object-fit: cover;
+        background: var(--surface2, #241b10); display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-serif, serif); color: var(--gold); overflow: hidden; }
+    .cmp-cite__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cmp-cite__main { flex: 1; min-width: 0; }
+    .cmp-cite__src { font-family: var(--font-mono, monospace); font-size: 0.66rem; color: var(--gold);
+        letter-spacing: 0.04em; }
+    .cmp-cite__note { font-family: var(--font-serif, serif); font-style: italic; font-size: 0.95rem;
+        color: var(--text); line-height: 1.5; margin-top: 3px; }
+    .cmp-cite__meta { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
+    .cmp-cite--gone { border-left-color: var(--danger, #d4756a); color: var(--muted2, var(--muted)); font-style: italic; }
+
+    /* ── preview overlay (the publishable page) ──────────────── */
+    .cmp-preview { position: fixed; inset: 0; z-index: 60; background: rgba(8,7,4,0.86);
+        display: none; flex-direction: column; align-items: center; }
+    .cmp-preview.open { display: flex; }
+    .cmp-preview__bar { width: 100%; box-sizing: border-box; display: flex; gap: 10px; align-items: center;
+        padding: 12px 22px; background: rgba(16,14,10,0.95); border-bottom: 1px solid var(--border); }
+    .cmp-preview__bar .cmp-railh { margin: 0; }
+    .cmp-page { background: #fbf6ea; color: #211c12; width: 100%; max-width: 720px; margin: 26px 0;
+        padding: 56px 64px 72px; border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        overflow-y: auto; box-sizing: border-box;
+        font-family: 'EB Garamond', Georgia, serif; line-height: 1.66; }
+    .cmp-pagewrap { flex: 1; overflow-y: auto; width: 100%; display: flex; justify-content: center; }
+    .cmp-page h1 { font-size: 2rem; margin: 0 0 4px; }
+    .cmp-page .cmp-page__sub { font-style: italic; color: #6a5f47; margin: 0 0 6px; }
+    .cmp-page .cmp-page__kind { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem;
+        text-transform: uppercase; letter-spacing: 0.16em; color: #9a7a3a; margin: 0 0 26px; }
+    .cmp-page h2 { font-size: 1.3rem; margin: 26px 0 8px; }
+    .cmp-page p { margin: 0 0 14px; }
+    .cmp-page blockquote { margin: 16px 0; padding: 4px 0 4px 18px; border-left: 2px solid #c8a24a; }
+    .cmp-page blockquote .q { font-style: italic; font-size: 1.06rem; }
+    .cmp-page blockquote cite { display: block; font-style: normal; font-size: 0.82rem; color: #6a5f47; margin-top: 5px; }
+    .cmp-page hr { border: none; border-top: 1px solid #d8cdb0; margin: 22px 0; }
+    .cmp-page .cmp-page__sources { margin-top: 38px; padding-top: 16px; border-top: 1px solid #d8cdb0; }
+    .cmp-page .cmp-page__sources ol { padding-left: 22px; }
+    .cmp-page .cmp-page__sources li { font-size: 0.86rem; margin-bottom: 6px; color: #3a3324; }
+    .cmp-page a { color: #8a5a1a; }
+    .cmp-page figure { margin: 20px 0; }
+    .cmp-page figure img { max-width: 100%; border-radius: 4px; display: block; }
+    .cmp-page figcaption { font-size: 0.8rem; color: #6a5f47; font-style: italic; margin-top: 6px; }
+    /* an image reference in the editor preview-card */
+    .cmp-cite__img { width: 100%; max-width: 320px; border-radius: 6px; margin-top: 6px; display: block; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen" class="active">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="cmp-lensbar">
+    <span class="cmp-lensbar__title">Listen</span>
+    <div class="cmp-lens">
+        <a href="/listen">Notes</a>
+        <a href="/listen/canvas">Mind map</a>
+        <a class="active" href="/listen/compose">Compose</a>
+        <a href="/research">Research</a>
+    </div>
+    <span class="cmp-lensbar__hint">Assemble moments &amp; references into a piece — show script, essay, review, liner notes — then export it.</span>
+</div>
+
+<div class="cmp">
+    <!-- SOURCE RAIL: the substrate to pull from -->
+    <aside class="cmp-rail">
+        <div class="cmp-rail__head">
+            <div class="cmp-railh">Insert from your notes</div>
+            <input type="text" class="cmp-search" id="cmp-search" placeholder="Search moments &amp; references…">
+            <div class="cmp-railtabs" id="cmp-railtabs">
+                <button data-k="all" class="active">All</button>
+                <button data-k="moment">Moments</button>
+                <button data-k="reference">References</button>
+            </div>
+            <button class="cmp-addref-btn" onclick="toggleAddRef()">＋ Add a reference</button>
+            <div class="cmp-addref" id="cmp-addref">
+                <input type="text" id="ar-url" class="cmp-arin" placeholder="Paste a URL — video, article, PDF, image…">
+                <input type="text" id="ar-title" class="cmp-arin" placeholder="Title">
+                <input type="text" id="ar-source" class="cmp-arin" placeholder="Source — optional (NTS, Discogs…)">
+                <div class="cmp-arrow">
+                    <button class="cmp-tool cmp-tool--accent" onclick="saveRefUrl()">Save link</button>
+                    <label class="cmp-tool" style="cursor:pointer;">↑ Upload file
+                        <input type="file" id="ar-file" style="display:none" accept="image/*,.pdf" onchange="uploadRefFile(this)">
+                    </label>
+                </div>
+                <div class="cmp-arhint" id="ar-hint">A PDF, an image (sleeve, liner notes), or any link.</div>
+            </div>
+        </div>
+        <div class="cmp-sourcelist" id="cmp-sourcelist"><div class="cmp-empty">Loading…</div></div>
+    </aside>
+
+    <!-- THE DOCUMENT -->
+    <main class="cmp-doc">
+        <div class="cmp-doc__head">
+            <div class="cmp-pickrow">
+                <select class="cmp-picker" id="cmp-picker" onchange="pickComposition(this.value)"></select>
+                <button class="cmp-newbtn" onclick="newComposition()">＋ New</button>
+                <button class="cmp-del" id="cmp-delbtn" onclick="deleteComposition()" title="Delete this composition">✕ Delete</button>
+                <span class="cmp-save" id="cmp-save"></span>
+            </div>
+            <input type="text" class="cmp-title" id="cmp-title" placeholder="Untitled" oninput="onMetaInput()">
+            <input type="text" class="cmp-sub" id="cmp-sub" placeholder="A subtitle, or a line on what this is…" oninput="onMetaInput()">
+            <div class="cmp-toolbar">
+                <select class="cmp-kind" id="cmp-kind" onchange="onMetaInput()">
+                    <option value="piece">Notes / piece</option>
+                    <option value="show">Radio / show script</option>
+                    <option value="essay">Essay</option>
+                    <option value="review">Track-by-track review</option>
+                    <option value="liner">Liner notes</option>
+                </select>
+                <button class="cmp-tool" onclick="addBlock('heading')">＋ Heading</button>
+                <button class="cmp-tool" onclick="addBlock('text')">＋ Text</button>
+                <button class="cmp-tool" onclick="addBlock('divider')">＋ Divider</button>
+                <button class="cmp-tool cmp-tool--accent" onclick="openPreview()">◉ Preview</button>
+                <div class="cmp-export" id="cmp-exportwrap">
+                    <button class="cmp-tool" onclick="toggleExport(event)">↧ Export ▾</button>
+                    <div class="cmp-export__menu">
+                        <button onclick="exportMarkdown()">Markdown (.md)</button>
+                        <button onclick="exportHTML()">Web page (.html)</button>
+                        <button onclick="printDoc()">Print / PDF…</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="cmp-blocks" id="cmp-blocks"></div>
+    </main>
+</div>
+
+<!-- PREVIEW / EXPORT overlay -->
+<div class="cmp-preview" id="cmp-preview">
+    <div class="cmp-preview__bar">
+        <div class="cmp-railh">Preview — how it will export</div>
+        <span class="cmp-save" style="margin-left:auto;"></span>
+        <button class="cmp-tool" onclick="exportMarkdown()">Markdown</button>
+        <button class="cmp-tool" onclick="exportHTML()">Web page</button>
+        <button class="cmp-tool" onclick="printDoc()">Print / PDF</button>
+        <button class="cmp-tool" onclick="closePreview()">✕ Close</button>
+    </div>
+    <div class="cmp-pagewrap"><div class="cmp-page" id="cmp-page"></div></div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let comps = [];           // composition summaries
+let current = null;       // { id, title, kind, subtitle, blocks: [...] }
+let allNotes = [];        // the substrate (moments + references) for the rail
+let notesById = {};
+let railFilter = 'all';
+let saveTimer = null;
+const KIND_LABEL = { piece:'Notes', show:'Radio / show script', essay:'Essay',
+                     review:'Track-by-track review', liner:'Liner notes' };
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function fmtTs(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+}
+// what KIND of research material a reference is — drives how it renders
+function refMedia(r) {
+    const s = (r.ref_file_path || r.ref_url || r.ref_image_url || '').toLowerCase();
+    if (/\.(png|jpe?g|gif|webp|svg|bmp)(\?|#|$)/.test(s)) return 'image';
+    if (r.ref_image_url && r.ref_file_path && r.ref_image_url === r.ref_file_path) return 'image';
+    if (/\.pdf(\?|#|$)/.test(s)) return 'pdf';
+    if (/youtube\.com|youtu\.be|vimeo\.com|\.mp4(\?|#|$)/.test(s)) return 'video';
+    return 'page';
+}
+const REF_LABEL = { image:'🖼 IMAGE', video:'▷ VIDEO', pdf:'📄 PDF', page:'↗ LINK' };
+function refHref(r) { return r.ref_url || r.ref_file_path || ''; }
+function refImgSrc(r) { return r.ref_file_path || r.ref_image_url || r.ref_url || ''; }
+function absUrl(u) { return !u ? u : (/^https?:/i.test(u) ? u : location.origin + (u[0] === '/' ? u : '/' + u)); }
+function artUrl(r) {
+    if (!r) return null;
+    if (r.kind === 'reference') return refMedia(r) === 'image' ? refImgSrc(r) : (r.ref_image_url || null);
+    return r.track_id ? `/api/artwork/${r.track_id}?s=88` : null;
+}
+function initialOf(r) {
+    const s = (r && (r.artist_name || r.title || r.ref_title || r.note_text)) || '?';
+    return esc(s.trim().charAt(0).toUpperCase() || '♪');
+}
+// a moment's one-line citation, and a reference's
+function citeLine(r) {
+    if (!r) return '— [removed]';
+    if (r.kind === 'reference') {
+        return [r.ref_title || r.note_text || 'Untitled', r.ref_source].filter(Boolean).join(' — ');
+    }
+    let s = `${r.artist_name || 'Unknown'} — ${r.title || 'Untitled'}`;
+    const av = [r.album, r.year].filter(Boolean).join(', ');
+    if (av) s += ` (${av})`;
+    s += ` · ${fmtTs(r.timestamp_sec)}`;
+    return s;
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function boot() {
+    const [cs, ns] = await Promise.all([
+        fetch('/api/listen/compositions').then(r => r.json()).catch(() => []),
+        fetch('/api/listen/notes').then(r => r.json()).catch(() => []),
+    ]);
+    comps = cs || [];
+    allNotes = ns || [];
+    notesById = {}; allNotes.forEach(n => notesById[n.id] = n);
+    renderRail();
+    renderPicker();
+    const want = new URLSearchParams(location.search).get('id');
+    if (want && comps.some(c => c.id == want)) await loadComposition(+want);
+    else if (comps.length) await loadComposition(comps[0].id);
+    else renderEmpty();
+}
+
+function renderPicker() {
+    const sel = document.getElementById('cmp-picker');
+    sel.innerHTML = comps.length
+        ? comps.map(c => `<option value="${c.id}" ${current && c.id === current.id ? 'selected' : ''}>${esc(c.title)}</option>`).join('')
+        : '<option value="">No compositions yet</option>';
+    document.getElementById('cmp-delbtn').style.display = current ? '' : 'none';
+}
+
+async function loadComposition(id) {
+    const c = await fetch(`/api/listen/composition/${id}`).then(r => r.json()).catch(() => null);
+    if (!c || c.error) { renderEmpty(); return; }
+    current = c;
+    if (!Array.isArray(current.blocks)) current.blocks = [];
+    document.getElementById('cmp-title').value = c.title || '';
+    document.getElementById('cmp-sub').value = c.subtitle || '';
+    document.getElementById('cmp-kind').value = c.kind || 'piece';
+    history.replaceState(null, '', `/listen/compose?id=${id}`);
+    renderPicker();
+    renderBlocks();
+    setSaved('');
+}
+
+function renderEmpty() {
+    current = null;
+    document.getElementById('cmp-blocks').innerHTML =
+        '<div class="cmp-empty">No composition open.<br>Make a new one to start building a piece — a show script, an essay, liner notes — from your moments and references.</div>';
+    document.getElementById('cmp-title').value = '';
+    document.getElementById('cmp-sub').value = '';
+    renderPicker();
+}
+
+// ── Source rail ────────────────────────────────────────────────────────────────
+function renderRail() {
+    const q = (document.getElementById('cmp-search').value || '').toLowerCase().trim();
+    const list = document.getElementById('cmp-sourcelist');
+    let rows = allNotes.slice();
+    if (railFilter === 'moment') rows = rows.filter(n => n.kind !== 'reference');
+    if (railFilter === 'reference') rows = rows.filter(n => n.kind === 'reference');
+    if (q) rows = rows.filter(n => {
+        const hay = [n.note_text, n.title, n.artist_name, n.ref_title, n.ref_source].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+    });
+    rows = rows.slice(0, 200);
+    if (!rows.length) { list.innerHTML = '<div class="cmp-empty">Nothing here yet.</div>'; return; }
+    list.innerHTML = rows.map(n => {
+        const isRef = n.kind === 'reference';
+        const art = artUrl(n);
+        const artHtml = art ? `<img src="${esc(art)}" onerror="this.style.display='none';this.parentNode.textContent='${initialOf(n)}'">` : initialOf(n);
+        const title = isRef ? (n.ref_title || n.note_text || 'Untitled') : `${n.artist_name || 'Unknown'} — ${n.title || 'Untitled'}`;
+        const sub = isRef ? (n.ref_source || 'reference')
+                          : `${fmtTs(n.timestamp_sec)} · ${(n.note_text || '').slice(0, 50)}`;
+        return `<div class="cmp-src" onclick="insertNote(${n.id})" title="Insert into the document">
+            <div class="cmp-src__art">${artHtml}</div>
+            <div class="cmp-src__main">
+                <div class="cmp-src__txt">${esc(title)}</div>
+                <div class="cmp-src__sub">${esc(sub)}</div>
+                <div class="cmp-src__kind">${isRef ? '↗ reference' : 'moment'}</div>
+            </div>
+            <button class="cmp-src__add" onclick="event.stopPropagation();insertNote(${n.id})">＋</button>
+        </div>`;
+    }).join('');
+}
+document.getElementById('cmp-search').addEventListener('input', renderRail);
+document.getElementById('cmp-railtabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    railFilter = b.dataset.k;
+    [...document.querySelectorAll('#cmp-railtabs button')].forEach(x => x.classList.toggle('active', x === b));
+    renderRail();
+});
+
+// add a reference — paste any URL, or upload a local file (PDF / image)
+function toggleAddRef() { document.getElementById('cmp-addref').classList.toggle('open'); }
+function arHint(m) { document.getElementById('ar-hint').textContent = m; }
+async function refreshNotes() {
+    allNotes = await fetch('/api/listen/notes').then(r => r.json()).catch(() => allNotes);
+    notesById = {}; allNotes.forEach(n => notesById[n.id] = n);
+    renderRail();
+}
+async function saveRefUrl() {
+    const url = document.getElementById('ar-url').value.trim();
+    const title = document.getElementById('ar-title').value.trim();
+    if (!url) { arHint('Paste a URL first.'); return; }
+    if (!title) { arHint('Give it a title.'); return; }
+    arHint('Saving…');
+    try {
+        const r = await fetch('/api/listen/reference', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, title, source: document.getElementById('ar-source').value.trim() }),
+        }).then(r => r.json());
+        await refreshNotes();
+        ['ar-url', 'ar-title', 'ar-source'].forEach(id => document.getElementById(id).value = '');
+        arHint('Added ✓' + (current ? ' — inserted' : ' — find it in the list'));
+        if (current && r && r.id) await insertNote(r.id);
+    } catch (e) { arHint('Could not save that.'); }
+}
+async function uploadRefFile(input) {
+    const f = input.files[0]; if (!f) return;
+    arHint('Uploading…');
+    const fd = new FormData(); fd.append('file', f);
+    const t = document.getElementById('ar-title').value.trim(); if (t) fd.append('title', t);
+    const s = document.getElementById('ar-source').value.trim(); if (s) fd.append('source', s);
+    try {
+        const r = await fetch('/api/listen/reference/upload', { method: 'POST', body: fd }).then(r => r.json());
+        input.value = '';
+        await refreshNotes();
+        ['ar-title', 'ar-source'].forEach(id => document.getElementById(id).value = '');
+        arHint('Added ✓' + (current ? ' — inserted' : ' — find it in the list'));
+        if (current && r && r.id) await insertNote(r.id);
+    } catch (e) { arHint('Upload failed.'); }
+}
+
+// ── Blocks ──────────────────────────────────────────────────────────────────────
+function ensureComp() {
+    if (current) return Promise.resolve();
+    return newComposition();
+}
+async function insertNote(noteId) {
+    await ensureComp();
+    const n = notesById[noteId]; if (!n) return;
+    const t = n.kind === 'reference' ? 'reference' : 'moment';
+    const block = { t, note_id: noteId, resolved: n };   // resolved attached client-side
+    current.blocks.push(block);
+    renderBlocks(); scheduleSave();
+    const bl = document.getElementById('cmp-blocks'); bl.scrollTop = bl.scrollHeight;
+}
+async function addBlock(t) {
+    await ensureComp();
+    const block = t === 'heading' ? { t: 'heading', level: 2, text: '' }
+                : t === 'text'    ? { t: 'text', text: '' }
+                :                   { t: 'divider' };
+    current.blocks.push(block);
+    renderBlocks(); scheduleSave();
+    const last = document.querySelector('.cmp-block:last-child textarea, .cmp-block:last-child input.cmp-h1, .cmp-block:last-child input.cmp-h2');
+    if (last) last.focus();
+}
+function removeBlock(i) { current.blocks.splice(i, 1); renderBlocks(); scheduleSave(); }
+function setHeadingLevel(i, lvl) { current.blocks[i].level = lvl; renderBlocks(); scheduleSave(); }
+
+function renderBlocks() {
+    const host = document.getElementById('cmp-blocks');
+    if (!current) return;
+    if (!current.blocks.length) {
+        host.innerHTML = '<div class="cmp-empty">Empty. Write prose with ＋ Heading / ＋ Text, and insert moments &amp; references from the left.</div>';
+        return;
+    }
+    host.innerHTML = current.blocks.map((b, i) => {
+        let inner = '';
+        if (b.t === 'heading') {
+            const cls = b.level === 1 ? 'cmp-h1' : 'cmp-h2';
+            const nextLvl = b.level === 1 ? 2 : 1;
+            inner = `<input class="${cls}" value="${esc(b.text || '')}" placeholder="Heading"
+                        oninput="onBlockInput(${i}, this.value)">
+                     <button class="cmp-lvl" onclick="setHeadingLevel(${i}, ${nextLvl})" title="Toggle heading level">H${b.level || 2}</button>`;
+            inner = `<div style="display:flex;gap:8px;align-items:flex-start;">${inner}</div>`;
+        } else if (b.t === 'text') {
+            inner = `<textarea class="cmp-text" placeholder="Write…" oninput="onBlockInput(${i}, this.value); autoGrow(this)">${esc(b.text || '')}</textarea>`;
+        } else if (b.t === 'divider') {
+            inner = '<hr class="cmp-hr">';
+        } else if (b.t === 'moment' || b.t === 'reference') {
+            const r = b.resolved;
+            if (!r) {
+                inner = `<div class="cmp-cite cmp-cite--gone"><div class="cmp-cite__main">This ${b.t} was removed from your notes.</div></div>`;
+            } else if (b.t === 'reference' && refMedia(r) === 'image') {
+                inner = `<div class="cmp-cite">
+                    <div class="cmp-cite__main">
+                        <div class="cmp-cite__src">${REF_LABEL.image}</div>
+                        <img class="cmp-cite__img" src="${esc(refImgSrc(r))}" onerror="this.style.display='none'">
+                        <div class="cmp-cite__meta">${esc([r.ref_title, r.ref_source].filter(Boolean).join(' — '))}</div>
+                    </div>
+                </div>`;
+            } else {
+                const art = artUrl(r);
+                const artHtml = art ? `<img src="${esc(art)}" onerror="this.style.display='none'">` : initialOf(r);
+                const label = b.t === 'reference' ? (REF_LABEL[refMedia(r)] || '↗ REFERENCE') : '♪ MOMENT';
+                const noteTxt = (r.note_text && r.note_text !== r.ref_title) ? `<div class="cmp-cite__note">“${esc(r.note_text)}”</div>` : '';
+                inner = `<div class="cmp-cite">
+                    <div class="cmp-cite__art">${artHtml}</div>
+                    <div class="cmp-cite__main">
+                        <div class="cmp-cite__src">${label}</div>
+                        ${noteTxt}
+                        <div class="cmp-cite__meta">${esc(citeLine(r))}</div>
+                    </div>
+                </div>`;
+            }
+        }
+        return `<div class="cmp-block" data-i="${i}" ondragover="blockDragOver(event, ${i})"
+                     ondragleave="this.classList.remove('dragover')" ondrop="blockDrop(event, ${i})" ondragend="blockDragEnd()">
+            <span class="cmp-handle" title="Drag to reorder"
+                  onmousedown="this.closest('.cmp-block').draggable=true"
+                  ondragstart="blockDragStart(event, ${i})">⠿</span>
+            <div class="cmp-bbody">${inner}</div>
+            <button class="cmp-bkill" onclick="removeBlock(${i})" title="Remove">✕</button>
+        </div>`;
+    }).join('');
+    host.querySelectorAll('textarea.cmp-text').forEach(autoGrow);
+}
+function onBlockInput(i, v) { if (current && current.blocks[i]) { current.blocks[i].text = v; scheduleSave(); } }
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight) + 'px'; }
+
+// drag-to-reorder
+let dragIdx = null;
+function blockDragStart(e, i) { dragIdx = i; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (x) {} }
+function blockDragOver(e, i) { if (dragIdx === null) return; e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function blockDragEnd() { document.querySelectorAll('.cmp-block').forEach(b => { b.draggable = false; b.classList.remove('dragover'); }); dragIdx = null; }
+function blockDrop(e, i) {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === i) { blockDragEnd(); return; }
+    const moved = current.blocks.splice(dragIdx, 1)[0];
+    current.blocks.splice(i > dragIdx ? i - 1 : i, 0, moved);
+    blockDragEnd(); renderBlocks(); scheduleSave();
+}
+
+// ── Save ────────────────────────────────────────────────────────────────────────
+function onMetaInput() {
+    if (!current) return;
+    current.title = document.getElementById('cmp-title').value;
+    current.subtitle = document.getElementById('cmp-sub').value;
+    current.kind = document.getElementById('cmp-kind').value;
+    // changing the type of an empty piece lays out that type's preset
+    if (!(current.blocks || []).length && PRESETS[current.kind]){ applyPreset(current.kind); renderBlocks(); }
+    scheduleSave();
+}
+function setSaved(msg) { document.getElementById('cmp-save').textContent = msg; }
+function scheduleSave() {
+    if (!current) return;
+    setSaved('saving…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 650);
+}
+async function saveNow() {
+    if (!current) return;
+    const payload = {
+        title: (current.title || 'Untitled').trim() || 'Untitled',
+        subtitle: current.subtitle || '',
+        kind: current.kind || 'piece',
+        blocks: current.blocks.map(b => {
+            const o = { t: b.t };
+            if (b.note_id != null) o.note_id = b.note_id;
+            if (b.text != null) o.text = b.text;
+            if (b.level != null) o.level = b.level;
+            return o;
+        }),
+    };
+    try {
+        await fetch(`/api/listen/composition/${current.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        setSaved('saved ✓');
+        const sum = comps.find(c => c.id === current.id);
+        if (sum) { sum.title = payload.title; renderPicker(); }
+    } catch (e) { setSaved('save failed'); }
+}
+
+// ── Type presets — a starting layout per composition kind ─────────────────────
+// Picking a type (or hitting ＋ New with it selected) lays out the spaces you
+// usually fill: a track-by-track review opens with the album header + a slot per
+// track; a show script with segments; liner notes with a credits block. The
+// headings are editable placeholders; you fill the text + insert moments/refs.
+const PRESETS = {
+  review: [ {t:'heading',level:1,text:'Album — Artist'}, {t:'text',text:''}, {t:'divider'},
+            {t:'heading',level:2,text:'1.'}, {t:'text',text:''},
+            {t:'heading',level:2,text:'2.'}, {t:'text',text:''},
+            {t:'heading',level:2,text:'3.'}, {t:'text',text:''} ],
+  show:   [ {t:'heading',level:1,text:'Show title'}, {t:'text',text:''}, {t:'divider'},
+            {t:'heading',level:2,text:'Segment one'}, {t:'text',text:''},
+            {t:'heading',level:2,text:'Segment two'}, {t:'text',text:''} ],
+  essay:  [ {t:'heading',level:1,text:'Title'}, {t:'text',text:''}, {t:'text',text:''} ],
+  liner:  [ {t:'heading',level:1,text:'Album — Artist'}, {t:'text',text:''}, {t:'divider'},
+            {t:'heading',level:2,text:'Credits'}, {t:'text',text:''} ],
+};
+function applyPreset(kind){ const p = PRESETS[kind]; if (p && current) current.blocks = p.map(b => ({...b})); }
+
+// ── Composition CRUD ──────────────────────────────────────────────────────────
+async function newComposition() {
+    const c = await fetch('/api/listen/compositions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Untitled', kind: document.getElementById('cmp-kind').value || 'piece' }),
+    }).then(r => r.json());
+    comps.unshift({ id: c.id, title: c.title, kind: c.kind, subtitle: c.subtitle, block_count: 0 });
+    await loadComposition(c.id);
+    const kind = c.kind || 'piece';
+    if (current && !(current.blocks || []).length && PRESETS[kind]){ applyPreset(kind); renderBlocks(); scheduleSave(); }
+    document.getElementById('cmp-title').focus();
+}
+function pickComposition(v) { if (v) loadComposition(+v); }
+async function deleteComposition() {
+    if (!current) return;
+    if (!confirm(`Delete “${current.title || 'Untitled'}”? Your moments and references stay — only this composition goes.`)) return;
+    await fetch(`/api/listen/composition/${current.id}`, { method: 'DELETE' });
+    comps = comps.filter(c => c.id !== current.id);
+    current = null;
+    if (comps.length) await loadComposition(comps[0].id);
+    else renderEmpty();
+}
+
+// ── Export menu ───────────────────────────────────────────────────────────────
+function toggleExport(e) { e.stopPropagation(); document.getElementById('cmp-exportwrap').classList.toggle('open'); }
+document.addEventListener('click', () => document.getElementById('cmp-exportwrap').classList.remove('open'));
+
+// ── Render the publishable document ────────────────────────────────────────────
+function collectSources() {
+    const tracks = [], refs = []; const seenT = new Set(), seenR = new Set();
+    (current.blocks || []).forEach(b => {
+        const r = b.resolved; if (!r) return;
+        if (b.t === 'reference') { const k = r.ref_url || r.ref_title; if (k && !seenR.has(k)) { seenR.add(k); refs.push(r); } }
+        else if (b.t === 'moment') {
+            const k = `${r.artist_name}|${r.title}|${r.album || ''}`;
+            if (!seenT.has(k)) { seenT.add(k); tracks.push(r); }
+        }
+    });
+    return { tracks, refs };
+}
+function docBodyHTML() {
+    const title = esc(current.title || 'Untitled');
+    const sub = current.subtitle ? `<p class="cmp-page__sub">${esc(current.subtitle)}</p>` : '';
+    const kind = `<p class="cmp-page__kind">${esc(KIND_LABEL[current.kind] || current.kind || '')}</p>`;
+    let body = `<h1>${title}</h1>${sub}${kind}`;
+    (current.blocks || []).forEach(b => {
+        if (b.t === 'heading') body += `<h2>${esc(b.text || '')}</h2>`;
+        else if (b.t === 'text') (b.text || '').split(/\n{2,}/).forEach(p => { if (p.trim()) body += `<p>${esc(p).replace(/\n/g, '<br>')}</p>`; });
+        else if (b.t === 'divider') body += '<hr>';
+        else if (b.t === 'moment' || b.t === 'reference') {
+            const r = b.resolved;
+            if (!r) { body += `<blockquote><cite>[removed ${b.t}]</cite></blockquote>`; return; }
+            if (b.t === 'reference' && refMedia(r) === 'image') {
+                const cap = esc([r.ref_title, r.ref_source].filter(Boolean).join(' — '));
+                body += `<figure><img src="${esc(absUrl(refImgSrc(r)))}" alt="${esc(r.ref_title || '')}">${cap ? `<figcaption>${cap}</figcaption>` : ''}</figure>`;
+                return;
+            }
+            const q = (r.note_text && r.note_text !== r.ref_title) ? `<span class="q">“${esc(r.note_text)}”</span>` : '';
+            let cite = esc(citeLine(r));
+            const href = b.t === 'reference' ? refHref(r) : r.ref_url;
+            if (b.t === 'reference' && href) cite = `<a href="${esc(absUrl(href))}">${cite}</a>`;
+            body += `<blockquote>${q}<cite>— ${cite}</cite></blockquote>`;
+        }
+    });
+    const { tracks, refs } = collectSources();
+    if (tracks.length || refs.length) {
+        let src = '<div class="cmp-page__sources"><h2>Sources</h2><ol>';
+        tracks.forEach(r => { src += `<li>${esc(citeLine(r).replace(/ · \d+:\d\d$/, ''))}</li>`; });
+        refs.forEach(r => {
+            const lbl = esc([r.ref_title || r.note_text || 'Untitled', r.ref_source].filter(Boolean).join(' — '));
+            const href = refHref(r);
+            src += `<li>${href ? `<a href="${esc(absUrl(href))}">${lbl}</a>` : lbl}</li>`;
+        });
+        src += '</ol></div>';
+        body += src;
+    }
+    return body;
+}
+function openPreview() {
+    if (!current) return;
+    document.getElementById('cmp-page').innerHTML = docBodyHTML();
+    document.getElementById('cmp-preview').classList.add('open');
+}
+function closePreview() { document.getElementById('cmp-preview').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function fname(ext) { return (current.title || 'composition').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.' + ext; }
+function download(text, mime, ext) {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fname(ext);
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 200);
+}
+function buildMarkdown() {
+    let md = `# ${current.title || 'Untitled'}\n`;
+    if (current.subtitle) md += `\n*${current.subtitle}*\n`;
+    md += `\n`;
+    (current.blocks || []).forEach(b => {
+        if (b.t === 'heading') md += `\n${b.level === 1 ? '#' : '##'} ${b.text || ''}\n\n`;
+        else if (b.t === 'text') md += `${b.text || ''}\n\n`;
+        else if (b.t === 'divider') md += `\n---\n\n`;
+        else if (b.t === 'moment' || b.t === 'reference') {
+            const r = b.resolved;
+            if (!r) { md += `> [removed ${b.t}]\n\n`; return; }
+            if (b.t === 'reference' && refMedia(r) === 'image') {
+                md += `![${(r.ref_title || 'image').replace(/[\[\]]/g, '')}](${absUrl(refImgSrc(r))})\n\n`;
+                if (r.ref_source) md += `*${r.ref_source}*\n\n`;
+                return;
+            }
+            if (r.note_text && r.note_text !== r.ref_title) md += `> ${r.note_text}\n>\n`;
+            let cite = citeLine(r);
+            const href = b.t === 'reference' ? refHref(r) : r.ref_url;
+            if (b.t === 'reference' && href) cite = `[${cite}](${absUrl(href)})`;
+            md += `> — ${cite}\n\n`;
+        }
+    });
+    const { tracks, refs } = collectSources();
+    if (tracks.length || refs.length) {
+        md += `\n## Sources\n\n`;
+        tracks.forEach(r => { md += `- ${citeLine(r).replace(/ · \d+:\d\d$/, '')}\n`; });
+        refs.forEach(r => {
+            const lbl = [r.ref_title || r.note_text || 'Untitled', r.ref_source].filter(Boolean).join(' — ');
+            const href = refHref(r);
+            md += `- ${href ? `[${lbl}](${absUrl(href)})` : lbl}\n`;
+        });
+    }
+    return md;
+}
+function buildStandaloneHTML() {
+    const css = document.querySelector('style').textContent.match(/\.cmp-page[\s\S]*?(?=\/\* ──)/);
+    const pageCss = `body{margin:0;background:#3a342a;padding:40px 0;}` +
+        `.cmp-page{background:#fbf6ea;color:#211c12;max-width:720px;margin:0 auto;padding:56px 64px 72px;` +
+        `font-family:'EB Garamond',Georgia,serif;line-height:1.66;box-shadow:0 20px 60px rgba(0,0,0,.4);}` +
+        `.cmp-page h1{font-size:2rem;margin:0 0 4px;}.cmp-page__sub{font-style:italic;color:#6a5f47;margin:0 0 6px;}` +
+        `.cmp-page__kind{font-family:monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.16em;color:#9a7a3a;margin:0 0 26px;}` +
+        `.cmp-page h2{font-size:1.3rem;margin:26px 0 8px;}.cmp-page p{margin:0 0 14px;}` +
+        `blockquote{margin:16px 0;padding:4px 0 4px 18px;border-left:2px solid #c8a24a;}` +
+        `blockquote .q{font-style:italic;font-size:1.06rem;}blockquote cite{display:block;font-style:normal;font-size:.82rem;color:#6a5f47;margin-top:5px;}` +
+        `hr{border:none;border-top:1px solid #d8cdb0;margin:22px 0;}a{color:#8a5a1a;}` +
+        `.cmp-page__sources{margin-top:38px;padding-top:16px;border-top:1px solid #d8cdb0;}.cmp-page__sources li{font-size:.86rem;margin-bottom:6px;}` +
+        `figure{margin:20px 0;}figure img{max-width:100%;border-radius:4px;display:block;}figcaption{font-size:.8rem;color:#6a5f47;font-style:italic;margin-top:6px;}`;
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">` +
+        `<title>${esc(current.title || 'Composition')}</title><style>${pageCss}</style></head>` +
+        `<body><article class="cmp-page">${docBodyHTML()}</article><script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body></html>`;
+}
+function exportMarkdown() { if (current) download(buildMarkdown(), 'text/markdown', 'md'); }
+function exportHTML() { if (current) download(buildStandaloneHTML(), 'text/html', 'html'); }
+function printDoc() {
+    if (!current) return;
+    const w = window.open('', '_blank');
+    if (!w) { alert('Allow pop-ups to print, or export the web page and print that.'); return; }
+    w.document.write(buildStandaloneHTML());
+    w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 350);
+}
+
+boot();
+</script>
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+</body>
+</html>

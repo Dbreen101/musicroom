@@ -1,0 +1,727 @@
+{# -- Help — a fun, detailed guide to every corner of Music Room -- #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        body { margin: 0; background: #12100c; min-height: 100vh; }
+        .help-scene { min-height: calc(100vh - 53px); padding: 48px 24px 120px; }
+        .help-shell {
+            max-width: 1100px; margin: 0 auto;
+            display: grid; grid-template-columns: 232px 1fr; gap: 32px;
+            align-items: start;
+        }
+        @media (max-width: 820px) { .help-shell { grid-template-columns: 1fr; } .help-toc { position: static !important; } }
+
+        /* Table of contents — sticky rail */
+        .help-toc {
+            position: sticky; top: 70px;
+            background: rgba(26,22,16,0.92);
+            border: 1px solid var(--border2);
+            border-radius: 14px;
+            padding: 18px 16px;
+            box-shadow: 0 8px 26px rgba(48,36,14,0.16);
+            font-size: 0.86rem;
+        }
+        .help-toc__title {
+            font-family: var(--font-celtic); font-size: 1.05rem; color: var(--text);
+            margin: 0 0 10px; letter-spacing: 0.04em;
+        }
+        .help-toc a {
+            display: block; color: var(--muted); padding: 4px 6px; border-radius: 6px;
+            text-decoration: none; line-height: 1.35; transition: all 0.12s;
+        }
+        .help-toc a:hover { color: var(--text); background: rgba(168,130,44,0.12); }
+
+        .help-body { min-width: 0; }
+        .help-hero {
+            background: rgba(26,22,16,0.92);
+            border: 1px solid var(--border2); border-radius: 18px;
+            padding: 34px 38px; margin-bottom: 26px;
+            box-shadow: 0 10px 30px rgba(48,36,14,0.18);
+        }
+        .help-hero h1 {
+            font-family: var(--font-celtic); font-size: 2.6rem; color: var(--text);
+            margin: 0 0 10px; letter-spacing: 0.05em;
+        }
+        .help-hero h1::first-letter { color: var(--oxblood); font-size: 1.2em; }
+        .help-hero p { font-family: var(--font-serif); font-style: italic; font-size: 1.08rem; color: var(--muted); margin: 0; line-height: 1.6; }
+
+        .help-section {
+            background: rgba(26,22,16,0.92);
+            border: 1px solid var(--border2); border-radius: 16px;
+            padding: 26px 32px; margin-bottom: 20px;
+            box-shadow: 0 6px 22px rgba(48,36,14,0.13);
+            scroll-margin-top: 70px;
+        }
+        .help-section h2 {
+            font-family: var(--font-celtic); font-size: 1.7rem; color: var(--text);
+            margin: 0 0 4px; letter-spacing: 0.03em;
+        }
+        .help-section h2::first-letter { color: var(--oxblood); }
+        .help-section .kicker {
+            font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.18em;
+            text-transform: uppercase; color: var(--gold); margin-bottom: 14px;
+        }
+        .help-section h3 {
+            font-family: var(--font-serif); font-style: italic; font-size: 1.15rem;
+            color: var(--text); margin: 22px 0 6px;
+        }
+        .help-section p, .help-section li { font-size: 0.97rem; color: #cdc3a8; line-height: 1.62; }
+        .help-section p { margin: 8px 0; }
+        .help-section ul { margin: 8px 0 8px 2px; padding-left: 20px; }
+        .help-section li { margin: 5px 0; }
+        .help-section strong { color: var(--text); }
+        .help-section em { color: var(--muted); }
+        .help-section code {
+            font-family: var(--font-mono); font-size: 0.82rem;
+            background: rgba(245,230,176,0.12); color: #e3c97f;
+            padding: 1px 6px; border-radius: 5px;
+        }
+        .term {
+            font-family: var(--font-serif); font-style: italic; color: var(--oxblood); font-weight: 500;
+        }
+        .help-callout {
+            border-left: 3px solid var(--gold);
+            background: rgba(168,130,44,0.08);
+            padding: 10px 16px; margin: 14px 0; border-radius: 0 8px 8px 0;
+            font-size: 0.93rem; color: #cdc3a8;
+        }
+        .help-callout.warm { border-left-color: var(--oxblood); background: rgba(156,59,44,0.07); }
+        .help-cta {
+            display: inline-block; background: var(--oxblood); color: #fbf4dd;
+            padding: 7px 16px; border-radius: 100px; text-decoration: none;
+            font-family: var(--font-main); font-size: 0.9rem; transition: background 0.15s;
+        }
+        .help-cta:hover { background: #842f22; }
+        .help-step { counter-reset: step; list-style: none; padding-left: 0; }
+        .help-step > li {
+            position: relative; padding-left: 38px; margin: 12px 0;
+        }
+        .help-step > li::before {
+            counter-increment: step; content: counter(step);
+            position: absolute; left: 0; top: -2px;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: var(--oxblood); color: #fbf4dd;
+            font-family: var(--font-celtic); font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon active" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help" class="active">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="help-scene">
+<div class="help-shell">
+
+    <aside class="help-toc">
+        <div class="help-toc__title">Find your way</div>
+        <a href="#start">First time here?</a>
+        <a href="#trust">Your files, your data</a>
+        <a href="#replays">The welcome cards</a>
+        {% if not is_gr %}<a href="#bigidea">The big idea</a>
+        <a href="#forest">The Forest</a>
+        <a href="#well">The Music Room &amp; places</a>{% endif %}
+        <a href="#room">The Music Room floor</a>
+        <a href="#panel">The track panel</a>
+        <a href="#player">The player</a>
+        <a href="#sound">Sound &amp; analysis</a>
+        <a href="#genres">Genres &amp; Suggest</a>
+        <a href="#mala">The Tools (your bag)</a>
+        {% if not is_gr %}<a href="#customise">Make a place yours</a>{% endif %}
+        <a href="#sets">Sets</a>
+        <a href="#explore">Explore</a>
+        <a href="#listen">Listen</a>
+        <a href="#import">Import</a>
+        <a href="#export">Export &amp; rekordbox</a>
+        <a href="#tools">Tools</a>
+        <a href="#settings">Settings</a>
+        <a href="#glossary">Glossary</a>
+    </aside>
+
+    <main class="help-body">
+
+        <div class="help-hero">
+            <h1>Welcome to the Music Room</h1>
+            <p>This isn't a spreadsheet for your records. It's a place you walk into. Here's the whole
+               tour — every room, every tool, every little button — in plain language. Skim the rail on
+               the left, or just scroll. Nothing here can break anything; poke at everything.</p>
+        </div>
+
+        <section class="help-section" id="start">
+            <div class="kicker">Start here</div>
+            <h2>First time? Three minutes to lift-off</h2>
+            <p>If a friend handed you this, do these in order and you're away:</p>
+            <p style="margin:6px 0 18px;">
+                <a href="/welcome?refresher=1" class="help-cta">✦ Run the setup walkthrough</a>
+                — the same guided steps you saw on first launch (import, organise, analyse, keys).
+                Safe to run any time.
+            </p>
+            <ol class="help-step">
+                <li><strong>Tell it where your music lives.</strong> Go to <code>Tools → Settings</code> and
+                    paste your music folder into <em>Music library folder</em>. An external drive, a folder
+                    on your laptop — wherever your files are. Music Room <strong>never moves or changes your
+                    files</strong>; it just reads them where they sit.</li>
+                <li><strong>Import.</strong> <code>Tools → Import</code>. The path is already filled in from
+                    the last step — hit <em>Import</em>. Tick <em>Also analyse</em> if you want BPM, key and
+                    the sound fingerprint worked out on the way in (slower — 5–15s a track — but worth it).</li>
+                {% if is_gr %}<li><strong>Look around.</strong> Open <em>My Room</em>. Every track you imported is in there.</li>
+                {% else %}<li><strong>Wander.</strong> Head to <em>The Forest</em> and click the cabin in the middle —
+                    the <em>Music Room</em>. Every track you imported is in there. Start clicking around.</li>{% endif %}
+            </ol>
+            <div class="help-callout">Optional but lovely: in Settings, drop in a free <strong>Discogs token</strong>
+                — it unlocks proper DJ-grade genre suggestions (Deep House, Italo Disco, that kind of granularity).
+                There's a link right in the Settings page to generate one.</div>
+        </section>
+
+        <section class="help-section" id="trust">
+            <div class="kicker">Your files, your data</div>
+            <h2>What Music Room will and won't do</h2>
+            <p>You're trusting this thing with a record collection, so here it is, plainly:</p>
+            <ul>
+                <li><strong>Importing only reads.</strong> Your files stay exactly where they are.
+                    Nothing is moved, renamed or written into.</li>
+                <li><strong>Organising is optional and explicit.</strong> If you ask for it, tidied
+                    copies are filed as
+                    <code>Music Room Library / A / Artist / Album / 01 - Artist - Title.flac</code> —
+                    copy by default, move only if you choose it, and it <strong>never overwrites</strong>:
+                    a clashing name gets a “&nbsp;(2)”.</li>
+                <li><strong>Everything it learns lives in its own database</strong> on your machine —
+                    analysis never writes into your audio files, and writing tags into a file is always
+                    a button you press.</li>
+                <li><strong>Nothing goes to a cloud.</strong> There's no account, no online library, no
+                    external database of you. The app <em>fetches</em> things from free open sources —
+                    cover art and metadata from iTunes / MusicBrainz / Discogs / Deezer, and the posts
+                    from feeds you follow in Explore — but your music, your notes and your listening
+                    stay here. (In a tester build, the one thing that leaves is feedback you choose to
+                    send with the feedback button.)</li>
+                <li><strong>There is no AI in this app.</strong> None. The "For you" feed in Explore
+                    is plain word-matching against interests you typed yourself — you can read exactly
+                    how it ranks things in the Explore section below.</li>
+                <li><strong>Nothing is hard-deleted.</strong> Removing a file sends it to the Trash or a
+                    recoverable folder, never oblivion.</li>
+            </ul>
+            <div class="help-callout"><strong>Back up anyway.</strong> Music Room looks after its own
+                database (it keeps copies in your backup folder, and on your music drive if you use one).
+                Your music files are yours to back up — Time Machine, or a plain copy onto a second
+                drive. Do it. Always.</div>
+        </section>
+
+        <section class="help-section" id="replays">
+            <div class="kicker">The welcome cards</div>
+            <h2>See a page's introduction again</h2>
+            <p>Each part of the app introduces itself the first time you walk in. To see one again:</p>
+            <p style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;">
+                <a href="#" class="help-cta" onclick="return replayTip('room','/room')">The Music Room</a>
+                {% if not is_gr %}<a href="#" class="help-cta" onclick="return replayTip('forest','/forest3d')">The Forest</a>{% endif %}
+                <a href="#" class="help-cta" onclick="return replayTip('explore','/explore3d')">Explore</a>
+                <a href="#" class="help-cta" onclick="return replayTip('sets','/sets')">Sets</a>
+                <a href="#" class="help-cta" onclick="return replayTip('export','/usb')">Export</a>
+                <a href="#" class="help-cta" onclick="return replayTip('tools','/tools')">Tools</a>
+                <a href="#" class="help-cta" onclick="return replayTip('import','/import')">Import</a>
+            </p>
+            <p>And the full setup walkthrough is always here:
+                <a href="/welcome?refresher=1" class="help-cta">✦ Run the walkthrough again</a></p>
+            <script>
+            async function replayTip(key, page){
+                try { localStorage.removeItem('mr_tip_' + key); } catch(e) {}
+                try {
+                    const body = {}; body[key + '_tour_seen'] = '0';
+                    await fetch('/api/settings', {method:'POST',
+                        headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+                } catch(e) {}
+                window.location.href = page;
+                return false;
+            }
+            </script>
+        </section>
+
+        {% if not is_gr %}
+        <section class="help-section" id="bigidea">
+            <div class="kicker">The metaphor</div>
+            <h2>The big idea</h2>
+            <p>Music Room is built like a <strong>place</strong>, not a database. When you arrive you're in
+               <span class="term">The Forest</span> — a map. Dotted around it are <strong>places</strong>:
+               rooms, gigs, moods, moments. "Sunset Beach." "The 4am Warehouse." "Sunday Kitchen." You make
+               these up; they're how <em>you</em> think about where music gets played.</p>
+            <p>One place is special: the cabin in the middle — <span class="term">the Music Room</span>
+               itself. Every track you own lives there. The rest of the forest is where things
+               <em>belong</em>: a track can sit in the Music Room <em>and</em> in "Sunset Beach" <em>and</em>
+               in "Closing Time" all at once. You're not filing things into one folder — you're noticing
+               where they fit.</p>
+            <p>The whole app is one loop:</p>
+            <svg viewBox="0 0 680 190" style="width:100%;max-width:680px;display:block;margin:10px 0 4px;" role="img" aria-label="Bring music in, live with it, send it out — the player runs underneath it all">
+              <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="rgba(245,230,176,.65)"/></marker></defs>
+              <g font-family="Inter,sans-serif">
+                <rect x="8" y="26" width="180" height="96" rx="10" fill="rgba(245,230,176,.05)" stroke="rgba(245,230,176,.35)"/>
+                <text x="98" y="50" text-anchor="middle" fill="#f5e6b0" font-size="13" font-weight="600">BRING IN</text>
+                <text x="98" y="74" text-anchor="middle" fill="#d9cdaf" font-size="11.5">Import — your files</text>
+                <text x="98" y="93" text-anchor="middle" fill="#d9cdaf" font-size="11.5">Explore — new finds</text>
+                <rect x="250" y="26" width="180" height="96" rx="10" fill="rgba(245,230,176,.05)" stroke="rgba(245,230,176,.35)"/>
+                <text x="340" y="50" text-anchor="middle" fill="#f5e6b0" font-size="13" font-weight="600">LIVE WITH IT</text>
+                <text x="340" y="74" text-anchor="middle" fill="#d9cdaf" font-size="11.5">the Forest &amp; your places</text>
+                <text x="340" y="93" text-anchor="middle" fill="#d9cdaf" font-size="11.5">notes · tags · listening</text>
+                <rect x="492" y="26" width="180" height="96" rx="10" fill="rgba(245,230,176,.05)" stroke="rgba(245,230,176,.35)"/>
+                <text x="582" y="50" text-anchor="middle" fill="#f5e6b0" font-size="13" font-weight="600">SEND OUT</text>
+                <text x="582" y="74" text-anchor="middle" fill="#d9cdaf" font-size="11.5">Sets — sequences</text>
+                <text x="582" y="93" text-anchor="middle" fill="#d9cdaf" font-size="11.5">Export — rekordbox</text>
+                <line x1="192" y1="74" x2="244" y2="74" stroke="rgba(245,230,176,.5)" stroke-width="1.5" marker-end="url(#arr)"/>
+                <line x1="434" y1="74" x2="486" y2="74" stroke="rgba(245,230,176,.5)" stroke-width="1.5" marker-end="url(#arr)"/>
+                <rect x="8" y="146" width="664" height="34" rx="17" fill="rgba(245,230,176,.08)" stroke="rgba(245,230,176,.25)"/>
+                <text x="340" y="167" text-anchor="middle" fill="#efe6cf" font-size="11.5">♫&#160;&#160;the player — runs underneath everything, never stops between pages</text>
+              </g>
+            </svg>
+        </section>
+        {% endif %}
+
+        {% if not is_gr %}
+        <section class="help-section" id="forest">
+            <div class="kicker">Home</div>
+            <h2>The Forest</h2>
+            <p>The map. Trees, a clearing, your places scattered through it, and the Music Room cabin at the centre.</p>
+            <ul>
+                <li><strong>Drag a place</strong> to move it around the forest — its position is remembered.</li>
+                <li><strong>Click a place</strong> to walk into it.</li>
+                <li><strong>Hover a place → the ⚙ cog</strong> lets you edit it without leaving the map.</li>
+                <li><strong>Scroll / pinch</strong> to zoom; drag empty space to pan; the <strong>⊙ button</strong>
+                    re-centres on the Music Room.</li>
+                <li><strong>+ make a new place</strong> (bottom-right) starts a new room.</li>
+            </ul>
+            <p>The light changes with the actual time of day where you are — morning is bright, late night
+               goes deep and blue. That's not decoration you control; it's the forest breathing.</p>
+        </section>
+        {% endif %}
+
+        {% if not is_gr %}
+        <section class="help-section" id="places">
+            <span id="well"></span>
+            <div class="kicker">Places</div>
+            <h2>The Music Room &amp; your places</h2>
+            <p><strong>The Music Room</strong> = everything. You can't delete it. Every imported track starts here.</p>
+            <p><strong>Other places</strong> are yours to invent. Give one a name, a vibe, a time of night,
+               a crowd, a colour — then put records in it. A track can live in as many places as you like;
+               putting it in "Sunset Beach" doesn't take it out of the Music Room. Nothing on disk ever
+               moves — places are how <em>you</em> see the collection, not folders.</p>
+            <h3>Putting records in a place</h3>
+            <ul>
+                <li><strong>Right-click any record</strong> in the room → <em>add to a place</em>.</li>
+                <li>Or open a record → in its panel, under <em>In the forest</em>, use
+                    <em>+ Add to another place…</em></li>
+                <li>Or fill the <strong>□ box</strong> as you browse and drop the lot somewhere at once.</li>
+            </ul>
+        </section>
+        {% endif %}
+
+        <section class="help-section" id="room">
+            <div class="kicker">Browsing</div>
+            <h2>The Music Room floor</h2>
+            <p>Walk into any place and its records fill the room. The bar along the bottom is the whole
+               language of the floor:</p>
+            <ul>
+                <li><strong>view</strong> — <em>Cloud</em> floats every cover in space: drag to look around,
+                    two fingers to glide, pinch to zoom. <em>Grid</em> lines them up: the slider sets the
+                    size, and at 1 a single record fills the screen.</li>
+                <li><strong>arrange</strong> — BPM, Key, Year or Colour. In the cloud each becomes a wall you
+                    can walk along; in the grid, a sort (press again to flip the direction). Press the lit
+                    one once more for the plain cloud.</li>
+                <li><strong>tools</strong> — <em>◈ gather</em> pulls a filtered set into one tight cluster;
+                    <em>✩ presets</em> saves filter combinations; <em>⌬ structures</em> lets you place your
+                    own tags in the room and watch the records gather into your shape.</li>
+            </ul>
+            <p>Up top: <strong>⌕</strong> searches title and artist as you type; <strong>⊞</strong> filters by
+               your tags, genres, BPM, key, year and file type — they stack. Once the room is narrowed,
+               buttons appear beside the count: <strong>＋ cue all</strong>, <strong>▶ play all</strong>,
+               <strong>＋ tag all</strong> (pick several tags, press once), and <strong>make a set</strong>
+               (names it, fills it in this order, takes you there).</p>
+            <ul>
+                <li><strong>Click a record</strong> — its full panel opens (next section).</li>
+                <li><strong>+▶ on a card</strong> — quietly queues it on the player. Nothing ever autoplays.</li>
+                <li><strong>□ on a card</strong> — drops it in the <em>box</em>, a little crate you carry
+                    while you dig. Open the box from the Tools bag; everything in it can be cued, tagged
+                    or made into a set in one go.</li>
+                <li><strong>Right-click a record</strong> — the quick menu: cue, play, open, box, export.</li>
+            </ul>
+            <div class="help-callout">Records whose files are on an unplugged drive rest quietly (a pill tells
+                you how many). Plug the drive in and they wake without a reload.</div>
+        </section>
+
+        <section class="help-section" id="panel">
+            <div class="kicker">One track, up close</div>
+            <h2>The track panel</h2>
+            <p>Click any track and a panel slides in. Top to bottom:</p>
+            <ul>
+                <li><strong>Player</strong> — play / pause, scrub, volume. ▶ auto-play can be toggled.
+                    <em>→ player</em> hands the track to the persistent player so it keeps going while
+                    you browse; <em>＋ cue</em> lines it up there without starting it. <em>⊙ stamp</em>
+                    pins the current time into a note — timestamped notes become rekordbox memory cues
+                    when you export.</li>
+                <li><strong>File</strong> — format, size, bitrate, the path on disk. The ▶ reveals it; the 🗑
+                    removes that file version. Got both an MP3 and a FLAC of the same track? They live here as
+                    versions, and your notes stick to the <em>track</em>, not the file — upgrade to FLAC and
+                    you keep everything.</li>
+                <li><strong>Analysis</strong> — BPM and key (with the Camelot code). The ✓ marks a value as
+                    verified; the ✎ lets you correct it by hand.</li>
+                <li><strong>Sound</strong> — your ears, drawn as bars. (Its own section below.)</li>
+                <li><strong>Genres / Tags</strong> — label the music. (Own section below.)</li>
+                <li><strong>In the forest</strong> — which places this track lives in; add it to more.</li>
+                <li><strong>In sets</strong> — which sets it's part of; <em>+ Add to a set…</em> drops it
+                    onto the end of one.</li>
+                <li><strong>Notes</strong> — write anything; timestamp it with <em>stamp</em>; record a voice
+                    note. This is <span class="term">Deep Listening</span>.</li>
+                <li><strong>Label</strong> — the record label. The <em>↻ look up</em> button asks MusicBrainz /
+                    Discogs / Deezer; <em>+ self released</em> is one click.</li>
+                <li><strong>"Only here"</strong> — a quiet badge if a track isn't on the streaming services,
+                    so you know what's genuinely yours.</li>
+                <li><strong>Remove / Delete</strong> (bottom) — <em>Remove</em> keeps the file on disk (parks it
+                    in your "Removed" folder, skipped on future imports); <em>Delete</em> sends it to Trash.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="player">
+            <div class="kicker">The music never stops</div>
+            <h2>The player</h2>
+            <p>The little cassette bar is the app's one continuous player. It lives in the app itself, not in
+               any page — so you can wander anywhere and the music carries on. Everything that plays, plays
+               through it.</p>
+            <ul>
+                <li><strong>＋ cue</strong> adds a record to the queue without interrupting anything;
+                    <strong>▶ play</strong> plays it now. Nothing ever autoplays uninvited.</li>
+                <li><strong>The queue</strong> — click the ♫ count to see it; drag rows to reorder, click a
+                    row's title to open that record, ⤴ plays one next.</li>
+                <li><strong>–</strong> folds the bar to a small ♫ tab; <strong>✕</strong> puts it away
+                    (the music pauses, the queue is kept). Cueing something brings it back.</li>
+                <li><strong>It remembers.</strong> Quit the app mid-queue and next launch the queue is
+                    still there, folded quietly into the tab — press play and carry on.</li>
+                <li><strong>Drag it</strong> anywhere on the screen — it stays where you put it.</li>
+                <li>If a record can't play (file missing, drive unplugged), the player says so briefly and
+                    moves on — never a silent skip.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="sound">
+            <div class="kicker">What it sounds like</div>
+            <h2>Sound &amp; analysis</h2>
+            <p>Run analysis (on import, or later from <code>Tools → Analyse</code>) and Music Room listens to
+               each track and draws three sliders plus a six-band fingerprint.</p>
+            <h3>The three sliders</h3>
+            <ul>
+                <li><strong>Loudness</strong> — how loud, measured properly (not just the peak). Handy for matching levels.</li>
+                <li><strong>Dynamic range</strong> — narrow (squashed/loud-all-through) vs wide (breathes, quiet bits and loud bits).</li>
+                <li><strong>Brightness</strong> — how much energy sits up top. This is the <em>cumulative</em>
+                    high end (Presence + Brilliance together), so it matches what your ears call "bright."</li>
+            </ul>
+            <p>Each slider is shown <em>relative to your whole library</em> — "brighter than 80% of your library,"
+               that kind of thing. It's about where this track sits among <em>your</em> records, not an absolute number.</p>
+            <h3>The six bands</h3>
+            <p>The little bar chart breaks the sound into frequency ranges, each labelled with its Hz:</p>
+            <ul>
+                <li><strong>Sub</strong> 20–60 Hz · <strong>Bass</strong> 60–250 Hz · <strong>Lo-mid</strong> 250–500 Hz</li>
+                <li><strong>Body</strong> 0.5–2 kHz · <strong>Presence</strong> 2–5 kHz · <strong>Brilliance</strong> 5–11 kHz</li>
+            </ul>
+            <p>Tall bar = lots of energy there, relative to your library. A bass-heavy dub plate spikes on the left;
+               a crisp, airy track lights up the right. Hover any bar for the exact dB and percentile.</p>
+        </section>
+
+        <section class="help-section" id="genres">
+            <div class="kicker">Labelling</div>
+            <h2>Genres, tags &amp; ✦ Suggest</h2>
+            <p><strong>Genres</strong> are the "what is this music" label; <strong>tags</strong> are your own
+               free words ("peak time", "heartbreak", "for the smoking area"). Both autocomplete from what
+               you've used before, and edits show up everywhere that track appears.</p>
+            <h3>Not sure what something is? Hit ✦ Suggest.</h3>
+            <p>In the Genres section, the <em>✦ Suggest</em> button asks the internet — Discogs, MusicBrainz,
+               Deezer, iTunes (and Last.fm if you add a key) — what they think the track is. You get back a row
+               of suggestion chips, each tagged with where it came from (<code>D</code> Discogs, <code>MB</code>
+               MusicBrainz, <code>Dz</code> Deezer, <code>iT</code> iTunes, <code>L</code> Last.fm). Click any
+               chip to keep it. <strong>Nothing is added automatically</strong> — you're always the one deciding.</p>
+            <div class="help-callout">Discogs gives the best DJ-grade sub-genres, so a Discogs token in Settings
+                makes Suggest much sharper. It's free and there's a link in Settings.</div>
+        </section>
+
+        <section class="help-section" id="mala">
+            <div class="kicker">Your toolkit</div>
+            <h2>The Tools — the bag you carry</h2>
+            <p>Bottom-right of the room. Tap it to open your tools:</p>
+            <ul>
+                <li><strong><span class="term">Box</span></strong> — the crate. Drop records in with the
+                    <strong>□</strong> on any card (or right-click → <em>into the box</em>), and it follows
+                    you as you browse. Open it and the room shows just what's inside — cue it all, tag it
+                    all, or make a set of it in one press.</li>
+                <li><strong><span class="term">Deep Listening</span></strong> — sit with one record and write.
+                    Notes are stamped to the second as the track plays; press 1–0 for your own quick
+                    categories. Timestamped notes become rekordbox memory cues when you export.</li>
+                <li><strong><span class="term">Player</span></strong> — brings the cassette back if you've
+                    put it away.</li>
+                <li><strong>BPM Tapper</strong> — tap along to anything, get its tempo.</li>
+                <li><strong>✦ make this place yours</strong> — the atmosphere panel: mood, tint, ambient
+                    sound, backdrop, live in the room around you.</li>
+            </ul>
+        </section>
+
+        {% if not is_gr %}
+        <section class="help-section" id="customise">
+            <div class="kicker">Make it yours</div>
+            <h2>Making a place feel like a place</h2>
+            <p>Every place can look completely different — that's the point. Open a place, hit the ⚙ next to its
+               name (or hover it in the forest), and find the <em>Atmosphere</em> section:</p>
+            <ul>
+                <li><strong>Mood</strong> — a named preset (Peat Fire, Midnight Rave, Sea Cave, Candlelit Pub…)
+                    that sets a whole look in one click. Then tweak whatever you want on top.</li>
+                <li><strong>Ground colour</strong> — the base colour of the room. The whole place re-skins around
+                    it — panels, text, accents all derive from it automatically and stay readable.</li>
+                <li><strong>Fonts</strong> — pick a title font and a body font (insular, classical, old-book, clean…).</li>
+                <li><strong>Illustration</strong> — every place has a little hand-drawn icon (a pub, a warehouse,
+                    a beach, a cave…). You can pick which one, and recolour it with four roles —
+                    <em>Light</em> (windows / fire glow), <em>Structure</em> (the main mass), <em>Outline</em>,
+                    and <em>Detail</em> — with a live preview as you go.</li>
+                <li><strong>Background image</strong> — drop in a photo as a soft backdrop.</li>
+                <li><strong>Ambient sound</strong> — a quiet loop that belongs to the place (rain, room tone, a
+                    field recording). Toggle it with the ♪ button bottom-left. It plays <em>under</em> your music,
+                    not instead of it.</li>
+            </ul>
+            <p>(The Music Room's cabin is always a cabin — you can recolour it, but its shape is fixed, because
+               it's <em>the</em> well.)</p>
+        </section>
+        {% endif %}
+
+        <section class="help-section" id="sets">
+            <div class="kicker">Building sets</div>
+            <h2>Sets</h2>
+            <p>A set is a named, ordered sequence of records. There are two kinds, and the app asks which
+               when you make one:</p>
+            <ul>
+                <li><strong>Charted</strong> — a programmed set: ordered, with a transition note between
+                    each pair of records. For planning a journey start to finish.</li>
+                <li><strong>Set prep</strong> — a simple ordered list to pull from in the booth. This is
+                    the one most DJs live in.</li>
+            </ul>
+            <h3>Filling one</h3>
+            <ul>
+                <li>In the room: narrow to what you want (search, filters, the box) and press
+                    <strong>make a set</strong> — everything in hand joins in the order shown, and the set
+                    opens.</li>
+                <li>One at a time: a record's panel has <em>+ Add to a set…</em></li>
+                <li>Inside a set: drag records into order; play it through; write the transitions (Charted).</li>
+            </ul>
+            <p>Every set-prep becomes a playlist in rekordbox when you export. Build here, play anywhere.</p>
+        </section>
+
+        
+
+        <section class="help-section" id="explore">
+            <div class="kicker">Looking outward</div>
+            <h2>Explore</h2>
+            <p>The reading room — new music and writing from sources <em>you</em> choose, without opening
+               Instagram. Two views: the <strong>Stream</strong> (one thing at a time, ←/→ to flick, the
+               strip along the bottom shows what's coming) and the <strong>Wall</strong> (everything at once).</p>
+            <ul>
+                <li><strong>✦ sources</strong> — the publications, stations and labels you follow. Add from
+                    the catalogue (search a vibe, not just a name), or paste any site's link and Explore
+                    finds its feed. Their posts become your stream.</li>
+                <li><strong>✦ tune</strong> — your own algorithm, run by you, readable: write interests in
+                    your own words, give each a weight. An item's score is the sum of the interests whose
+                    words appear in its title, summary or source — whole words, no model, no learning, no
+                    black box. A dash of <em>wander</em> throws in the occasional off-piste find on purpose.
+                    A source you added in the last fortnight gets its newest posts onto the first page
+                    regardless, so a new voice is always visible.</li>
+                <li><strong>♥ wishlist</strong> — the records you're hunting, sorted into three honest boxes:
+                    <em>I need this now!</em>, <em>I'll have another listen</em>, <em>not sure</em>. Paste a
+                    link and it fills in the details. Buying always routes OUT to where the artist sells —
+                    there's no store in here.</li>
+                <li><strong>⊞ filters</strong> — by type (article / mix / video / podcast), source, or date.</li>
+            </ul>
+            <h3>The buttons tell the truth</h3>
+            <p><strong>▶ listen</strong> plays a mix or podcast through the player, right here.
+               <strong>▶ watch</strong> plays a video in the room. <strong>▤ read in the music room</strong>
+               only appears once the app has <em>checked</em> it can really extract that article into its
+               reading view — if an item only offers <strong>Open in Browser</strong>, that's the honest
+               answer for that page. <strong>s</strong> saves a piece into Listen; <strong>w</strong>
+               wishlists; <strong>x</strong> lets one go (with an undo).</p>
+        </section>
+
+        <section class="help-section" id="listen">
+            <div class="kicker">Your ears, logged</div>
+            <h2>Listen</h2>
+            <p>Everything you've written while listening — every Deep Listening note, every voice memo — gathered in one
+               place and filterable to the hilt: by text, tag, genre, place, when you wrote it, typed vs voice.
+               It's the diary of how you actually hear your records over time.</p>
+        </section>
+
+        <section class="help-section" id="import">
+            <div class="kicker">Bringing music in</div>
+            <h2>Import</h2>
+            <ul>
+                <li><strong>Point it at a folder</strong> — a whole drive is fine. Import <em>reads</em>
+                    your files; it never changes them. Anything it's seen before (even a copy with a
+                    different name) is recognised and skipped, so re-importing is always safe.</li>
+                <li><strong>Where files end up is your choice</strong> — <em>leave them where they are</em>
+                    (nothing on disk changes), or <em>copy</em> / <em>move</em> them into your Music Room
+                    Library folder, filed alphabetically. Never overwritten — a clashing name gets a "(2)".</li>
+                <li><strong>Also analyse</strong> reads BPM, key and the sound fingerprint on the way in.
+                    It's the one heavy job in the app — a big first import works the laptop hard and that's
+                    normal. Let it finish; don't quit the app mid-import.</li>
+                <li><strong>Undo last import</strong> — one button puts everything back if a run went wrong.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="export">
+            <div class="kicker">Sending music out</div>
+            <h2>Export &amp; rekordbox</h2>
+            <p>The round trip, in one picture:</p>
+            <svg viewBox="0 0 680 150" style="width:100%;max-width:680px;display:block;margin:8px 0 12px;" role="img" aria-label="Music Room exports playlists to rekordbox; rekordbox's analysis can be imported back">
+              <defs><marker id="arr2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="rgba(245,230,176,.65)"/></marker></defs>
+              <g font-family="Inter,sans-serif">
+                <rect x="14" y="34" width="216" height="82" rx="10" fill="rgba(245,230,176,.05)" stroke="rgba(245,230,176,.35)"/>
+                <text x="122" y="62" text-anchor="middle" fill="#f5e6b0" font-size="13" font-weight="600">MUSIC ROOM</text>
+                <text x="122" y="84" text-anchor="middle" fill="#d9cdaf" font-size="11">places · sets · tags · notes</text>
+                <rect x="450" y="34" width="216" height="82" rx="10" fill="rgba(245,230,176,.05)" stroke="rgba(245,230,176,.35)"/>
+                <text x="558" y="62" text-anchor="middle" fill="#f5e6b0" font-size="13" font-weight="600">REKORDBOX</text>
+                <text x="558" y="84" text-anchor="middle" fill="#d9cdaf" font-size="11">decks · waveforms · the gig</text>
+                <line x1="234" y1="56" x2="444" y2="56" stroke="rgba(245,230,176,.5)" stroke-width="1.5" marker-end="url(#arr2)"/>
+                <text x="340" y="46" text-anchor="middle" fill="#d9cdaf" font-size="10.5">one XML: playlists · genres · tags · memory cues</text>
+                <line x1="444" y1="96" x2="234" y2="96" stroke="rgba(245,230,176,.5)" stroke-width="1.5" marker-end="url(#arr2)"/>
+                <text x="340" y="116" text-anchor="middle" fill="#d9cdaf" font-size="10.5">its BPM &amp; key analysis, imported back</text>
+                <text x="340" y="142" text-anchor="middle" fill="rgba(245,230,176,.5)" font-size="10" font-style="italic">your files never move — the XML just points at them</text>
+              </g>
+            </svg>
+            <ul>
+                <li><strong>Update rekordbox XML</strong> writes your whole collection in one go. Every
+                    place, structure and set-prep arrives in rekordbox as a playlist; your genres land in
+                    its Genre field, your tags in Comments. In rekordbox, point its <em>rekordbox xml</em>
+                    setting at the file once and refresh after each export.</li>
+                <li><strong>BPM and key are deliberately NOT exported</strong> — rekordbox analyses fresh
+                    and is better at its own beat-grid. Its results can come back the other way:
+                    <code>Tools → Analyse → Import rekordbox analysis</code>.</li>
+                <li><strong>Cues, if you want them</strong> — tick the box and your timestamped notes become
+                    memory cues. <em>New tracks only</em> is the safe one: it never touches cues you've
+                    adjusted in rekordbox since.</li>
+                <li><strong>Export a folder</strong> — any place, set or selection can also become a plain
+                    folder of files (plus a playlist file), for a USB stick or anywhere else.</li>
+                <li>If records would be skipped because their drive isn't plugged in, the page
+                    <strong>warns you loudly first</strong>.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="tools">
+            <div class="kicker">The workshop</div>
+            <h2>Tools</h2>
+            <ul>
+                <li><strong>Import</strong> / <strong>Export</strong> — the two doors; each has its own
+                    section above.</li>
+                <li><strong>Analyse</strong> — run (or top up) the heavy lifting across the whole library:
+                    BPM/key, the sound fingerprint, artwork, labels. <em>Run all</em> fires everything
+                    still missing; leave it overnight for a big library.</li>
+                <li><strong>The Map</strong> — your collection on a globe, by where the artists are from.</li>
+                <li><strong>Insights</strong> — what you play, what leads you to play, which artists you've
+                    supported with real money. All of it stays on this computer.</li>
+                <li><strong>Studio</strong> — link your own productions (Ableton) into the library.</li>
+                <li><strong>Recordings</strong> — capture what the laptop is playing (a mix, a stream) and
+                    keep it as its own thing, outside the record collection.</li>
+                <li><strong>BPM Tapper</strong> — tap along, get a tempo.</li>
+                <li><strong>Fix</strong> — bulk-tidy metadata gaps: titles, artists, years, labels.</li>
+                <li><strong>Audio health</strong> — is every file where it should be? Missing and damaged
+                    files listed, safe-eject for the drive.</li>
+                <li><strong>Removed</strong> — records you've removed are parked here, restorable.</li>
+                <li><strong>Spotify</strong> — optional: cross-check what you own against your saved
+                    tracks, import a playlist as a wishlist.</li>
+                <li><strong>Settings</strong> — the next section.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="settings">
+            <div class="kicker">Knobs &amp; paths</div>
+            <h2>Settings — everything machine-specific lives here</h2>
+            <p>This is where you (and any friend running their own copy) wire things up to your own computer:</p>
+            <ul>
+                <li><strong>Music library folder</strong> — where your audio lives. Pre-fills the Import screen.</li>
+                <li><strong>Where Music Room keeps your data</strong> — your database, artwork, voice notes,
+                    moodboards and ambient sounds. Back this one folder up and you've backed up everything.
+                    <em>Reveal in Finder</em> shows you exactly where it is.</li>
+                <li><strong>Preferred browser</strong> — which browser external links open in.</li>
+                <li><strong>Discogs token</strong> — free; sharpens label + genre lookups. (Link to generate one is right there.)</li>
+                <li><strong>Last.fm key</strong> — free, optional; adds Last.fm tags to genre suggestions.</li>
+                <li><strong>Pixabay key</strong> — free, optional; for browsing photos as place moodboards.</li>
+                <li><strong>Export / Backup / Removed folders</strong> — where exports go, where backups copy to,
+                    and where "removed" tracks get parked. All have sensible defaults; change them if you like.</li>
+                <li><strong>Deep Listening shortcuts</strong> — keyboard shortcuts for note categories.</li>
+            </ul>
+            <div class="help-callout warm">None of these are required to start except the <strong>Music library
+                folder</strong>. The API keys are all optional — Music Room works without them, it just knows a
+                little less about your records.</div>
+        </section>
+
+        <section class="help-section" id="glossary">
+            <span id="irish"></span>
+            <div class="kicker">At a glance</div>
+            <h2>Glossary</h2>
+            <ul>
+                {% if not is_gr %}<li id="term-place"><strong>Place</strong> — a room in the forest you invent (a venue, a mood,
+                    a night). Records belong to any number of places; files never move.</li>
+                <li id="term-musicroom"><strong>The Music Room</strong> — the cabin in the middle: the place
+                    that holds every record you own.</li>{% endif %}
+                <li id="term-box"><strong>The box</strong> — the crate you fill while browsing (□ on any card)
+                    and act on in one go.</li>
+                <li id="term-set"><strong>Set</strong> — a named, ordered sequence of records.
+                    <em>Charted</em> = programmed with transitions; <em>set prep</em> = an ordered list for
+                    the booth. Set-preps become rekordbox playlists on export.</li>
+                <li id="term-structure"><strong>Structure</strong> — your own tags placed spatially in the
+                    room; the records gather into the shape you drew.</li>
+                <li id="term-tag"><strong>Tags &amp; genres</strong> — genres say what the music is; tags are
+                    any words of your own. Both filter everywhere. There are no built-in tags — the
+                    vocabulary is entirely yours.</li>
+                <li id="term-cue"><strong>Timestamped note</strong> — a note pinned to a second of a track
+                    (⊙ stamp, or Deep Listening). These become rekordbox <em>memory cues</em> on export.</li>
+                <li id="term-camelot"><strong>Camelot code</strong> — a key written for mixing (8A, 9B…):
+                    neighbouring numbers mix cleanly, letter A is minor, B major.</li>
+                <li id="term-analysis"><strong>Analysis</strong> — the app listening to a file to read BPM,
+                    key, loudness and the six-band sound fingerprint. Local, never touches the audio file.</li>
+                <li id="term-wishlist"><strong>Wishlist</strong> — records you're hunting, in three boxes by
+                    feeling. Buying always routes out to where the artist sells.</li>
+                <li id="term-source"><strong>Source</strong> — a publication, station or label whose posts
+                    feed your Explore stream.</li>
+                <li id="term-deeplistening"><strong>Deep Listening</strong> — the sit-with-one-record mode:
+                    timestamped notes as it plays.</li>
+            </ul>
+        </section>
+
+    </main>
+</div>
+</div>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

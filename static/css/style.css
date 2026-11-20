@@ -1,0 +1,2697 @@
+/*
+=============================================================
+MUSIC ROOM — style.css
+=============================================================
+Visual identity: a forest at night.
+Deep, considered, organic. Not a SaaS. Not a dashboard.
+Like sitting on the forest floor with records around you,
+a small lamp, rain somewhere outside.
+
+Colour system:
+    --bg        the dark between the trees
+    --surface   the floor, a stone, a flat surface
+    --surface2  a slightly lighter surface
+    --border    roots, thin lines between things
+    --text      moonlight on paper
+    --muted     shadow text, things half-seen
+    --accent    bioluminescence, the glow of something alive
+    --well      The Well's colour, a deep spring green
+=============================================================
+*/
+
+/* Self-hosted (static/fonts/ui) — was a Google-Fonts @import, which left a
+   clean/offline Mac in fallback type. Same families, faces and subsets. */
+@import url('ui_fonts.css');
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    /* === Book of Kells in an Irish forest, summer's day === */
+    /* The forest floor — mottled damp earth/moss/leaf-litter behind
+       everything (see static/textures/forest_floor.jpg). Mid-warm so dark
+       ink stays legible on the bare background between panels. */
+    --bg-floor:  #4f4632;
+    /* Vellum — aged parchment pages, lifted ivory panels (the surfaces) */
+    --bg:        #e7d9ba;
+    --surface:   #f1e7cb;
+    --surface2:  #f8f1dc;
+    --border:    #ccb98e;
+    --border2:   #bca877;
+
+    /* Ink — oak-gall sepia on vellum */
+    --text:      #2e2718;
+    --muted:     #6c5d40;
+    --muted2:    #8a7a58;
+
+    /* The glow of something alive — insular forest green */
+    --accent:    #4a7242;
+    --well:      #4a7242;
+    --accent-dim: rgba(74,114,66,0.15);
+
+    /* Illuminated jewel + gold leaf (manuscript accents) */
+    --gold:      #a8822c;
+    --gold-soft: #f5e6b0;
+    --oxblood:   #9c3b2c;
+    --lapis:     #34557e;
+    --ochre:     #c69a3e;
+
+    /* Danger — oxblood ; warning — ochre */
+    --danger:    #9c3b2c;
+    --warning:   #b5832f;
+
+    --font-main:   'Inter', 'Helvetica Neue', sans-serif;
+    --font-serif:  'EB Garamond', Georgia, serif;
+    --font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+    /* Insular / Book-of-Kells inspired display face — used for proper-noun
+       titles (place names, "The Well", page titles). Pair sparingly. */
+    --font-celtic: 'Uncial Antiqua', 'MedievalSharp', 'EB Garamond', serif;
+
+    --radius:    5px;
+    --radius-lg: 10px;
+
+    --transition: 0.15s ease;
+
+    /* Vellum grain — a touch more tooth than the old night-noise */
+    --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    /* A gilded rule — gold-leaf gradient for <hr> and dividers */
+    --gilt: linear-gradient(90deg, transparent, var(--gold) 18%, #d8b25a 50%, var(--gold) 82%, transparent);
+}
+
+html {
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Light (vellum) theme — native controls render dark-on-light. */
+    color-scheme: light;
+}
+
+body {
+    background-color: var(--bg-floor);
+    color: var(--text);
+    font-family: var(--font-main);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+/* The forest floor — one cheap, fixed, GPU-composited layer holding a
+   pre-baked Irish-forest-floor texture (earth tones blended, grainy). No
+   live filters, no stacked gradients — just one cached image. Per-page
+   "scene" wrappers are transparent so this shows through everywhere. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--bg-floor) url('/static/textures/forest_floor.jpg?v=5') center center / cover no-repeat;
+    pointer-events: none;
+}
+
+/* A leaf of vellum laid on the forest floor — text-heavy menu pages put
+   their content on this so ink + muted text always sits on parchment, with
+   the textured floor showing in the margins. Deeper than the card surfaces
+   so cards/panels still lift off it. One element, no live filters. */
+.floor-sheet {
+    background: rgba(228, 215, 180, 0.93);
+    border: 1px solid var(--border2);
+    border-radius: 18px;
+    box-shadow: 0 12px 38px rgba(48, 36, 14, 0.22);
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+/* Gilded divider — a thread of gold leaf */
+hr, .gilt-rule {
+    border: none;
+    height: 2px;
+    margin: 22px 0;
+    background: var(--gilt);
+    opacity: 0.75;
+}
+
+/* =============================================================
+   CONTRAST GUARDS
+   Make sure every native control reads against the dark surfaces.
+   Anything bare-rendered (placeholders, <option>s, system fields)
+   needs an explicit colour or it inherits the OS light theme.
+============================================================= */
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--muted2);
+    opacity: 1;
+    font-style: italic;
+}
+
+input, textarea, select {
+    color: var(--text);
+    background-color: var(--surface2);
+    color-scheme: light;
+}
+
+select option {
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+/* SVG icons without an explicit fill should default to no fill — so
+   line-art icons aren't accidentally filled black. */
+svg:not([fill]):not([style*="fill"]) {
+    fill: none;
+}
+
+/* Anything missing a colour should at least inherit the body colour
+   instead of falling back to the user-agent default (black). */
+button {
+    color: inherit;
+}
+
+a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* =============================================================
+   LAYOUT
+============================================================= */
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+}
+
+/* =============================================================
+   NAV
+============================================================= */
+
+.nav {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(241,231,203,0.92);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav__logo {
+    font-family: var(--font-celtic);
+    font-size: 1.18rem;
+    font-weight: 400;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.03em;
+}
+.nav__logo::first-letter {
+    font-size: 1.45em;
+    color: var(--gold);
+    text-shadow:
+        0 0 12px rgba(168,130,44,0.4),
+        1px 1px 0 rgba(156,59,44,0.35);
+}
+
+/* =============================================================
+   BOOK OF KELLS — ornate first letters
+   Apply ::first-letter to any heading using --font-celtic.
+   .drop-cap on paragraphs gives a true floated drop cap.
+============================================================= */
+.celtic-title {
+    font-family: var(--font-celtic);
+    letter-spacing: 0.04em;
+    line-height: 1.18;
+}
+
+/* All headings styled with Uncial Antiqua share the same ornate first letter */
+.celtic-title::first-letter,
+.nav__logo::first-letter,
+.place-label::first-letter,
+.index-title::first-letter,
+.practice-title::first-letter,
+.explore-header h1::first-letter,
+.index-card h2::first-letter {
+    font-family: var(--font-celtic);
+    font-size: 1.65em;
+    /* Gold-leaf initial, illuminated with a faint glow + oxblood offset */
+    color: var(--gold);
+    text-shadow:
+        0 0 16px rgba(168,130,44,0.40),
+        1px 1px 0 rgba(156,59,44,0.40);
+    padding-right: 0.05em;
+    line-height: 0.9;
+}
+
+/* True drop cap for use on opening paragraphs */
+.drop-cap::first-letter,
+.drop-cap-letter {
+    font-family: var(--font-celtic);
+    float: left;
+    font-size: 4em;
+    line-height: 0.78;
+    margin: 4px 10px 0 0;
+    padding: 4px 10px 4px 6px;
+    color: #f5e6b0;
+    text-shadow:
+        0 0 18px rgba(220,170,80,0.55),
+        0 2px 4px rgba(0,0,0,0.9);
+    background:
+        radial-gradient(ellipse at 30% 30%, rgba(200,140,60,0.22), transparent 65%),
+        linear-gradient(135deg, rgba(140,80,40,0.20), rgba(80,40,20,0.10));
+    border: 1px solid rgba(200,160,90,0.32);
+    border-radius: 6px;
+    position: relative;
+}
+.drop-cap-letter::before,
+.drop-cap-letter::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 8px;
+    border: 1.5px solid rgba(200,160,90,0.45);
+}
+.drop-cap-letter::before {
+    top: -2px; left: -2px;
+    border-right: none; border-bottom: none;
+    border-top-left-radius: 4px;
+}
+.drop-cap-letter::after {
+    bottom: -2px; right: -2px;
+    border-left: none; border-top: none;
+    border-bottom-right-radius: 4px;
+}
+
+.nav__logo:hover {
+    text-decoration: none;
+    opacity: 0.8;
+}
+
+.nav__links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+}
+
+.nav__links a {
+    color: var(--muted);
+    font-size: 0.85rem;
+    transition: color var(--transition);
+    letter-spacing: 0.01em;
+}
+
+.nav__links a:hover,
+.nav__links a.active {
+    color: var(--text);
+    text-decoration: none;
+}
+
+/* Dropdown menus in the nav (Study, Tools) */
+.nav__links li.has-menu { position: relative; }
+.nav__menu-trigger { cursor: pointer; }
+.nav__caret { font-size: 0.65rem; opacity: 0.65; margin-left: 2px; }
+.nav__menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -10px;
+    margin-top: 6px;
+    min-width: 150px;
+    background: rgba(248,241,220,0.98);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 0;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+    z-index: 200;
+}
+.nav__links li.has-menu:hover .nav__menu,
+.nav__links li.has-menu:focus-within .nav__menu {
+    display: block;
+}
+.nav__menu a {
+    display: block;
+    padding: 7px 14px;
+    font-size: 0.84rem;
+    color: var(--muted);
+    text-decoration: none;
+    border-radius: 4px;
+    margin: 0 4px;
+}
+.nav__menu a:hover {
+    color: var(--accent);
+    background: rgba(120,188,150,0.08);
+}
+.nav__menu a.active {
+    color: var(--accent);
+}
+
+/* =============================================================
+   SIDEBAR
+============================================================= */
+
+.sidebar {
+    padding: 28px 12px 28px 16px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    max-height: calc(100vh - 53px);
+    position: sticky;
+    top: 53px;
+    background: var(--surface);
+    transition: transform 0.22s ease, opacity 0.18s ease;
+}
+
+/* Sidebar can always be hidden. At density 1 the JS hides it by default,
+   but the toggle below makes it user-controllable at any density. */
+body.sidebar-hidden .sidebar {
+    display: none;
+}
+body.sidebar-hidden .layout {
+    grid-template-columns: 1fr;
+}
+
+.sidebar-toggle {
+    position: fixed;
+    top: 60px;
+    z-index: 80;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--muted);
+    width: 22px; height: 56px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+    padding: 0;
+    line-height: 1;
+    transition: left 0.22s ease, color 0.15s, background 0.15s;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.18);
+}
+.sidebar-toggle:hover { color: var(--accent); background: var(--surface2); }
+/* Anchored to the right edge of the visible sidebar when it's shown,
+   and to the left edge of the viewport when it's hidden. */
+.sidebar-toggle { left: 240px; }
+body.sidebar-hidden .sidebar-toggle { left: 0; }
+}
+
+.sidebar__section {
+    margin-bottom: 28px;
+}
+
+.sidebar__heading {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 8px;
+    padding: 0 8px;
+}
+
+.sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-size: 0.87rem;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+    text-decoration: none;
+}
+
+.sidebar__item:hover {
+    background: var(--surface2);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.sidebar__item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
+.sidebar__count {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--muted2);
+}
+
+/* =============================================================
+   MAIN CONTENT
+============================================================= */
+
+.main {
+    padding: 32px 28px;
+    overflow-y: auto;
+    transition: padding-right 0.22s ease;
+    /* Density vars — set inline by the slider in the nav.
+       --card-min: minimum width of one grid card (1080 / density).
+       --row-scale: multiplier for list-row padding + font size.
+       Defaults below match density = 5. */
+    --card-min: 216px;
+    --row-scale: 1;
+}
+
+/* Density slider in the nav */
+.density-control {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: 4px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.density-control input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 80px; height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+.density-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.12s;
+}
+.density-control input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.density-control input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px;
+    border: none; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+}
+.density-control .density-icon {
+    font-size: 0.78rem; color: var(--muted2);
+    line-height: 1; user-select: none;
+}
+/* density-val span was removed — kept the class for backward-compat */
+
+/* When the track panel is open on a wide viewport, push the main content
+   leftwards so the panel doesn't overlap the list. The panel keeps its
+   480px right-anchored slot; .main gets a matching right-pad. */
+body.track-panel-open .main {
+    padding-right: calc(480px + 28px);
+}
+@media (max-width: 1176px) {
+    /* On narrow screens the panel becomes full-width (see existing rule
+       at 1176px) — no point pushing the main; it'd squeeze to nothing. */
+    body.track-panel-open .main { padding-right: 28px; }
+}
+
+/* =============================================================
+   FOREST HOME
+============================================================= */
+
+.forest-header {
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.forest-header h1 {
+    font-family: var(--font-serif);
+    font-size: 2.4rem;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+    color: var(--text);
+}
+
+.forest-header p {
+    color: var(--muted);
+    font-size: 0.88rem;
+    letter-spacing: 0.01em;
+}
+
+.places-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+/* Place card — each one is a door into a different part of the forest */
+.place-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 20px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    text-decoration: none;
+    color: var(--text);
+    display: block;
+    position: relative;
+    overflow: hidden;
+}
+
+/* The coloured left edge — like light through a crack in the door */
+.place-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: var(--place-accent, var(--accent));
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.place-card:hover {
+    border-color: var(--place-accent, var(--accent));
+    background: var(--surface2);
+    text-decoration: none;
+}
+
+.place-card:hover::before {
+    opacity: 1;
+}
+
+.place-card__name {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 400;
+    font-style: italic;
+    margin-bottom: 6px;
+    color: var(--text);
+    letter-spacing: 0.01em;
+}
+
+.place-card--well .place-card__name {
+    color: var(--well);
+}
+
+.place-card__desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.55;
+}
+
+.place-card__meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.76rem;
+    color: var(--muted2);
+    flex-wrap: wrap;
+}
+
+.place-card__meta span::before {
+    content: '·';
+    margin-right: 12px;
+    opacity: 0.4;
+}
+
+.place-card__meta span:first-child::before {
+    display: none;
+}
+
+/* =============================================================
+   TRACK LIST
+============================================================= */
+
+.track-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 53px;
+    background: var(--bg);
+    z-index: 10;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: -8px;
+}
+
+.th-sort {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.th-sort:hover { color: var(--accent); }
+.sort-icon { opacity: 0.35; margin-left: 3px; font-size: 0.75em; }
+.sort-icon.active { opacity: 1; color: var(--accent); }
+
+.track-list-header h2 {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.01em;
+}
+
+.track-count {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+}
+
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 7px 12px;
+    font-size: 0.87rem;
+    font-family: var(--font-main);
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.filter-bar input:focus,
+.filter-bar select:focus {
+    border-color: var(--accent);
+}
+
+.filter-bar input { flex: 1; min-width: 200px; }
+
+/* Track table */
+.track-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+
+.track-table th {
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 0.67rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.track-table th:hover { color: var(--muted); }
+.track-table th.sorted { color: var(--accent); }
+
+.track-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.track-table tr {
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.track-table tr:hover td  { background: var(--surface); }
+.track-table tr.selected td {
+    background: rgba(245,230,176,0.07);
+}
+/* Warm-gold marker on the leftmost cell so the selected row is unmistakable
+   while the panel is open. */
+.track-table tr.selected td:first-child {
+    box-shadow: inset 4px 0 0 0 #d4b87a;
+}
+
+.colour-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.bpm-value {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
+.bpm-value.unverified { color: var(--muted); }
+.bpm-value.verified   { color: var(--text); }
+
+.key-badge {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.key-badge:not(.unverified) { color: var(--text); }
+
+/* =============================================================
+   PERCEPTUAL FINGERPRINT — corpus-relative sound display
+============================================================= */
+.fp-scale {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.fp-scale__label {
+    font-size: 0.66rem;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    width: 64px;
+    flex-shrink: 0;
+}
+.fp-scale__track {
+    position: relative;
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: visible;
+}
+.fp-scale__median {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: 50%;
+    width: 1px;
+    background: rgba(255,255,255,0.18);
+}
+.fp-scale__mark {
+    position: absolute;
+    top: -3px;
+    width: 3px;
+    height: 12px;
+    border-radius: 1.5px;
+    background: var(--accent);
+    transform: translateX(-50%);
+    box-shadow: 0 0 6px rgba(120,188,150,0.6);
+}
+.fp-scale__hint {
+    font-size: 0.66rem;
+    color: var(--muted);
+    width: 130px;
+    flex-shrink: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 6-band micro chart */
+.fp-bands {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 44px;
+    margin: 8px 0 4px;
+}
+.fp-band {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+}
+.fp-band__bar-wrap {
+    position: relative;
+    width: 100%;
+    height: 28px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.fp-band__bar {
+    width: 100%;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+    transition: height 0.18s ease;
+    min-height: 1px;
+}
+.fp-band__bar.below {
+    background: rgba(120,140,170,0.35);
+}
+.fp-band__bar.above {
+    background: rgba(232,210,140,0.85);
+}
+.fp-band__bar.way-above {
+    background: rgba(232,210,140,1);
+    box-shadow: 0 0 8px rgba(232,210,140,0.5);
+}
+/* Median line inside the bar area */
+.fp-band__median {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 14px;
+    height: 1px;
+    background: rgba(255,255,255,0.10);
+}
+.fp-band__label {
+    font-size: 0.6rem;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+.fp-band__hz {
+    font-size: 0.58rem;
+    color: var(--muted2);
+    font-family: var(--font-mono);
+    opacity: 0.7;
+    margin-top: 2px;
+    line-height: 1;
+}
+
+.fp-vocal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    padding: 3px 9px;
+    border-radius: 100px;
+    border: 1px solid rgba(232,210,140,0.4);
+    color: rgba(232,210,140,0.95);
+    background: rgba(232,210,140,0.06);
+    margin-top: 4px;
+}
+.fp-vocal--instr {
+    border-color: rgba(120,140,170,0.35);
+    color: var(--muted);
+    background: transparent;
+}
+
+/* Compact list-row variant: just the 6 bars, no labels */
+.fp-mini {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1.5px;
+    height: 14px;
+    width: 56px;
+}
+.fp-mini__bar {
+    flex: 1;
+    background: rgba(120,140,170,0.35);
+    border-radius: 1px;
+    min-height: 1px;
+}
+.fp-mini__bar.above       { background: rgba(232,210,140,0.85); }
+.fp-mini__bar.way-above   { background: rgba(232,210,140,1); }
+
+.flag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.flag--review  { background: #2a1a0a; color: var(--warning); border: 1px solid #3a2a10; }
+.flag--vinyl   { background: #12101e; color: #7a6fb0; border: 1px solid #1e1a30; }
+.flag--missing { background: #1e0f0f; color: #a05050; border: 1px solid #2a1515; }
+/* "Only here" — track confirmed not on Spotify at last check.
+   Warm gold rather than alarming red, to celebrate ownership. */
+.flag--non-dsp { background: rgba(245,230,176,0.08); color: #d4b87a; border: 1px solid rgba(212,184,122,0.3); font-style: italic; letter-spacing: 0.02em; }
+
+/* =============================================================
+   TRACK DETAIL PANEL
+============================================================= */
+
+.track-panel {
+    position: fixed;
+    right: 0;
+    top: 53px;
+    bottom: 0;
+    width: 480px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.track-panel.open { transform: translateX(0); }
+.track-panel.minimized { bottom: auto; height: auto; }
+.track-panel.minimized .track-panel__body { display: none; }
+
+.track-panel__close {
+    position: absolute;
+    top: 13px; right: 14px;
+    background: none; border: none;
+    color: var(--muted); font-size: 0.95rem;
+    cursor: pointer; padding: 4px 6px;
+    z-index: 20; border-radius: var(--radius);
+    transition: color var(--transition);
+}
+
+.track-panel__close:hover { color: var(--text); }
+
+.track-panel__player-bar {
+    flex-shrink: 0;
+    padding: 13px 18px 11px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.track-panel__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px 40px;
+}
+
+.track-panel__section {
+    margin-bottom: 22px;
+}
+
+.track-panel__section-heading {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 10px;
+}
+
+/* Analysis */
+.analysis-row {
+    display: flex;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+}
+
+.analysis-row:last-child { border-bottom: none; }
+
+.analysis-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    min-width: 60px;
+}
+
+.analysis-value {
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    flex: 1;
+}
+
+.analysis-value.unverified { color: var(--muted); }
+
+.analysis-actions { display: flex; gap: 4px; }
+
+.btn-verify {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.btn-verify:hover { border-color: var(--accent); color: var(--accent); }
+.btn-verify.verified { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* Notes */
+.note-input-area textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 10px;
+    font-family: var(--font-main);
+    font-size: 0.86rem;
+    resize: vertical;
+    min-height: 76px;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.note-input-area textarea:focus { border-color: var(--accent); }
+
+.note-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.note-timestamp-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 5px 9px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    width: 68px;
+    outline: none;
+}
+
+.note-timestamp-input:focus { border-color: var(--accent); }
+
+/* Tags */
+.tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px 4px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    transition: all 0.22s cubic-bezier(.34,1.45,.5,1);  /* lands softly */
+    animation: mr-chip-in 0.26s cubic-bezier(.34,1.45,.5,1);
+}
+
+.tag:hover {
+    border-color: var(--border2); color: var(--text);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 9px rgba(46,39,24,0.14);
+}
+
+@keyframes mr-chip-in {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: none; }
+}
+
+.tag__remove {
+    background: none; border: none;
+    color: var(--muted2); cursor: pointer;
+    font-size: 0.8rem; padding: 0; line-height: 1;
+    display: flex; align-items: center;
+    transition: color var(--transition), transform 0.2s cubic-bezier(.34,1.45,.5,1);
+}
+
+.tag__remove:hover { color: var(--danger); transform: scale(1.3); }
+
+/* =============================================================
+   BUTTONS
+============================================================= */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 15px;
+    border-radius: var(--radius);
+    font-family: var(--font-main);
+    font-size: 0.86rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(.34,1.45,.5,1);  /* every button lands softly */
+    border: none;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+}
+
+.btn:active { transform: scale(0.95); }
+
+.btn--primary {
+    background: var(--accent);
+    color: #0a110c;
+}
+
+.btn--primary:hover { opacity: 0.9; text-decoration: none;
+    transform: translateY(-1px); box-shadow: 0 4px 12px rgba(126,184,164,0.3); }
+
+.btn--ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.btn--ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.btn--small { padding: 4px 10px; font-size: 0.78rem; }
+
+/* =============================================================
+   EMPTY STATES
+============================================================= */
+
+.empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--muted2);
+}
+
+.empty-state p {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1rem;
+    margin-bottom: 16px;
+}
+
+/* =============================================================
+   MODAL
+============================================================= */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+    backdrop-filter: blur(3px);
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+
+.modal h2 {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    font-weight: 400;
+    font-style: italic;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+.form-field { margin-bottom: 14px; }
+
+.form-field label {
+    display: block;
+    font-size: 0.74rem;
+    color: var(--muted2);
+    margin-bottom: 5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 11px;
+    font-family: var(--font-main);
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus { border-color: var(--accent); }
+
+.form-field select { cursor: pointer; }
+.form-field textarea { resize: vertical; min-height: 76px; }
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    align-items: center;
+}
+
+.colour-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.colour-picker-row input[type="color"] {
+    width: 38px; height: 34px;
+    padding: 2px; cursor: pointer; flex-shrink: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+/* =============================================================
+   LOADING
+============================================================= */
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    color: var(--muted2);
+    font-size: 0.88rem;
+    font-family: var(--font-serif);
+    font-style: italic;
+}
+
+/* =============================================================
+   SCROLLBAR
+============================================================= */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted2); }
+
+/* =============================================================
+   RESPONSIVE
+============================================================= */
+
+@media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .track-panel { width: 100%; }
+}
+
+/* =============================================================
+   SET BUILDER PAGE
+============================================================= */
+
+.set-header {
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.set-header h1 {
+    font-family: var(--font-serif);
+    font-size: 1.8rem;
+    font-weight: 400;
+    font-style: italic;
+}
+
+.set-header__meta {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.set-track-list {
+    margin-bottom: 24px;
+}
+
+.set-track-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition);
+    cursor: grab;
+}
+
+.set-track-row:active { cursor: grabbing; }
+.set-track-row:hover  { background: var(--surface); }
+.set-track-row.sortable-ghost { opacity: 0.3; }
+.sortable-ghost { opacity: 0.35; }
+.sortable-drag { opacity: 1 !important; }
+.set-track-row.sortable-chosen { background: var(--surface2); }
+
+.set-track-row__handle {
+    color: var(--muted2); font-size: 0.8rem; cursor: grab; flex-shrink: 0;
+    padding: 0 4px;
+}
+
+.set-track-row__pos {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted2);
+    min-width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.set-track-row__info { flex: 1; overflow: hidden; }
+
+.set-track-row__title {
+    font-size: 0.88rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.set-track-row__artist {
+    font-size: 0.76rem;
+    color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.set-track-row__duration {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted2);
+    flex-shrink: 0;
+}
+
+.set-track-row__actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.set-transition-note {
+    width: 100%;
+    background: var(--surface2);
+    border: none;
+    border-top: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-family: var(--font-main);
+    padding: 5px 10px 5px 64px;
+    outline: none;
+    resize: none;
+    min-height: 28px;
+    line-height: 1.4;
+    transition: color var(--transition);
+}
+
+.set-transition-note:focus { color: var(--text); border-color: var(--border2); }
+.set-transition-note::placeholder { color: var(--muted2); font-style: italic; }
+
+.set-duration-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.84rem;
+    color: var(--muted);
+}
+
+.set-duration-total {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 1rem;
+}
+
+/* =============================================================
+   SET LIST PAGE
+============================================================= */
+
+.sets-list { display: flex; flex-direction: column; gap: 2px; }
+
+.set-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--transition);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--text);
+}
+
+.set-row:hover { background: var(--surface2); text-decoration: none; }
+
+.set-row__name {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1rem;
+    flex: 1;
+}
+
+.set-row__meta {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    gap: 12px;
+}
+
+/* ============================================================
+   COLOUR DOT — track colour indicator in track list
+   ============================================================ */
+.colour-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.colour-dot:hover { transform: scale(1.5); }
+
+/* ============================================================
+   COLOUR PICKER SWATCH ROW — in track panel metadata section
+   ============================================================ */
+.colour-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.colour-picker-row__label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.colour-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+}
+
+.colour-swatch:hover { transform: scale(1.25); }
+.colour-swatch.active { border-color: var(--text); }
+
+.colour-swatch--clear {
+    background: var(--surface2);
+    border: 1px dashed var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.colour-custom-input {
+    width: 24px;
+    height: 24px;
+    border: none;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    background: none;
+    flex-shrink: 0;
+    outline: none;
+}
+
+/* ============================================================
+   MOODBOARD — place sidebar section
+   ============================================================ */
+.moodboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.moodboard-img {
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 3px;
+    width: 100%;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+    display: block;
+}
+
+.moodboard-img:hover { opacity: 1; }
+
+.moodboard-upload-btn {
+    aspect-ratio: 1;
+    background: var(--surface2);
+    border: 1px dashed var(--border2);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted2);
+    font-size: 1.2rem;
+    transition: border-color 0.15s, color 0.15s;
+    width: 100%;
+}
+
+.moodboard-upload-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.moodboard-ambient {
+    margin-top: 10px;
+    font-size: 0.76rem;
+    color: var(--muted2);
+}
+
+.moodboard-ambient input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+    margin-top: 4px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.moodboard-ambient input:focus { border-color: var(--accent); }
+
+
+
+/* =============================================================
+   TRACK GRID — card-based view for place.html
+   Each card shows artwork front-and-centre like a record sleeve.
+============================================================= */
+
+.track-view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+.track-view-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    width: 30px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+}
+.track-view-btn:hover, .track-view-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.track-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 14px;
+    padding: 4px 0 100px;
+}
+
+.track-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+.track-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.track-card.selected {
+    border-color: #d4b87a;
+    box-shadow: 0 0 0 2px rgba(212,184,122,0.55),
+                0 10px 28px rgba(0,0,0,0.45);
+    transform: translateY(-2px);
+}
+
+.track-card__art {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface2);
+    flex-shrink: 0;
+}
+.track-card__art img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.2s;
+}
+.track-card__art.no-art img { display: none; }
+
+/* Placeholder gradient when no artwork */
+.track-card__placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 2.2rem;
+    color: rgba(255,255,255,0.3);
+}
+
+/* Art overlay badges (BPM, key) */
+.track-card__badges {
+    position: absolute;
+    bottom: 6px; left: 6px;
+    display: flex; gap: 4px;
+    flex-wrap: wrap;
+}
+.track-card__badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    background: rgba(8,12,9,0.82);
+    color: var(--accent);
+    padding: 2px 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(106,171,138,0.25);
+    backdrop-filter: blur(4px);
+    line-height: 1.2;
+}
+.track-card__badge.unverified { color: var(--muted); border-color: transparent; }
+
+/* Artwork verified indicator */
+.track-card__art-verified {
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 14px; height: 14px;
+    background: rgba(106,171,138,0.85);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem;
+    color: var(--bg);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.track-card:hover .track-card__art-verified,
+.track-card.selected .track-card__art-verified { opacity: 1; }
+
+/* Now-playing overlay on art */
+.track-card__playing-dot {
+    position: absolute;
+    top: 5px; left: 5px;
+    width: 20px; height: 20px;
+    background: rgba(8,12,9,0.8);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.55rem;
+    color: var(--accent);
+}
+
+.track-card__info {
+    padding: 9px 10px 10px;
+}
+.track-card__title {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+.track-card__title.untitled { color: var(--muted); font-style: italic; }
+.track-card__artist {
+    font-size: 0.74rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+/* Clúdach active — crosshair on cards */
+body.cludach-open .track-card { cursor: crosshair; }
+body.cludach-open .track-card:hover { border-color: var(--accent); }
+
+
+/* =============================================================
+   ARTWORK LIGHTBOX
+   Full-screen view of a record cover. Shows overlays read-only.
+============================================================= */
+
+.artwork-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(8,12,9,0.94);
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+}
+.artwork-lightbox.open { display: flex; }
+
+.artwork-lightbox__inner {
+    position: relative;
+    max-width: min(600px, 90vmin);
+    max-height: min(600px, 90vmin);
+    width: 90vmin;
+    height: 90vmin;
+}
+.artwork-lightbox__img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-lg);
+    display: block;
+}
+.artwork-lightbox__placeholder {
+    width: 100%; height: 100%;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 6rem;
+    color: rgba(255,255,255,0.2);
+}
+
+.artwork-lightbox__close {
+    position: absolute;
+    top: -14px; right: -14px;
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+}
+.artwork-lightbox__close:hover { color: var(--text); border-color: var(--text); }
+
+.artwork-lightbox__track-name {
+    position: absolute;
+    bottom: -36px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--muted);
+}
+
+/* Overlays rendered on top of lightbox image */
+.artwork-lightbox__inner { user-select: none; }
+
+
+/* =============================================================
+   CLÚDACH EDITOR
+   Full-screen overlay editor. The record sleeve as canvas.
+============================================================= */
+
+.cludach-editor {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 600;
+    background: rgba(8,12,9,0.96);
+    flex-direction: column;
+}
+.cludach-editor.open { display: flex; }
+
+.cludach-editor__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.cludach-editor__title {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cludach-editor__tools {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.cludach-tool-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-main);
+    white-space: nowrap;
+}
+.cludach-tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cludach-tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+.cludach-editor__close {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cludach-editor__close:hover { color: var(--text); border-color: var(--text); }
+
+.cludach-editor__body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 24px;
+}
+
+.cludach-canvas-wrap {
+    position: relative;
+    width: min(560px, 80vmin);
+    height: min(560px, 80vmin);
+    flex-shrink: 0;
+}
+.cludach-canvas-wrap img,
+.cludach-canvas-wrap .cludach-canvas-placeholder {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+    display: block;
+    user-select: none;
+    pointer-events: none;
+}
+.cludach-canvas-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 5rem;
+    color: rgba(255,255,255,0.15);
+}
+
+/* Sticker library sidebar */
+.cludach-sidebar {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 240px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    z-index: 10;
+}
+.cludach-sidebar.open { transform: translateX(0); }
+
+.cludach-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+.cludach-sidebar__header button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px;
+    transition: color 0.1s;
+}
+.cludach-sidebar__header button:hover { color: var(--text); }
+
+.cludach-sidebar__grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-content: start;
+}
+.cludach-sticker-thumb {
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.12s;
+    background: var(--surface2);
+    position: relative;
+}
+.cludach-sticker-thumb:hover { border-color: var(--accent); }
+.cludach-sticker-thumb img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    padding: 4px;
+}
+.cludach-sticker-thumb__del {
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 16px; height: 16px;
+    background: rgba(8,12,9,0.8);
+    border: none;
+    border-radius: 50%;
+    color: var(--muted);
+    font-size: 0.6rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.cludach-sticker-thumb:hover .cludach-sticker-thumb__del { display: flex; }
+
+.cludach-sidebar__upload {
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.cludach-upload-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-main);
+}
+.cludach-upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+
+/* =============================================================
+   OVERLAYS — positioned on top of artwork in both lightbox
+   and Clúdach editor.
+============================================================= */
+
+.ov-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.ov-layer.editable { pointer-events: auto; }
+
+.overlay-item {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    box-sizing: border-box;
+}
+.overlay-item img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+}
+
+/* Post-it */
+.overlay-postit {
+    background: #fef08a;
+    box-shadow: 2px 3px 8px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(0,0,0,0.08);
+    padding: 8px 10px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.overlay-postit .postit-text {
+    width: 100%; height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: 'Patrick Hand', 'Segoe UI', sans-serif;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #2a2208;
+    overflow: hidden;
+    cursor: text;
+}
+.overlay-postit .postit-text[contenteditable="true"] { cursor: text; }
+
+/* Delete + resize handles (only in editor) */
+.overlay-item .ov-delete {
+    position: absolute;
+    top: -8px; right: -8px;
+    width: 18px; height: 18px;
+    background: var(--danger);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 0.6rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
+}
+.ov-layer.editable .overlay-item:hover .ov-delete,
+.ov-layer.editable .overlay-item.selected .ov-delete { display: flex; }
+
+.overlay-item .ov-resize {
+    position: absolute;
+    bottom: -5px; right: -5px;
+    width: 12px; height: 12px;
+    background: var(--accent);
+    border-radius: 2px;
+    cursor: se-resize;
+    display: none;
+    z-index: 10;
+}
+.ov-layer.editable .overlay-item:hover .ov-resize,
+.ov-layer.editable .overlay-item.selected .ov-resize { display: block; }
+
+
+/* =============================================================
+   ARTWORK IN TRACK PANEL (top of detail panel)
+============================================================= */
+
+.panel-artwork {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+.panel-artwork img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.panel-artwork .panel-artwork__placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 3rem;
+    color: rgba(255,255,255,0.15);
+}
+.panel-artwork__actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.panel-artwork__actions button {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: var(--font-main);
+}
+.panel-artwork__actions button:hover { border-color: var(--accent); color: var(--accent); }
+.panel-artwork__source {
+    font-size: 0.7rem;
+    color: var(--muted2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.panel-artwork__verified-badge {
+    font-size: 0.68rem;
+    color: var(--accent);
+    border: 1px solid rgba(106,171,138,0.3);
+    border-radius: 3px;
+    padding: 1px 5px;
+}
+
+/* Mála tool button active state */
+.mala__tool.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(106,171,138,0.06);
+}
+
+
+/* =============================================================
+   OVERRIDES — session 3 updates
+   Bigger cards, lightbox as editor
+============================================================= */
+
+/* Grid — driven by --card-min density var.
+   At a given density the cards have a target minimum width; the grid
+   fits as many as it can across the available space at that size.
+   Cards never get *squished* by the panel opening — instead the row
+   simply holds fewer cards. The only case where cards shrink is when
+   --card-min is wider than the container (low density on a narrow
+   viewport) — that's the `min(…, 100%)` clamp. */
+.track-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min, 210px), 100%), 1fr));
+    gap: 18px;
+}
+
+/* Density 1 — the one place a single record fills the screen.
+   Layout becomes horizontal: square artwork on the left, detail panel
+   on the right. The art keeps a 1:1 aspect ratio matched to the card's
+   height, so the whole image is visible (no top/bottom crop).
+   Scoped to :not(.track-panel-open) — once a track panel is open there
+   isn't room for the giant layout, so cards reflow to the normal stacked
+   grid (rule below) and the open track's data lives only in the panel. */
+body[data-density="1"]:not(.track-panel-open) .track-card {
+    display: flex;
+    flex-direction: row;
+    height: calc(100vh - 130px);
+    max-height: calc(100vh - 130px);
+    align-items: stretch;
+}
+body[data-density="1"]:not(.track-panel-open) .track-card__art {
+    aspect-ratio: 1 / 1;
+    height: 100%;
+    width: auto;        /* width follows aspect-ratio from height */
+    flex-shrink: 0;
+}
+body[data-density="1"]:not(.track-panel-open) .track-card__info {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 0;
+}
+body[data-density="1"]:not(.track-panel-open) .track-grid { gap: 14px; }
+body[data-density="1"]:not(.track-panel-open) .track-card__title  { font-size: 1.6rem; }
+body[data-density="1"]:not(.track-panel-open) .track-card__artist { font-size: 1.05rem; color: var(--muted); }
+
+/* Density 1 with a track panel open — no room for the horizontal layout,
+   so the record stacks vertically: artwork on top (shown whole, never
+   cropped), brief info below. Still ONE giant record per row, filling
+   whatever width is free — full width when the place panel is hidden,
+   narrower when the user pulls it out. */
+body[data-density="1"].track-panel-open .track-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+body[data-density="1"].track-panel-open .track-card {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 130px);
+    max-height: calc(100vh - 130px);
+}
+body[data-density="1"].track-panel-open .track-card__art {
+    flex: 1 1 auto;       /* image area takes the height left above the info */
+    aspect-ratio: auto;
+    height: auto;
+    min-height: 0;
+}
+body[data-density="1"].track-panel-open .track-card__info { flex: 0 0 auto; }
+
+/* Density 1 always shows the whole record — never crop the artwork. */
+body[data-density="1"] .track-card__art img { object-fit: contain; }
+
+/* Rich info panel — only rendered at density 1 */
+.deep-album {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin-top: 2px;
+}
+.deep-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 10px;
+}
+.deep-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.84rem;
+    padding: 5px 11px;
+    font-variant-numeric: tabular-nums;
+}
+.deep-chip__muted { color: var(--muted); }
+.deep-chip--key { color: #d4b87a; border-color: rgba(212,184,122,0.4); }
+.deep-chip--bpm { color: var(--accent); border-color: rgba(120,188,150,0.4); }
+.deep-chip--only { color: #d4b87a; border-color: rgba(212,184,122,0.4); font-style: italic; }
+.deep-genres {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    margin-top: 4px;
+}
+.deep-genre {
+    background: rgba(232,210,160,0.08);
+    color: rgba(232,210,160,0.85);
+    font-size: 0.78rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,210,160,0.18);
+}
+.deep-section-h {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-top: 14px;
+}
+.deep-sound { padding: 4px 0 2px; }
+.deep-sound .fp-mini { width: 100%; max-width: 260px; }
+.deep-numbers {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--muted2);
+    margin-top: 6px;
+}
+.deep-footer {
+    margin-top: auto;
+    padding-top: 10px;
+    font-size: 0.74rem;
+    color: var(--muted2);
+}
+.deep-tags {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    margin-top: 4px;
+}
+.deep-tag {
+    background: rgba(120,188,150,0.06);
+    color: var(--accent);
+    border: 1px solid rgba(120,188,150,0.30);
+    font-size: 0.78rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.deep-places {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    margin-top: 4px;
+}
+.deep-place {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    padding: 3px 11px;
+    text-decoration: none;
+    font-family: var(--font-serif);
+    font-style: italic;
+}
+.deep-place:hover { background: rgba(255,255,255,0.05); }
+.deep-stats {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 6px;
+}
+.deep-only-here {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.92rem;
+    color: #d4b87a;
+    background: rgba(245,230,176,0.06);
+    border: 1px solid rgba(212,184,122,0.30);
+    border-radius: var(--radius);
+    padding: 7px 12px;
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+}
+.deep-label {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-top: 2px;
+    font-size: 0.88rem;
+}
+.deep-label__k {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted2);
+}
+.deep-label__v {
+    color: var(--text);
+    font-family: var(--font-serif);
+    font-style: italic;
+}
+.deep-label--self .deep-label__v {
+    color: var(--accent);
+}
+
+/* Self-released quick-set button in the track-panel metadata editor */
+.self-release-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted2);
+    font-family: var(--font-main);
+    font-size: 0.72rem;
+    padding: 2px 9px;
+    margin-left: 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+.self-release-btn:hover { border-color: var(--accent); color: var(--accent); }
+.self-release-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+.edit-field__value.self-release {
+    color: var(--accent);
+    font-style: italic;
+}
+
+/* Density 2 — natural square cards (no viewport-fill), but with
+   overlays visible. */
+body[data-density="2"] .track-card__title  { font-size: 1.1rem; }
+body[data-density="2"] .track-card__artist { font-size: 0.86rem; }
+
+/* Both low-density cards: never crop the image — let bars show on the
+   sides if the artwork isn't square. */
+body[data-density="1"] .track-card__art img,
+body[data-density="2"] .track-card__art img {
+    object-fit: contain;
+}
+
+/* Card overlays — postits / stickers / drawings rendered directly on
+   the artwork at low density so the user sees them at a glance. */
+.track-card__art .card-overlay {
+    position: absolute;
+    pointer-events: none;
+    overflow: hidden;
+}
+.track-card__art .card-overlay--postit {
+    color: #3a2a18;
+    padding: 6%;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 0.66rem;
+    line-height: 1.25;
+    white-space: pre-wrap;
+    border-radius: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+.track-card__art .card-overlay--drawing svg,
+.track-card__art .card-overlay--image img,
+.track-card__art .card-overlay--sticker img {
+    width: 100%; height: 100%; display: block;
+}
+.track-card__art .card-overlay--image img,
+.track-card__art .card-overlay--sticker img {
+    object-fit: contain;
+}
+body[data-density="1"] .track-card__art .card-overlay--postit { font-size: 1.0rem; }
+body[data-density="2"] .track-card__art .card-overlay--postit { font-size: 0.8rem; }
+
+/* List rows still scale top-to-bottom for compactness (density=1 → roomy
+   rows, density=10 → tight rows). Side padding stays stable. */
+.track-table td {
+    padding-top:    calc(9px * var(--row-scale, 1));
+    padding-bottom: calc(9px * var(--row-scale, 1));
+    font-size:      calc(0.86rem * var(--row-scale, 1));
+}
+
+/* Larger card art placeholder initial */
+.track-card__placeholder { font-size: 3.2rem; }
+
+/* Richer card info */
+.track-card__info { padding: 11px 12px 12px; }
+.track-card__title { font-size: 0.88rem; }
+.track-card__artist { font-size: 0.78rem; margin-top: 3px; }
+.track-card__footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 0.68rem;
+    color: var(--muted2);
+    font-family: var(--font-mono);
+    flex-wrap: wrap;
+}
+.track-card__footer span { white-space: nowrap; }
+
+/* ============================================================
+   LIGHTBOX — full-screen sleeve editor
+   Replaces the simple centered box.
+============================================================= */
+
+.artwork-lightbox {
+    flex-direction: column;
+    background: rgba(8,12,9,0.97);
+    align-items: stretch;
+    justify-content: stretch;
+}
+
+.artwork-lightbox__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface);
+}
+
+.artwork-lightbox__track-title {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.artwork-lightbox__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lb-tool-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    padding: 5px 11px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-main);
+    white-space: nowrap;
+}
+.lb-tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+.lb-tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ── Pen tool panel ─────────────────────────────────────────────── */
+.lb-pen-panel {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.lb-pen-swatches { display: inline-flex; gap: 5px; }
+.lb-pen-swatch {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.18);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s, box-shadow 0.12s;
+}
+.lb-pen-swatch:hover { transform: scale(1.12); }
+.lb-pen-swatch.active {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--accent);
+    transform: scale(1.1);
+}
+.lb-pen-widths { display: inline-flex; gap: 3px; }
+.lb-pen-width {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: var(--radius);
+    width: 26px; height: 24px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: all 0.12s;
+}
+.lb-pen-width:hover { border-color: var(--accent); color: var(--accent); }
+.lb-pen-width.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* When pen mode is on, the canvas wrap gets a crosshair cursor and the
+   overlay layer stops intercepting pointer events so the draw layer sees
+   them instead. */
+.cludach-canvas-wrap.pen-mode { cursor: crosshair; touch-action: none; }
+.cludach-canvas-wrap.pen-mode .ov-layer { pointer-events: none; }
+
+/* Drawing overlays — full-canvas SVG sitting on top of artwork.
+   Pointer-events on the SVG itself are off so post-its / stickers
+   underneath are still selectable, but the delete handle stays clickable. */
+.overlay-item.overlay-drawing { pointer-events: none; }
+.overlay-item.overlay-drawing svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+.overlay-item.overlay-drawing .ov-delete { pointer-events: auto; }
+
+/* Scope toggle: All places / This place */
+.lb-scope-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.lb-scope-btn {
+    background: none;
+    border: none;
+    color: var(--muted2);
+    padding: 4px 10px;
+    font-size: 0.73rem;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+    font-family: var(--font-main);
+}
+.lb-scope-btn.active { background: var(--accent-dim); color: var(--accent); }
+.lb-scope-btn + .lb-scope-btn { border-left: 1px solid var(--border); }
+
+/* Override close button — now in header row */
+.artwork-lightbox .artwork-lightbox__close {
+    position: static;
+    width: auto; height: auto;
+    border-radius: var(--radius);
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    top: auto; right: auto;
+}
+
+/* Body area: centers the canvas */
+.artwork-lightbox__body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 12px;
+}
+
+/* Canvas container inside the lightbox — nearly fullscreen so the artwork
+   actually dominates. min(…) keeps it square and within both axes. The
+   header bar takes ~52px; leave a bit of breathing room. */
+.artwork-lightbox .cludach-canvas-wrap {
+    width:  min(calc(100vh - 80px), calc(100vw - 32px));
+    height: min(calc(100vh - 80px), calc(100vw - 32px));
+}
+
+/* Old inner — hide (replaced by header + body layout) */
+.artwork-lightbox__inner {
+    position: relative;
+    width:  min(calc(100vh - 80px), calc(100vw - 32px));
+    height: min(calc(100vh - 80px), calc(100vw - 32px));
+    max-width: none;
+    max-height: none;
+}
+.artwork-lightbox__track-name { display: none; }
+
+/* Place-scoped overlay badge */
+.ov-place-badge {
+    position: absolute;
+    top: -8px; left: 3px;
+    font-size: 0.54rem;
+    background: var(--warning);
+    color: var(--bg);
+    padding: 1px 4px;
+    border-radius: 2px;
+    line-height: 1.3;
+    font-family: var(--font-mono);
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* ── Prototype 1 — the page selector wears the /explore desk aesthetic ───────
+   Every page that isn't a per-place room (those re-skin to the place's own
+   colour, so they're excluded) gets the warm near-black nav: cream/gold
+   wordmark, gold active pill. Mirrors static/css/explore-theme.css so the top
+   bar is consistent app-wide. (David — narrow to Prototype 1) */
+/* (colours come from the theme tokens — themes.py — with the dark desk as the fallback) */
+body:not(.is-place):not(.is-well) .nav{
+  background:var(--nav-bg, rgba(16,14,10,.92)) !important;
+  border-bottom:1px solid var(--border, rgba(245,230,176,.12)) !important;
+}
+body:not(.is-place):not(.is-well) .nav__logo,
+body:not(.is-place):not(.is-well) .nav__logo::first-letter{
+  color:var(--gold, #f5e6b0) !important; text-shadow:none !important;
+}
+body:not(.is-place):not(.is-well) .nav__links a{ color:var(--muted, #9a8c6c) !important; }
+body:not(.is-place):not(.is-well) .nav__links a:hover,
+body:not(.is-place):not(.is-well) .nav__links a.active{
+  color:var(--pill-ink, #1d160d) !important; background:var(--gold, #f5e6b0) !important;
+  border-radius:100px; padding:2px 11px;
+}

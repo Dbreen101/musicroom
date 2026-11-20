@@ -1,0 +1,50 @@
+/* plugins.css — Explore → Plug-ins (static/js/plugins_host.js). The working document:
+   the page colour, ink, hairlines, mono capitals for labels, the serif for names.
+   Every class is pl-…; the page ends where the deck begins (--snt-clear). */
+.pl-view { position: fixed; left: 0; right: 0; top: calc(var(--nav-h, 54px) + var(--ex-top-h, 64px)); bottom: var(--snt-clear, 0px);
+  z-index: 10; display: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg); }
+body.view-plugins .pl-view { display: flex; }
+body.view-plugins .arr, body.view-plugins .ex-dock, body.view-plugins .navhint, body.view-plugins .stage, body.view-plugins .views--sub,
+body.view-plugins .empty, body.view-plugins #btn-tune, body.view-plugins #btn-filters, body.view-plugins #btn-sources,
+body.view-plugins .ex-filters { display: none !important; }
+.pl { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); color: var(--text); }
+.pl-list { width: 330px; flex: none; overflow-y: auto; padding: 14px 18px 24px 22px; border-right: 1px solid var(--border);
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+.pl-lede { margin: 0 0 6px; font-size: .68rem; line-height: 1.6; color: var(--muted); }
+.pl-k { margin: 16px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: .58rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); }
+.pl-none { margin: 0 0 8px; font-size: .66rem; line-height: 1.6; color: var(--muted); }
+.pl-card { padding: 10px 0 12px; border-bottom: 1px solid var(--border); }
+.pl-card__n { font-family: var(--f-display, Georgia, serif); font-size: 1.32rem; line-height: 1.1; }
+.pl-card__s { margin-top: 2px; font-size: .6rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pl-mark { display: inline-block; margin-top: 6px; padding: 2px 5px; border: 1px solid var(--border2); font-size: .54rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); }
+.pl-mark--yours { border-color: var(--red); color: var(--text); }
+.pl-card__d { margin: 8px 0 0; font-size: .68rem; line-height: 1.6; }
+.pl-card__w { margin: 6px 0 0; font-size: .64rem; line-height: 1.55; color: var(--muted); }
+.pl-card__w span { display: block; font-size: .54rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text); }
+.pl-card__acts { display: flex; gap: 6px; margin-top: 10px; }
+.pl-card.is-open .pl-card__n { text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.pl-card.is-broken .pl-card__d { color: var(--muted); }
+.pl-btn { appearance: none; padding: 6px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+  font: inherit; font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.pl-btn:hover, .pl-btn:focus-visible { border-color: var(--text); outline: none; }
+.pl-btn--go { background: var(--text); border-color: var(--text); color: var(--bg); }
+.pl-btn:disabled { color: var(--muted); cursor: default; }
+.pl-link { appearance: none; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: .6rem; letter-spacing: .08em;
+  text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); cursor: pointer; }
+.pl-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 14px; }
+.pl-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl-bar { display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 18px; border-bottom: 1px solid var(--border); flex: none; }
+.pl-bar__n { font-family: var(--f-display, Georgia, serif); font-size: 1.2rem; line-height: 1.1; }
+.pl-bar__say { flex: 1; min-width: 0; font-size: .64rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-x { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 0; background: none; color: var(--text);
+  font-size: .7rem; cursor: pointer; }
+.pl-x:hover, .pl-x:focus-visible { border-color: var(--text); outline: none; }
+.pl-frame-wrap { flex: 1; min-height: 0; }
+.pl-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--bg); }
+.pl-empty { margin: auto; padding: 20px; font-size: .7rem; color: var(--muted); }
+@media (max-width: 860px) {
+  body.view-plugins .pl-view { flex-direction: column; }
+  .pl-list { width: auto; max-height: 42%; border-right: 0; border-bottom: 1px solid var(--border); }
+}

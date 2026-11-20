@@ -1,0 +1,138 @@
+# =============================================================
+# Music Room — .gitignore
+#
+# Rule of thumb: track CODE, never DATA.
+# Anything personal (your library, tokens, notes, media) or
+# regenerable (venv, builds, caches) stays out of git.
+# =============================================================
+
+# ---- Database (holds API tokens AND your personal curation) ----
+# NEVER commit. schema.py defines the structure; the data is private.
+library.db
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+
+# ---- Python runtime ----
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Native app build artifacts (huge, regenerable via native/build.sh) ----
+native/build/
+native/dist/
+native/bin/
+# Intel build toolchain + artifacts (regenerable via native/build-intel.sh)
+native/build-intel/
+native/dist-intel/
+native/bin-x86/
+native/pyx86/
+venv-x86/
+# Baked tester-build config (the feedback URL never enters git)
+native/baked_env.py
+*.app/
+*.spec.bak
+
+# ---- User data / media (personal, large, machine-specific) ----
+# These dirs hold YOUR uploads & generated files. The empty dirs are
+# recreated at runtime by mr_paths.ensure_data_dirs().
+static/artwork/
+static/artwork_thumbs/
+static/room_canvas/
+static/artwork_candidates/
+static/moodboard/
+static/ambient/
+static/overlay_images/
+static/stickers/
+static/research/
+voice_notes/
+recordings/
+exports/
+backups/
+"Removed from Music Room"/
+Removed from Music Room/
+
+# ---- Generated / exported data files ----
+*.xlsx
+*.xml
+music_room.xml
+
+# ---- Secrets / local config (in case any are ever added) ----
+.env
+.env.*
+secrets.json
+*.key
+*.pem
+
+# ---- OS / editor noise ----
+.DS_Store
+.AppleDouble
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.log
+
+# =============================================================
+# Intentionally TRACKED (do not ignore — these are the project):
+#   *.py  templates/  static/css/  static/js/  static/textures/
+#   static/analysis_section.html  schema.py  start.sh  native/*.py
+#   native/*.spec  native/*.sh  native/README.md  *.md
+# =============================================================
+
+# recovery artifact (2026-06-02 relink) — local only
+recovery_relink_log.json
+library.db.before_stage_cleanup
+stage_manifest.json
+integrity_report.json
+scan_integrity.py
+corrupt_cleanup_log.json
+integrity_scan.log
+dedupe_merge_log.json
+import_journals/
+key_rekey_backup.json
+
+# DB safety snapshots (any variant) + the 3D model experiments (huge binaries)
+library.db.before_*
+*.db.before_*
+static/lab/
+*.glb
+
+# Seinnteoir's persisted cue (per-machine runtime state, restored on launch)
+seinnteoir_queue.json
+seinnteoir_queue.json.tmp
+
+# Explore stream cache — downloaded mixes/podcasts the player plays (regenerable)
+explore_audio_cache/
+
+# Playback transcode cache — OGG copies of M4A/AAC so pygame can play them (regenerable)
+playback_transcode/
+
+# Source-catalogue per-install state — user reports + weekly link-health results
+catalogue_state.json
+catalogue_state.json.tmp
+green_room.db
+green_room/
+green_room_dev.db
+gr_dev_pool/
+green_room_dev_art/
+green_room_art/
+green_room_dev_assets/
+green_room_assets/
+green_room_dev_uploads/
+green_room_uploads/
+
+# The public list of AI-made artists, fetched by each copy (ai_flags.py) — never committed
+ai_artists_spotify.txt
+ai_artists_spotify.txt.tmp

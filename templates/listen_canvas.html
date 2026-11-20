@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mind map — Music Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="/static/css/record_fonts.css">
+<style>
+  /* The mind-map lens: moments as cards the user arranges; note_links drawn
+     between them. The USER places everything — nothing is auto-laid-out. */
+  html, body { height: 100%; overflow: hidden; }
+  :root { --spring: cubic-bezier(.34,1.45,.5,1); }   /* lands softly */
+
+  /* THE CANVAS in the EXPLORE register — a dark content surface, Inter type,
+     gold the one accent. Scoped to the canvas elements so the shared light nav
+     above stays untouched (matches /listen). */
+  .cv-bar, #cv, .cv-panel, .cv-linkpop, .cv-empty, .cv-hint, .cv-bgpop, .cv-addpop {
+    --bg:       #12100c;
+    --surface:  #1b1610;          /* a touch warmer + lighter than the desk: cards sit just over the table */
+    --surface2: rgba(255,255,255,0.06);
+    --text:     #efe6cf;
+    --muted:    #9a8c6c;
+    --border:   rgba(255,255,255,0.09);
+    --accent:   #f5e6b0;
+    --gold:     #f5e6b0;
+    --cv-bg:    #1a1611;          /* the BOARD ground — flat + warm; the user can re-tone this per map */
+  }
+
+  .cv-bar { position: fixed; top: 53px; left: 0; right: 0; z-index: 40;
+    display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--border); }
+  .cv-bar__title { font-family: var(--font-celtic, serif); font-size: 1.05rem; color: var(--text); }
+  .cv-lens { display: flex; gap: 4px; margin-left: 4px; }
+  .cv-lens a { padding: 6px 15px; border-radius: 100px; font-size: .82rem; text-decoration: none;
+    color: var(--muted); border: 1px solid var(--border); transition: all .22s var(--spring); }
+  .cv-lens a.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cv-lens a:not(.active):hover { color: var(--text); border-color: var(--muted);
+    transform: translateY(-1px); }
+  .cv-search { padding: 7px 15px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-family: inherit; font-size: .85rem; width: 190px;
+    transition: border-color .15s ease; }
+  .cv-search:focus { border-color: var(--gold); outline: none; }
+  .cv-threads { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; max-width: 42vw;
+    padding: 2px; }
+  .cv-thread { padding: 5px 14px; border-radius: 100px; font-size: .78rem; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    white-space: nowrap; display: flex; align-items: center; gap: 7px;
+    transition: all .22s var(--spring); }
+  .cv-thread:hover { transform: translateY(-1px); }
+  .cv-thread:active { transform: scale(.95); }
+  .cv-thread__dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .cv-thread.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 3px 10px rgba(168,130,44,.25);
+    background: color-mix(in srgb, var(--gold) 12%, var(--surface2)); }
+  .cv-bar__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .cv-count { font-size: .76rem; color: var(--muted); white-space: nowrap; }
+  .cv-fit { padding: 6px 15px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; font-family: inherit; font-size: .82rem;
+    transition: all .22s var(--spring); }
+  .cv-fit:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .cv-fit:active { transform: scale(.95); }
+  .cv-hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 30;
+    font-size: .74rem; color: var(--muted); pointer-events: none; opacity: .85; }
+
+  /* viewport + world */
+  #cv { position: fixed; left: 0; right: 0; top: 99px; bottom: 0; overflow: hidden;
+    cursor: grab; }
+  #cv.panning { cursor: grabbing; }
+  #cv-world { position: absolute; left: 0; top: 0; width: 0; height: 0;
+    transform-origin: 0 0; }
+  #cv-links { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+  #cv-links path.link { fill: none; stroke: var(--muted); stroke-width: 2; opacity: .5;
+    stroke-linecap: round; }
+  #cv-links path.hit { fill: none; stroke: transparent; stroke-width: 16; cursor: pointer; }
+  #cv-links g.sel path.link { stroke: var(--gold); opacity: 1; stroke-width: 2.6; }
+  #cv-links text { font-size: 11px; fill: var(--muted); font-style: italic; paint-order: stroke;
+    stroke: var(--bg); stroke-width: 3px; cursor: pointer; }
+  #cv-links g.dim { opacity: .1; }
+  #cv-links path.ghost { fill: none; stroke: var(--gold); stroke-dasharray: 5 5; stroke-width: 1.8; }
+
+  /* moment cards — things you pick up and set down */
+  .mnode { position: absolute; width: 232px; background: var(--surface);
+    border: 1px solid var(--border); border-left-width: 3px; border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(46,39,24,.14); cursor: grab; user-select: none;
+    transition: box-shadow .22s var(--spring), transform .22s var(--spring); }
+  .mnode:hover { box-shadow: 0 8px 22px rgba(46,39,24,.18); transform: translateY(-2px); }
+  .mnode.dragging { cursor: grabbing; box-shadow: 0 18px 40px rgba(46,39,24,.3); z-index: 5;
+    transform: scale(1.035) rotate(.4deg); }
+  /* set down: a little settle so the drop reads as landing, not stopping */
+  @keyframes mnode-settle { 0% { transform: scale(1.03); } 55% { transform: scale(.99); } 100% { transform: none; } }
+  .mnode.settled { animation: mnode-settle .3s var(--spring); }
+  .mnode.dim { opacity: .14; pointer-events: none; }
+  .mnode.expanded { width: 340px; z-index: 4; }
+  @keyframes mnode-focus { 0%,100%{ box-shadow: 0 3px 12px rgba(46,39,24,.18); }
+    50%{ box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold, #a8822c) 55%, transparent); } }
+  .mnode.focus { animation: mnode-focus 1.3s ease 2; }
+  .mnode__head { display: flex; gap: 9px; padding: 9px 10px 6px; align-items: center; }
+  .mnode__art { width: 42px; height: 42px; border-radius: 5px; object-fit: cover; flex: 0 0 auto;
+    background: var(--surface2); }
+  .mnode__who { min-width: 0; flex: 1; }
+  .mnode__track { font-size: .84rem; color: var(--text); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; line-height: 1.25; }
+  .mnode__artist { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  .mnode__play { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; flex: 0 0 auto;
+    font-size: .74rem; display: flex; align-items: center; justify-content: center;
+    transition: all .22s var(--spring); }
+  .mnode__play:hover { border-color: var(--gold); color: var(--gold); transform: scale(1.12); }
+  .mnode__play:active { transform: scale(.9); }
+  .mnode__play.playing { background: var(--gold); color: #2e2718; border-color: var(--gold); }
+  .mnode__body { padding: 0 11px 9px; }
+  .mnode__ts { font-family: var(--font-mono, monospace); font-size: .68rem; color: var(--gold);
+    background: color-mix(in srgb, var(--gold) 12%, transparent); border-radius: 5px;
+    padding: 1px 6px; display: inline-block; margin-bottom: 4px; }
+  .mnode__cat { font-size: .68rem; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 6px; display: inline-block; margin-left: 4px; }
+  .mnode__text { font-size: .82rem; color: var(--text); line-height: 1.42;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .mnode.expanded .mnode__text { display: block; -webkit-line-clamp: unset; }
+  .mnode__detail { font-size: .78rem; color: var(--muted); line-height: 1.45; margin-top: 7px;
+    border-top: 1px dashed var(--border); padding-top: 7px; white-space: pre-wrap; }
+  .mnode__props { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .mnode__prop { font-size: .66rem; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 6px; }
+  .mnode__threads { display: flex; gap: 4px; padding: 0 11px 8px; }
+  .mnode__tdot { width: 8px; height: 8px; border-radius: 50%; }
+  .mnode__link { position: absolute; right: -13px; top: -13px; width: 28px; height: 28px;
+    border-radius: 50%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); font-size: .9rem; line-height: 25px; text-align: center;
+    cursor: crosshair; opacity: 0; transform: scale(.6);
+    transition: all .22s var(--spring); }
+  .mnode:hover .mnode__link { opacity: 1; transform: scale(1); }
+  .mnode__link:hover { border-color: var(--gold); color: var(--gold); transform: scale(1.15); }
+  .mnode__notes { border: 1px solid var(--border); background: var(--surface2); color: var(--accent);
+    border-radius: 7px; padding: 3px 10px; cursor: pointer; font-family: inherit; font-size: .74rem; }
+  .mnode__notes:hover { border-color: var(--accent); }
+  .mnode.linkable { outline: 2px dashed var(--gold); outline-offset: 3px; }
+  /* a research card (artist/label/venue/genre) reads distinctly from a moment */
+  .enode { border-left: 3px solid var(--gold) !important; }
+  .enode__kind { font-family: var(--font-mono, monospace); font-size: .58rem; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--gold); }
+  .enode__initial { display: grid; place-items: center; color: #1d160d; font-family: var(--font-serif, serif);
+    font-size: 1.1rem; }
+  /* kind-coded forms — each research kind carries its own quiet shape language,
+     so a busy map reads at a glance without a label: */
+  .enode--artist .mnode__art { border-radius: 50%; }                                 /* a portrait */
+  .enode--label  .mnode__art { border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(245,230,176,.20); }  /* a record sleeve */
+  .enode--venue  .mnode__art { border-radius: 3px; clip-path: polygon(50% 0%, 100% 38%, 100% 100%, 0% 100%, 0% 38%); }  /* a building */
+  .enode--venue  .enode__initial { place-items: end center; padding-bottom: 4px; }
+  .enode--genre  .enode__swatch { width: 13px; height: 42px; border-radius: 3px; }    /* type-only: a swatch + the word */
+  .enode--genre  .mnode__track { font-family: var(--font-serif, serif); font-size: 1.02rem; line-height: 1.15; }
+  .link.link--r { stroke: var(--gold); opacity: .9; }
+  .enode__rm { position: absolute; left: -10px; top: -10px; width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer;
+    font-size: .7rem; line-height: 1; opacity: 0; transition: opacity .15s ease; z-index: 6; }
+  .mnode.enode:hover .enode__rm { opacity: 1; }
+  .enode__rm:hover { color: #d98a6a; border-color: #d98a6a; }
+  .cv-mapsel { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 100px;
+    padding: 5px 11px; font-family: inherit; font-size: .78rem; outline: none; cursor: pointer; max-width: 200px; }
+  /* add-a-card picker */
+  .cv-addpop { position: fixed; z-index: 50; width: 286px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px; box-shadow: 0 16px 44px rgba(0,0,0,.4); display: none; }
+  .cv-addpop.open { display: block; }
+  .cv-addpop input, .cv-addpop select { width: 100%; box-sizing: border-box; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-family: inherit; font-size: .82rem; outline: none; }
+  .cv-addpop__matches { max-height: 200px; overflow-y: auto; margin: 7px 0; }
+  .cv-addpop__m { padding: 6px 9px; border-radius: 7px; cursor: pointer; font-size: .82rem; display: flex;
+    justify-content: space-between; gap: 8px; color: var(--text); }
+  .cv-addpop__m:hover { background: var(--surface2); }
+  .cv-addpop__m .k { font-family: var(--font-mono, monospace); font-size: .56rem; color: var(--muted); text-transform: uppercase; }
+  .cv-addpop__empty { color: var(--muted); font-size: .76rem; font-style: italic; padding: 6px 9px; }
+  .cv-addpop__row { display: flex; gap: 6px; }
+  .cv-addpop__row select { flex: 1; }
+  .cv-addpop__row button { flex: 0 0 auto; cursor: pointer; background: var(--gold); color: #1d160d; border: none;
+    border-radius: 8px; padding: 7px 11px; font-family: inherit; font-size: .78rem; font-weight: 600; }
+
+  /* link label editor */
+  @keyframes cv-pop-in { from { opacity: 0; transform: scale(.92) translateY(5px); } to { opacity: 1; transform: none; } }
+  .cv-linkpop { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 14px 36px rgba(46,39,24,.28); padding: 9px; display: none;
+    gap: 6px; align-items: center; animation: cv-pop-in .26s var(--spring); }
+  .cv-linkpop input { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-family: inherit; font-size: .8rem; width: 200px; }
+  .cv-linkpop button { padding: 6px 13px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; font-family: inherit; font-size: .78rem;
+    transition: all .22s var(--spring); }
+  .cv-linkpop button:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .cv-linkpop .danger:hover { border-color: #9c3b2c; color: #9c3b2c; }
+
+  /* the in-canvas note panel — edit a moment without leaving the canvas */
+  .cv-panel { position: fixed; right: 0; top: 99px; bottom: 0; width: 360px; z-index: 50;
+    background: var(--surface); border-left: 1px solid var(--border);
+    border-top-left-radius: 18px;
+    box-shadow: -14px 0 40px rgba(46,39,24,.16); padding: 18px 18px 24px;
+    overflow-y: auto; transform: translateX(104%); transition: transform .36s var(--spring); }
+  .cv-panel.open { transform: none; }
+  .cv-panel__close { position: absolute; top: 10px; right: 12px; border: none; background: none;
+    color: var(--muted); cursor: pointer; font-size: .95rem; }
+  .cv-panel__close:hover { color: var(--text); }
+  .cv-panel__head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .cv-panel__art { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: var(--surface2);
+    box-shadow: 0 4px 14px rgba(46,39,24,.18); }
+  .cv-panel__track { font-size: 1rem; color: var(--text); line-height: 1.3; }
+  .cv-panel__artist { font-size: .82rem; color: var(--muted); }
+  .cv-panel__ts { font-family: var(--font-mono, monospace); font-size: .76rem; color: var(--gold, #a8822c);
+    margin-top: 4px; display: flex; gap: 8px; align-items: center; }
+  .cv-mini { border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    border-radius: 100px; padding: 4px 12px; cursor: pointer; font-family: inherit; font-size: .76rem;
+    transition: all .22s var(--spring); }
+  .cv-mini:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .cv-mini:active { transform: scale(.95); }
+  .cv-panel__label { display: block; font-size: .68rem; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--muted); margin: 12px 0 5px; }
+  .cv-panel__text { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface2); color: var(--text); font-family: inherit; font-size: .86rem;
+    line-height: 1.45; padding: 9px 11px; resize: vertical; }
+  .cv-panel__props { display: flex; flex-wrap: wrap; gap: 5px; }
+  .cv-panel__prop { font-size: .72rem; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 7px; display: inline-flex; gap: 6px; align-items: center; }
+  .cv-panel__prop button { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; }
+  .cv-panel__prop button:hover { color: #9c3b2c; }
+  .cv-panel__addprop { display: flex; gap: 6px; margin-top: 7px; }
+  .cv-panel__addprop input { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--surface2); color: var(--text); font-family: inherit; font-size: .78rem; padding: 5px 9px; }
+  .cv-panel__foot { margin-top: 18px; }
+  .cv-panel__foot a { font-size: .78rem; color: var(--accent); }
+  .cv-panel__inline { width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+    border-radius: 7px; background: var(--surface2); color: var(--text); font-family: inherit;
+    font-size: .8rem; padding: 6px 9px; }
+  .cv-player { display: flex; gap: 8px; align-items: center; }
+  .cv-player__time { font-family: var(--font-mono, monospace); font-size: .72rem;
+    color: var(--muted); min-width: 70px; }
+  .cv-player input[type=range] { flex: 1; accent-color: var(--accent); }
+  /* this track's other saved moments, laid on the timeline */
+  .cv-markers { position: relative; height: 22px; margin-top: 2px; }
+  .cv-marker { position: absolute; top: 0; transform: translateX(-50%); width: 16px; height: 20px;
+    cursor: pointer; border: none; background: none; padding: 0; }
+  .cv-marker::before { content: ''; display: block; width: 4px; height: 14px; margin: 0 auto;
+    border-radius: 3px; background: var(--gold, #a8822c); opacity: .65;
+    transition: all .18s var(--spring); }
+  .cv-marker:hover::before, .cv-marker.current::before { opacity: 1; width: 7px; height: 16px; }
+  .cv-marker.current::before { background: var(--accent); }
+  .cv-panel__threads { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .cv-panel__thread { font-size: .74rem; border: 1px solid var(--border); border-radius: 100px;
+    padding: 4px 12px; display: inline-flex; gap: 7px; align-items: center; color: var(--text);
+    background: var(--surface2); }
+  .cv-panel__thread .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .cv-panel__thread button { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; }
+  .cv-panel__thread button:hover { color: #9c3b2c; }
+
+  .cv-empty { position: fixed; inset: 99px 0 0 0; display: flex; align-items: center;
+    justify-content: center; color: var(--muted); font-size: .95rem; text-align: center;
+    pointer-events: none; padding: 0 20vw; line-height: 1.6; }
+
+  /* THE BOARD GROUND — flat, warm, a worn table. Depth comes from a faint desk
+     texture + (optional) a background image that parallaxes behind the cards —
+     never a centre glow. The whole ground re-tones off --cv-bg (user-themeable). */
+  #cv { background-color: var(--cv-bg); }
+  #cv-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  #cv-bg__tex { position: absolute; inset: -30%; transform-origin: 0 0; will-change: transform;
+    background-image: radial-gradient(rgba(245,235,205,.035) 1px, transparent 1.5px);
+    background-size: 30px 30px; }
+  #cv-bg__img { position: absolute; inset: -12%; transform-origin: center; will-change: transform;
+    background-size: cover; background-position: center; opacity: 0; transition: opacity .5s ease;
+    filter: saturate(.72) brightness(.5) contrast(.96); }
+  #cv-bg__scrim { position: absolute; inset: 0; opacity: 0; transition: opacity .4s ease;
+    background: color-mix(in srgb, var(--cv-bg) var(--cv-scrim, 62%), transparent); }
+  #cv-bg__vig { position: absolute; inset: 0; opacity: 0; transition: opacity .4s ease;   /* edges only — no centre orb */
+    background: radial-gradient(125% 125% at 50% 50%, transparent 56%, var(--cv-bg) 100%); }
+  #cv.has-bg-img #cv-bg__img, #cv.has-bg-img #cv-bg__scrim, #cv.has-bg-img #cv-bg__vig { opacity: 1; }
+  #cv-world { z-index: 1; }
+  /* over a photo, lift the cards off the image — solid surface + deeper shadow, NEVER blur */
+  #cv.has-bg-img .mnode { background: color-mix(in srgb, var(--surface) 94%, #000 6%);
+    box-shadow: 0 6px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(245,230,176,.06); }
+  #cv.has-bg-img #cv-links { filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  /* card titles take Fraunces — the serif is the actor on this board */
+  .mnode__track { font-family: "Fraunces", var(--font-serif, 'EB Garamond'), serif; font-size: 1.02rem; }
+  /* category temperature bands — the kind reads off a desaturated warm left edge */
+  .enode--artist { border-left-color: hsl(38 55% 58%) !important; }
+  .enode--label  { border-left-color: hsl(34 30% 52%) !important; }
+  .enode--venue  { border-left-color: hsl(18 40% 52%) !important; }
+  .enode--genre  { border-left-color: hsl(50 26% 52%) !important; }
+  /* the background-tone control */
+  .cv-bgpop { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px; width: 264px; box-shadow: 0 16px 40px rgba(0,0,0,.55);
+    display: none; }
+  .cv-bgpop.open { display: block; }
+  .cv-bgpop__lbl { font-family: var(--font-mono, monospace); font-size: .58rem; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; }
+  .cv-bgpop__row + .cv-bgpop__lbl { margin-top: 15px; }
+  .cv-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cv-swatch { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+    cursor: pointer; padding: 0; transition: transform .18s var(--spring); }
+  .cv-swatch:hover { transform: scale(1.12); }
+  .cv-swatch.on { box-shadow: 0 0 0 2px var(--gold); border-color: var(--gold); }
+  .cv-hue { width: 100%; margin: 10px 0 2px; accent-color: var(--gold); }
+  .cv-bgpop__row { display: flex; gap: 8px; align-items: center; }
+  .cv-bgbtn { flex: 1; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; font-family: inherit; font-size: .76rem;
+    transition: all .18s var(--spring); text-align: center; }
+  .cv-bgbtn:hover { border-color: var(--gold); }
+  .cv-bgbtn.danger:hover { border-color: #d4756a; color: #d4756a; }
+  .cv-presence { display: flex; gap: 4px; }
+  .cv-presence button { flex: 1; padding: 5px 0; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); cursor: pointer; font-family: var(--font-mono, monospace);
+    font-size: .62rem; }
+  .cv-presence button.on { border-color: var(--gold); color: var(--gold); }
+  .cv-bar__title { font-family: var(--font-serif, 'EB Garamond', serif); font-style: italic; color: var(--gold); }
+  .cv-lens a.active { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+  .mnode { box-shadow: 0 3px 12px rgba(0,0,0,.42); }
+  .mnode:hover { box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  .mnode.dragging { box-shadow: 0 20px 44px rgba(0,0,0,.6); }
+  .cv-panel { box-shadow: -16px 0 44px rgba(0,0,0,.5); }
+  .cv-linkpop { box-shadow: 0 16px 40px rgba(0,0,0,.55); }
+  .cv-panel__art { box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  .mnode__notes:hover { color: var(--gold); }
+  .cv-linkpop .danger:hover, .cv-panel__prop button:hover, .cv-panel__thread button:hover { color: #d4756a; border-color: rgba(212,117,106,0.5); }
+</style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen" class="active">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="cv-bar">
+  <span class="cv-bar__title">Mind map</span>
+  <div class="cv-lens">
+    <a href="/listen">Notes</a>
+    <a class="active" href="/listen/canvas">Mind map</a>
+    <a href="/listen/compose">Compose</a>
+    <a href="/research">Research</a>
+  </div>
+  <input class="cv-search" id="cv-search" placeholder="Search moments…">
+  <div class="cv-threads" id="cv-threads"></div>
+  <div class="cv-bar__right">
+    <select class="cv-mapsel" id="cv-mapsel" title="Switch between your saved maps"></select>
+    <button class="cv-fit" id="cv-savemap" title="Save this arrangement as a research map">💾 save</button>
+    <span class="cv-count" id="cv-count"></span>
+    <button class="cv-fit" id="cv-addcard" title="Place a research card on the canvas">＋ card</button>
+    <button class="cv-fit" id="cv-bg-btn" title="Background — tone &amp; image">◑ background</button>
+    <button class="cv-fit" id="cv-fit" title="Fit everything in view">⊙ fit</button>
+  </div>
+</div>
+
+<!-- background-tone control: re-tone the board + set an image behind the cards -->
+<div class="cv-bgpop" id="cv-bgpop">
+  <div class="cv-bgpop__lbl">Board tone</div>
+  <div class="cv-swatches" id="cv-swatches"></div>
+  <input type="range" class="cv-hue" id="cv-hue" min="0" max="360" value="35" title="Shift the tone">
+  <div class="cv-bgpop__lbl">Background image</div>
+  <div class="cv-bgpop__row">
+    <button class="cv-bgbtn" id="cv-bg-upload">＋ choose image…</button>
+    <button class="cv-bgbtn danger" id="cv-bg-clear" title="Remove the image">✕</button>
+  </div>
+  <div class="cv-bgpop__lbl" id="cv-presence-lbl" style="display:none;">Image presence</div>
+  <div class="cv-presence" id="cv-presence" style="display:none;">
+    <button data-s="78">subtle</button><button data-s="62" class="on">balanced</button><button data-s="45">bold</button>
+  </div>
+  <input type="file" id="cv-bg-file" accept="image/*" hidden>
+</div>
+
+<div id="cv">
+  <div id="cv-bg" aria-hidden="true">
+    <div id="cv-bg__tex"></div>
+    <div id="cv-bg__img"></div>
+    <div id="cv-bg__scrim"></div>
+    <div id="cv-bg__vig"></div>
+  </div>
+  <div id="cv-world">
+    <svg id="cv-links" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+<div class="cv-empty" id="cv-empty" style="display:none;">
+  No moments yet. Capture moments in Éisteacht (open a track → Éisteacht), then arrange and connect them here.
+</div>
+<div class="cv-hint">drag a card to place it · drag ∞ between cards to connect · click a line to label it · scroll to zoom</div>
+
+<div class="cv-linkpop" id="cv-linkpop">
+  <input id="cv-linkpop-input" placeholder="why are these connected?">
+  <button id="cv-linkpop-save">Save</button>
+  <button class="danger" id="cv-linkpop-del">✕ remove</button>
+</div>
+
+<!-- place a research card (artist/label/venue/genre) on the canvas -->
+<div class="cv-addpop" id="cv-addpop">
+  <input id="cv-addpop-search" placeholder="Artist, label, venue or genre…" autocomplete="off">
+  <div class="cv-addpop__matches" id="cv-addpop-matches"></div>
+  <div class="cv-addpop__row">
+    <select id="cv-addpop-kind">
+      <option value="artist">Artist</option><option value="label">Label</option>
+      <option value="venue">Venue</option><option value="genre">Genre</option>
+    </select>
+    <button id="cv-addpop-go">＋ add new</button>
+  </div>
+</div>
+
+<!-- the moment, editable, without leaving the canvas -->
+<aside class="cv-panel" id="cv-panel">
+  <button class="cv-panel__close" id="cv-panel-close">✕</button>
+  <div class="cv-panel__head">
+    <img class="cv-panel__art" id="cv-panel-art" alt="">
+    <div>
+      <div class="cv-panel__track" id="cv-panel-track"></div>
+      <div class="cv-panel__artist" id="cv-panel-artist"></div>
+      <div class="cv-panel__ts"><span id="cv-panel-ts"></span> <button class="cv-mini" id="cv-panel-play">▶ play</button>
+        <button class="cv-mini" id="cv-panel-open" style="display:none;">↗ open</button></div>
+    </div>
+  </div>
+  <div id="cv-panel-listen">
+    <label class="cv-panel__label">Listen</label>
+    <div class="cv-player">
+      <button class="cv-mini" id="cv-pp">▶</button>
+      <span class="cv-player__time" id="cv-time">0:00</span>
+      <input type="range" id="cv-scrub" min="0" max="1000" value="0">
+    </div>
+    <div class="cv-markers" id="cv-markers"></div>
+  </div>
+
+  <div style="display:flex; gap:8px; margin-top:10px;">
+    <div style="flex:1;">
+      <label class="cv-panel__label" style="margin-top:0;">Type</label>
+      <input class="cv-panel__inline" id="cv-panel-cat" list="cv-cats" placeholder="e.g. Rhythm">
+      <datalist id="cv-cats"></datalist>
+    </div>
+    <div id="cv-panel-tscol">
+      <label class="cv-panel__label" style="margin-top:0;">Timestamp</label>
+      <input class="cv-panel__inline" id="cv-panel-tsedit" placeholder="m:ss" style="width:72px;">
+    </div>
+  </div>
+
+  <label class="cv-panel__label">Threads</label>
+  <div class="cv-panel__threads" id="cv-panel-threads"></div>
+  <input class="cv-panel__inline" id="cv-panel-thread-add" list="cv-threads-dl" placeholder="add to a thread (new or existing)…">
+  <datalist id="cv-threads-dl"></datalist>
+
+  <label class="cv-panel__label">Moment</label>
+  <textarea class="cv-panel__text" id="cv-panel-note" rows="4"></textarea>
+  <label class="cv-panel__label">Detail</label>
+  <textarea class="cv-panel__text" id="cv-panel-detail" rows="7" placeholder="the longer page beneath this moment…"></textarea>
+  <label class="cv-panel__label">Fields</label>
+  <div class="cv-panel__props" id="cv-panel-props"></div>
+  <div class="cv-panel__addprop">
+    <input id="cv-panel-prop-name" placeholder="field">
+    <input id="cv-panel-prop-value" placeholder="value">
+    <button class="cv-mini" id="cv-panel-prop-add">＋</button>
+  </div>
+  <div class="cv-panel__foot" style="display:flex; justify-content:space-between; align-items:center;">
+    <a href="/listen" id="cv-panel-openlisten">open in Listen ↗</a>
+    <button class="cv-mini" id="cv-panel-delete" style="color:#9c3b2c; border-color:#9c3b2c55;">delete moment</button>
+  </div>
+</aside>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtTs = s => { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+
+let notes = [], links = [], threads = [];
+let entities = [], rlinks = [];     // research CARDS placed on the canvas + their connections
+let mapId = null, mapMode = false, curMap = null, allMaps = [], allEnts = [], allNotes = [];  // saved maps
+const nodeEls = new Map();          // note id -> card element
+const entEls  = new Map();          // entity id -> card element
+// every canvas node carries a kind ('note' | 'entity'); these resolve either
+const getEl  = (nk, id) => nk === 'entity' ? entEls.get(id) : nodeEls.get(id);
+const getObj = (nk, id) => nk === 'entity' ? entities.find(e => e.id === id) : notes.find(m => m.id === id);
+let view = { tx: 0, ty: 0, s: 1 };  // pan/zoom
+let activeThreads = new Set(), searchQ = '';
+let bgColour = null, bgImage = null, bgScrim = 62;   // the board's own background — a tone + an optional image
+
+const cv = document.getElementById('cv');
+const world = document.getElementById('cv-world');
+const svg = document.getElementById('cv-links');
+const bgTex = document.getElementById('cv-bg__tex');
+const bgImg = document.getElementById('cv-bg__img');
+
+// ---- view transform ----------------------------------------------------------
+// the board ground parallaxes BEHIND the cards — texture drifts slowly, an image a
+// little faster — so the cards genuinely float over a place. Subtle on purpose.
+function applyView(){
+  world.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.s})`;
+  // texture tiles, so shift its background-position (never reveals an edge); the
+  // image drifts gently — enough for depth, not so far it slides off its own frame.
+  if (bgTex) bgTex.style.backgroundPosition = `${view.tx*0.4}px ${view.ty*0.4}px`;
+  if (bgImg) bgImg.style.transform = `translate(${view.tx*0.06}px, ${view.ty*0.06}px) scale(${1 + (view.s-1)*0.06})`;
+}
+function saveViewSoon(){ clearTimeout(saveViewSoon._t);
+  saveViewSoon._t = setTimeout(()=>{ try{ localStorage.setItem('mr_canvas_view', JSON.stringify(view)); }catch(_){} }, 300); }
+
+// ---- spawn position for never-placed moments (deterministic, NOT saved — the
+// user's drag is the only thing that persists a position) ----------------------
+function spawnXY(note, k){
+  const r = 170 * Math.sqrt(k + 1), th = (k + 1) * 2.39996323;   // golden-angle spiral
+  return { x: 420 + r * Math.cos(th), y: 260 + r * Math.sin(th) };
+}
+
+// ---- data ---------------------------------------------------------------------
+async function load(){
+  const params = new URLSearchParams(location.search);
+  const projectId = parseInt(params.get('project')) || null;
+  mapId = parseInt(params.get('map')) || null;
+  const notesUrl = projectId ? `/api/listen/notes?project_id=${projectId}` : '/api/listen/notes';
+  const [n, l, t, ents, rl, maps] = await Promise.all([
+    fetch(notesUrl).then(r=>r.json()),
+    fetch('/api/note-links').then(r=>r.json()),
+    fetch('/api/threads').then(r=>r.json()),
+    fetch('/api/research/entities').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/research/links').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/research/maps').then(r=>r.json()).catch(()=>[]),
+  ]);
+  if (projectId){
+    const back = document.querySelector('.cv-lens a[href="/listen"]');
+    if (back) back.href = `/listen?project=${projectId}`;        // the lens switch keeps the scope
+  }
+  allMaps = maps || []; allEnts = ents || []; allNotes = n || [];
+  links = l; threads = t; rlinks = rl;
+  links.forEach(x => x._lk = 'note');
+  rlinks.forEach(x => x._lk = 'research');
+
+  if (mapId){
+    // a SAVED MAP — a focused mind-map of cards the curator made + connected,
+    // saved as its own piece of research. Show only this map's cards at its own
+    // positions; the connections drawn are the global research graph among them.
+    mapMode = true;
+    curMap = await fetch('/api/research/map/' + mapId).then(r=>r.json()).catch(()=>null);
+    const pos = new Map(), npos = new Map();          // entity ref → node, note ref → node
+    ((curMap && curMap.nodes) || []).forEach(nd => (nd.kind === 'note' ? npos : pos).set(nd.ref_id, nd));
+    notes = n.filter(m => npos.has(m.id));             // a map holds the cards AND any listening notes pinned to it
+    notes.forEach(m => { m._nk = 'note'; const p = npos.get(m.id); m._x = +p.x || 0; m._y = +p.y || 0; m._placed = true; });
+    entities = allEnts.filter(e => pos.has(e.id));
+    entities.forEach(e => { e._nk = 'entity'; const p = pos.get(e.id); e._x = +p.x || 0; e._y = +p.y || 0; e._placed = true; });
+    document.querySelector('.cv-bar__title').textContent = (curMap && curMap.title) || 'Mind map';
+  } else {
+    // the FREE canvas — the working surface: all notes + any cards placed on it.
+    mapMode = false; curMap = null;
+    notes = n; notes.forEach(m => m._nk = 'note');
+    entities = allEnts.filter(e => e.canvas_x != null && e.canvas_y != null);
+    entities.forEach(e => { e._nk = 'entity'; e._x = e.canvas_x; e._y = e.canvas_y; e._placed = true; });
+    let k = 0;
+    for (const m of notes){
+      if (m.canvas_x == null || m.canvas_y == null){ const p = spawnXY(m, k++); m._x = p.x; m._y = p.y; m._placed = false; }
+      else { m._x = m.canvas_x; m._y = m.canvas_y; m._placed = true; }
+    }
+  }
+  buildMapSelector();
+  await loadBg();
+  buildThreads(); buildNodes(); buildEntities(); drawLinks(); refreshCount();
+  const em = document.getElementById('cv-empty');
+  if (mapMode) em.textContent = 'This map is empty — ＋ card to add artists, labels, venues, genres or your own listening notes, then drag ∞ to connect them.';
+  em.style.display = (notes.length || entities.length) ? 'none' : 'flex';
+  try { const v = JSON.parse(localStorage.getItem('mr_canvas_view') || 'null');
+        if (v && isFinite(v.tx)) { view = v; applyView(); } else fitAll(); }
+  catch(_){ fitAll(); }
+  // deep-link ?focus=<note id> → centre that moment and pulse it
+  const want = parseInt(new URLSearchParams(location.search).get('focus'));
+  const target = want && notes.find(m => m.id === want);
+  if (target){
+    const r = cv.getBoundingClientRect();
+    view.s = Math.max(view.s, 1);
+    const c = nodeCenter(target);
+    view.tx = r.width/2 - c.x*view.s;
+    view.ty = r.height/2 - c.y*view.s;
+    applyView(); saveViewSoon();
+    const el = nodeEls.get(target.id);
+    if (el){ el.classList.add('focus'); setTimeout(()=>el.classList.remove('focus'), 2600); }
+  }
+}
+
+// ---- thread chips --------------------------------------------------------------
+function buildThreads(){
+  const box = document.getElementById('cv-threads');
+  box.innerHTML = '';
+  for (const th of threads){
+    const b = document.createElement('button');
+    b.className = 'cv-thread'; b.dataset.id = th.id;
+    b.innerHTML = `<span class="cv-thread__dot" style="background:${esc(th.colour || 'var(--muted)')}"></span>${esc(th.name)} · ${th.moment_count}`;
+    b.addEventListener('click', ()=>{
+      if (activeThreads.has(th.id)) activeThreads.delete(th.id); else activeThreads.add(th.id);
+      b.classList.toggle('on'); applyFilter();
+    });
+    box.appendChild(b);
+  }
+}
+
+// ---- nodes ----------------------------------------------------------------------
+function nodeHtml(m){
+  const isRef = m.kind === 'reference';
+  // a saved article: its own imagery, its source, and a way OUT to the original
+  const art = isRef
+    ? (m.ref_image_url
+        ? `<img class="mnode__art" src="${esc(m.ref_image_url)}" alt="" onerror="this.style.visibility='hidden'">`
+        : `<span class="mnode__art" style="background:#34557e;"></span>`)
+    : `<img class="mnode__art" src="/api/artwork/${m.track_id}?s=192" alt=""
+                 onerror="this.style.visibility='hidden'">`;
+  const tdots = (m.threads || []).map(t =>
+    `<span class="mnode__tdot" style="background:${esc(t.colour || 'var(--muted)')}" title="${esc(t.name)}"></span>`).join('');
+  const props = (m.properties || []).map(p =>
+    `<span class="mnode__prop">${esc(p.name)}${p.value ? ': ' + esc(p.value) : ''}</span>`).join('');
+  return `
+    <div class="mnode__head">
+      ${art}
+      <div class="mnode__who">
+        <div class="mnode__track">${esc(isRef ? (m.ref_title || 'Untitled') : (m.title || 'Untitled'))}</div>
+        <div class="mnode__artist">${esc(isRef ? (m.ref_source || '') : (m.artist_name || ''))}</div>
+      </div>
+      <button class="mnode__play" title="${isRef ? 'Open the original' : 'Play this moment'}">${isRef ? '↗' : '▶'}</button>
+    </div>
+    <div class="mnode__body">
+      ${isRef ? '' : `<span class="mnode__ts">${fmtTs(m.timestamp_sec)}</span>`}${m.note_category ? `<span class="mnode__cat">${esc(m.note_category)}</span>` : ''}
+      <div class="mnode__text">${esc(m.note_text)}</div>
+      <div class="mnode__more" style="display:none;">
+        ${m.detail_text ? `<div class="mnode__detail">${esc(m.detail_text)}</div>` : ''}
+        ${props ? `<div class="mnode__props">${props}</div>` : ''}
+        <div style="margin-top:7px;"><button class="mnode__notes">notes ✎</button></div>
+      </div>
+    </div>
+    ${tdots ? `<div class="mnode__threads">${tdots}</div>` : ''}
+    <div class="mnode__link" title="Drag to another moment to connect">∞</div>
+    ${mapMode ? '<button class="enode__rm" title="Remove from this map (the note itself stays)">✕</button>' : ''}`;
+}
+function renderNote(m){
+  const el = document.createElement('div');
+  el.className = 'mnode'; el.dataset.id = m.id; el.dataset.kind = 'note';
+  const firstTh = (m.threads || [])[0];
+  if (firstTh && firstTh.colour) el.style.borderLeftColor = firstTh.colour;
+  el.innerHTML = nodeHtml(m);
+  el.style.left = m._x + 'px'; el.style.top = m._y + 'px';
+  world.appendChild(el); nodeEls.set(m.id, el);
+  wireNode(el, m);
+  return el;
+}
+function buildNodes(){ for (const m of notes) renderNote(m); }
+function nodeCenter(o){
+  const el = getEl(o._nk, o.id);
+  return { x: o._x + (el ? el.offsetWidth/2 : 116), y: o._y + (el ? el.offsetHeight/2 : 60) };
+}
+
+// ---- research cards: artist / label / venue / genre, on the canvas --------------
+function entColour(s){ let h=0; for(const c of String(s||'')) h=(h*31+c.charCodeAt(0))>>>0; return `hsl(${h%360},42%,60%)`; }
+function entityHtml(e){
+  const img = e.image_path || e.image_url;
+  const col = entColour(e.name);
+  let art;
+  if (e.kind === 'genre')                                       // type-only: a slim swatch, the genre word is the hero
+    art = `<span class="mnode__art enode__swatch" style="background:${col}"></span>`;
+  else if (img)
+    art = `<img class="mnode__art" src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'">`;
+  else
+    art = `<span class="mnode__art enode__initial" style="background:${col}">${esc((String(e.name||'?').trim()[0]||'?').toUpperCase())}</span>`;
+  const snip = (e.body || '').trim();
+  return `
+    <div class="mnode__head">
+      ${art}
+      <div class="mnode__who">
+        <div class="mnode__track">${esc(e.name)}</div>
+        <div class="mnode__artist enode__kind">${esc(e.kind)}</div>
+      </div>
+      <button class="mnode__play enode__open" title="Open in Research">↗</button>
+    </div>
+    ${snip ? `<div class="mnode__body"><div class="mnode__text">${esc(snip.slice(0,150))}${snip.length>150?'…':''}</div></div>` : ''}
+    <div class="mnode__link" title="Drag to another card to connect">∞</div>
+    ${mapMode ? '<button class="enode__rm" title="Remove from this map (the card itself stays)">✕</button>' : ''}`;
+}
+function renderEntity(e){
+  const el = document.createElement('div');
+  el.className = 'mnode enode enode--' + (e.kind || 'artist'); el.dataset.id = e.id; el.dataset.kind = 'entity';
+  el.innerHTML = entityHtml(e);
+  el.style.left = e._x + 'px'; el.style.top = e._y + 'px';
+  world.appendChild(el); entEls.set(e.id, el); wireEntity(el, e);
+  return el;
+}
+function buildEntities(){ for (const e of entities) renderEntity(e); }
+function wireEntity(el, e){
+  el.addEventListener('click', ev => {
+    if (ev.target.closest('.enode__rm')){ ev.stopPropagation(); removeFromMap(e); return; }
+    if (ev.target.closest('.enode__open')){ ev.stopPropagation(); location.href = '/research?open=' + e.id; }
+  });
+  el.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0) return;
+    ev.stopPropagation();
+    if (ev.target.closest('.enode__open') || ev.target.closest('.enode__rm')) return;
+    if (ev.target.classList.contains('mnode__link')){
+      drag = { mode:'link', from: e, x: ev.clientX, y: ev.clientY };
+      const c = nodeCenter(e);
+      const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      ghost.setAttribute('class', 'ghost'); ghost.id = 'cv-ghost';
+      svg.appendChild(ghost); drag.ghostFrom = c;
+      document.querySelectorAll('.mnode').forEach(x => { if (x !== el) x.classList.add('linkable'); });
+      return;
+    }
+    drag = { mode:'node', obj: e, el, startX: ev.clientX, startY: ev.clientY, ox: e._x, oy: e._y, moved: false };
+    el.classList.add('dragging');
+  });
+}
+function canvasCenterWorld(){ const r = cv.getBoundingClientRect();
+  return { x: (r.width/2 - view.tx)/view.s, y: (r.height/2 - view.ty)/view.s }; }
+async function placeEntity(e){
+  if (entities.find(x => x.id === e.id)){                  // already here → just frame it
+    const el = entEls.get(e.id); if (el){ el.classList.add('focus'); setTimeout(()=>el.classList.remove('focus'),2600); }
+    return;
+  }
+  const c = canvasCenterWorld();
+  e._nk = 'entity'; e._x = c.x; e._y = c.y; e._placed = true;
+  if (mapMode){
+    await fetch('/api/research/map/' + mapId + '/node', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ kind:'entity', ref_id: e.id, x: c.x, y: c.y }) }).catch(()=>{});
+  } else {
+    await fetch('/api/research/entity/' + e.id, { method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ canvas_x: c.x, canvas_y: c.y }) }).catch(()=>{});
+  }
+  entities.push(e); renderEntity(e);
+  rlinks = await fetch('/api/research/links').then(r=>r.json()).catch(()=>rlinks);
+  rlinks.forEach(x => x._lk = 'research');
+  drawLinks(); refreshCount();
+  document.getElementById('cv-empty').style.display = 'none';
+}
+async function placeNote(m){                              // pin an existing listening note onto this map
+  if (!mapMode) return;
+  if (notes.find(x => x.id === m.id)){                    // already pinned → just frame it
+    const el = nodeEls.get(m.id); if (el){ el.classList.add('focus'); setTimeout(()=>el.classList.remove('focus'),2600); }
+    return;
+  }
+  const c = canvasCenterWorld();
+  m._nk = 'note'; m._x = c.x; m._y = c.y; m._placed = true;
+  await fetch('/api/research/map/' + mapId + '/node', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind:'note', ref_id: m.id, x: c.x, y: c.y }) }).catch(()=>{});
+  notes.push(m); renderNote(m);
+  drawLinks(); refreshCount();
+  document.getElementById('cv-empty').style.display = 'none';
+}
+async function removeFromMap(o){
+  if (!mapMode) return;
+  const nk = o._nk || 'entity';
+  await fetch('/api/research/map/' + mapId + '/node', { method:'DELETE', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind: nk, ref_id: o.id }) }).catch(()=>{});
+  const el = getEl(nk, o.id); if (el) el.remove();
+  if (nk === 'note'){ nodeEls.delete(o.id); notes = notes.filter(x => x.id !== o.id); }
+  else { entEls.delete(o.id); entities = entities.filter(x => x.id !== o.id); }
+  drawLinks(); refreshCount();
+}
+
+// ---- links ----------------------------------------------------------------------
+function linkPath(a, b){
+  const dx = Math.max(40, Math.abs(b.x - a.x) * 0.4);
+  return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+}
+function drawLinks(){
+  svg.querySelectorAll('g[data-id]').forEach(g => g.remove());
+  const draw = (lobj, a, b) => {
+    if (!a || !b) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.dataset.id = lobj.id; g.dataset.lk = lobj._lk;
+    const ca = nodeCenter(a), cb = nodeCenter(b), d = linkPath(ca, cb);
+    g.innerHTML = `<path class="link${lobj._lk === 'research' ? ' link--r' : ''}" d="${d}"></path><path class="hit" d="${d}"></path>`
+      + (lobj.label ? `<text x="${(ca.x+cb.x)/2}" y="${(ca.y+cb.y)/2 - 7}" text-anchor="middle">${esc(lobj.label)}</text>` : '');
+    g.querySelector('.hit').addEventListener('click', e => { e.stopPropagation(); openLinkPop(lobj, g, e); });
+    const tx = g.querySelector('text'); if (tx) tx.addEventListener('click', e => { e.stopPropagation(); openLinkPop(lobj, g, e); });
+    svg.appendChild(g);
+  };
+  for (const l of links)  draw(l, getObj('note', l.from_note_id), getObj('note', l.to_note_id));
+  for (const l of rlinks) draw(l, getObj(l.from_kind, l.from_id), getObj(l.to_kind, l.to_id));
+  applyFilter();
+}
+function redrawLinksFor(obj){
+  const move = (g, a, b) => {
+    if (!a || !b) return;
+    const ca = nodeCenter(a), cb = nodeCenter(b), d = linkPath(ca, cb);
+    g.querySelectorAll('path').forEach(p => p.setAttribute('d', d));
+    const t = g.querySelector('text');
+    if (t){ t.setAttribute('x', (ca.x+cb.x)/2); t.setAttribute('y', (ca.y+cb.y)/2 - 7); }
+  };
+  if (obj._nk === 'note') for (const l of links){
+    if (l.from_note_id !== obj.id && l.to_note_id !== obj.id) continue;
+    const g = svg.querySelector(`g[data-lk="note"][data-id="${l.id}"]`);
+    if (g) move(g, getObj('note', l.from_note_id), getObj('note', l.to_note_id));
+  }
+  for (const l of rlinks){
+    if (!((l.from_kind === obj._nk && l.from_id === obj.id) || (l.to_kind === obj._nk && l.to_id === obj.id))) continue;
+    const g = svg.querySelector(`g[data-lk="research"][data-id="${l.id}"]`);
+    if (g) move(g, getObj(l.from_kind, l.from_id), getObj(l.to_kind, l.to_id));
+  }
+}
+
+// link label / delete popover
+const pop = document.getElementById('cv-linkpop');
+let popLink = null;
+function openLinkPop(l, g, ev){
+  popLink = l;
+  svg.querySelectorAll('g.sel').forEach(x => x.classList.remove('sel'));
+  g.classList.add('sel');
+  document.getElementById('cv-linkpop-input').value = l.label || '';
+  pop.style.display = 'flex';
+  pop.style.left = Math.min(innerWidth - 330, ev.clientX + 10) + 'px';
+  pop.style.top = (ev.clientY + 10) + 'px';
+  document.getElementById('cv-linkpop-input').focus();
+}
+function closeLinkPop(){ pop.style.display = 'none'; popLink = null;
+  svg.querySelectorAll('g.sel').forEach(x => x.classList.remove('sel')); }
+document.getElementById('cv-linkpop-save').addEventListener('click', async ()=>{
+  if (!popLink) return;
+  const label = document.getElementById('cv-linkpop-input').value.trim();
+  const url = popLink._lk === 'research' ? `/api/research/link/${popLink.id}` : `/api/note-link/${popLink.id}`;
+  await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ label }) });
+  popLink.label = label || null; closeLinkPop(); drawLinks();
+});
+document.getElementById('cv-linkpop-del').addEventListener('click', async ()=>{
+  if (!popLink) return;
+  const isR = popLink._lk === 'research';
+  await fetch((isR ? `/api/research/link/${popLink.id}` : `/api/note-link/${popLink.id}`), { method:'DELETE' });
+  if (isR) rlinks = rlinks.filter(x => x.id !== popLink.id);
+  else      links  = links.filter(x => x.id !== popLink.id);
+  closeLinkPop(); drawLinks(); refreshCount();
+});
+document.getElementById('cv-linkpop-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('cv-linkpop-save').click();
+  if (e.key === 'Escape') closeLinkPop();
+});
+
+// ---- playback: each moment plays its track AT its timestamp ---------------------
+const player = new Audio();
+// route output to the chosen device where the engine allows it (best-effort)
+if (typeof player.setSinkId === 'function')
+  fetch('/api/settings').then(r=>r.json())
+    .then(s=>{ if (s.audio_output_id) player.setSinkId(s.audio_output_id).catch(()=>{}); })
+    .catch(()=>{});
+let playingNode = null;
+function stopPlaying(){
+  player.pause();
+  if (playingNode){ const b = playingNode.querySelector('.mnode__play');
+    if (b){ b.textContent = '▶'; b.classList.remove('playing'); } playingNode = null; }
+}
+player.addEventListener('ended', stopPlaying);
+function playMoment(m, el){
+  const btn = el.querySelector('.mnode__play');
+  if (playingNode === el && !player.paused){ stopPlaying(); return; }
+  stopPlaying();
+  if (!m.file_id){ btn.textContent = '✕'; setTimeout(()=>btn.textContent='▶', 900); return; }
+  fetch('/api/seinnteoir/pause', { method:'POST' }).catch(()=>{});  // one player at a time
+  player.src = `/audio/${m.file_id}`;
+  player.currentTime = 0;
+  player.play().then(()=>{
+    try { player.currentTime = +m.timestamp_sec || 0; } catch(_){}
+    btn.textContent = '❚❚'; btn.classList.add('playing'); playingNode = el;
+  }).catch(()=>{ btn.textContent = '✕'; setTimeout(()=>btn.textContent='▶', 900); });
+}
+
+// ---- node interactions: drag to place, ∞-drag to connect, click to expand -------
+let drag = null;      // {mode:'node'|'pan'|'link', ...}
+function wireNode(el, m){
+  // delegated, so refreshing the card's innerHTML keeps everything working
+  el.addEventListener('click', e => {
+    if (e.target.closest('.enode__rm')){ e.stopPropagation(); removeFromMap(m); return; }
+    if (e.target.closest('.mnode__play')){ e.stopPropagation();
+      if (m.kind === 'reference') openRef(m); else playMoment(m, el); }
+    if (e.target.closest('.mnode__notes')){ e.stopPropagation(); openNotePanel(m); }
+  });
+  el.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    if (e.target.closest('.mnode__play') || e.target.closest('.mnode__notes') || e.target.closest('.enode__rm')) return;
+    if (e.target.classList.contains('mnode__link')){
+      drag = { mode:'link', from: m, x: e.clientX, y: e.clientY };
+      const c = nodeCenter(m);
+      const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      ghost.setAttribute('class', 'ghost'); ghost.id = 'cv-ghost';
+      svg.appendChild(ghost); drag.ghostFrom = c;
+      document.querySelectorAll('.mnode').forEach(x => { if (x !== el) x.classList.add('linkable'); });
+      return;
+    }
+    drag = { mode:'node', obj: m, el, startX: e.clientX, startY: e.clientY, ox: m._x, oy: m._y, moved: false };
+    el.classList.add('dragging');
+  });
+}
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  closeLinkPop();
+  drag = { mode:'pan', startX: e.clientX, startY: e.clientY, otx: view.tx, oty: view.ty };
+  cv.classList.add('panning');
+});
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (drag.mode === 'pan'){
+    view.tx = drag.otx + (e.clientX - drag.startX);
+    view.ty = drag.oty + (e.clientY - drag.startY);
+    applyView(); saveViewSoon();
+  } else if (drag.mode === 'node'){
+    const dx = (e.clientX - drag.startX)/view.s, dy = (e.clientY - drag.startY)/view.s;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    drag.obj._x = drag.ox + dx; drag.obj._y = drag.oy + dy;
+    drag.el.style.left = drag.obj._x + 'px'; drag.el.style.top = drag.obj._y + 'px';
+    redrawLinksFor(drag.obj);
+  } else if (drag.mode === 'link'){
+    const g = document.getElementById('cv-ghost');
+    if (g){
+      const r = cv.getBoundingClientRect();
+      const wx = (e.clientX - r.left - view.tx)/view.s, wy = (e.clientY - r.top - view.ty)/view.s;
+      g.setAttribute('d', linkPath(drag.ghostFrom, { x: wx, y: wy }));
+    }
+  }
+});
+addEventListener('pointerup', async e => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  cv.classList.remove('panning');
+  if (d.mode === 'node'){
+    d.el.classList.remove('dragging');
+    const o = d.obj;
+    if (d.moved){
+      o._placed = true;
+      d.el.classList.add('settled');                  // the card lands, doesn't just stop
+      setTimeout(()=>d.el.classList.remove('settled'), 340);
+      if (mapMode){                                     // on a map → save this card's spot ON THE MAP (entity or note), not its global position
+        fetch('/api/research/map/' + mapId + '/node', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ kind: o._nk, ref_id: o.id, x: o._x, y: o._y }) }).catch(()=>{});
+      } else {
+        const url = o._nk === 'entity' ? `/api/research/entity/${o.id}` : `/api/listen/note/${o.id}`;
+        fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ canvas_x: o._x, canvas_y: o._y }) }).catch(()=>{});
+      }
+    } else if (o._nk === 'entity'){
+      location.href = '/research?open=' + o.id;        // a click opens its page
+    } else {
+      openNotePanel(o);                                // a click opens the note, ready to work on
+    }
+  } else if (d.mode === 'link'){
+    document.getElementById('cv-ghost')?.remove();
+    document.querySelectorAll('.mnode.linkable').forEach(x => x.classList.remove('linkable'));
+    const target = e.target.closest && e.target.closest('.mnode');
+    if (target){
+      const tnk = target.dataset.kind || 'note', tid = +target.dataset.id;
+      if (!(tnk === d.from._nk && tid === d.from.id)){
+        let lobj = null, g = null;
+        if (d.from._nk === 'note' && tnk === 'note'){
+          // note ↔ note keeps the original note_links graph
+          await fetch('/api/note-links', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ from_note_id: d.from.id, to_note_id: tid }) });
+          links = await fetch('/api/note-links').then(r=>r.json()); links.forEach(x => x._lk = 'note');
+          drawLinks(); refreshCount();
+          lobj = links.find(l => (l.from_note_id===d.from.id && l.to_note_id===tid) || (l.from_note_id===tid && l.to_note_id===d.from.id));
+        } else {
+          // anything touching a research card → the research graph (entity↔entity / entity↔note)
+          const res = await fetch('/api/research/links', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ from_kind: d.from._nk, from_id: d.from.id, to_kind: tnk, to_id: tid }) }).then(r=>r.json());
+          rlinks = await fetch('/api/research/links').then(r=>r.json()); rlinks.forEach(x => x._lk = 'research');
+          drawLinks(); refreshCount();
+          lobj = rlinks.find(l => l.id === (res && res.id));
+        }
+        if (lobj){ g = svg.querySelector(`g[data-lk="${lobj._lk}"][data-id="${lobj.id}"]`); if (g) openLinkPop(lobj, g, e); }
+      }
+    }
+  }
+});
+
+// ---- zoom (toward the cursor) ----------------------------------------------------
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.ctrlKey){                                   // pinch → zoom toward the cursor, properly
+    const r = cv.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const k = Math.exp(-e.deltaY * 0.004);
+    const s2 = Math.min(4, Math.max(0.15, view.s * k));
+    view.tx = mx - (mx - view.tx) * (s2/view.s);
+    view.ty = my - (my - view.ty) * (s2/view.s);
+    view.s = s2;
+  } else {                                          // two fingers → move around the map
+    view.tx -= e.deltaX;
+    view.ty -= e.deltaY;
+  }
+  applyView(); saveViewSoon();
+}, { passive: false });
+
+// ---- fit all ----------------------------------------------------------------------
+function fitAll(){
+  const all = notes.concat(entities);
+  if (!all.length) return;
+  let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  for (const m of all){
+    const el = getEl(m._nk, m.id);
+    x0 = Math.min(x0, m._x); y0 = Math.min(y0, m._y);
+    x1 = Math.max(x1, m._x + (el ? el.offsetWidth : 232));
+    y1 = Math.max(y1, m._y + (el ? el.offsetHeight : 120));
+  }
+  const r = cv.getBoundingClientRect(), pad = 60;
+  const s = Math.min(2, Math.max(0.2, Math.min((r.width - pad*2)/(x1-x0 || 1), (r.height - pad*2)/(y1-y0 || 1))));
+  view.s = s;
+  view.tx = (r.width  - (x1-x0)*s)/2 - x0*s;
+  view.ty = (r.height - (y1-y0)*s)/2 - y0*s;
+  applyView(); saveViewSoon();
+}
+document.getElementById('cv-fit').addEventListener('click', fitAll);
+
+// ---- filtering: threads (OR) + search — non-matches fade, never disappear --------
+function matches(m){
+  if (activeThreads.size && !(m.threads || []).some(t => activeThreads.has(t.id))) return false;
+  if (searchQ){
+    const hay = `${m.note_text} ${m.detail_text || ''} ${m.title || ''} ${m.artist_name || ''} ${m.note_category || ''}`.toLowerCase();
+    if (!hay.includes(searchQ)) return false;
+  }
+  return true;
+}
+function applyFilter(){
+  const ok = new Set();
+  for (const m of notes){
+    const el = nodeEls.get(m.id); if (!el) continue;
+    const hit = matches(m);
+    el.classList.toggle('dim', !hit);
+    if (hit) ok.add(m.id);
+  }
+  for (const l of links){
+    const g = svg.querySelector(`g[data-id="${l.id}"]`); if (!g) continue;
+    g.classList.toggle('dim', !(ok.has(l.from_note_id) && ok.has(l.to_note_id)));
+  }
+  refreshCount();
+}
+document.getElementById('cv-search').addEventListener('input', e => {
+  searchQ = e.target.value.trim().toLowerCase(); applyFilter();
+});
+function refreshCount(){
+  const shown = notes.filter(matches).length;
+  const linkN = links.length + rlinks.length;
+  document.getElementById('cv-count').textContent =
+    `${shown}${shown !== notes.length ? ' of ' + notes.length : ''} notes${entities.length ? ' · ' + entities.length + ' cards' : ''} · ${linkN} links`;
+}
+
+// ---- the in-canvas note panel: edit the moment, stay in the canvas -----------
+const panelEl = document.getElementById('cv-panel');
+let panelM = null;
+function refreshNode(m){
+  const el = nodeEls.get(m.id); if (!el) return;
+  el.innerHTML = nodeHtml(m);                       // listeners live on el → survive
+  const firstTh = (m.threads || [])[0];
+  el.style.borderLeftColor = (firstTh && firstTh.colour) || '';
+  redrawLinksFor(m);
+}
+function openRef(m){
+  if (!m.ref_url) return;
+  fetch('/api/open-url', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ url: m.ref_url }) }).catch(()=>{});
+}
+function openNotePanel(m){
+  panelM = m;
+  const isRef = m.kind === 'reference';
+  const artEl = document.getElementById('cv-panel-art');
+  artEl.src = isRef ? (m.ref_image_url || '') : `/api/artwork/${m.track_id}?s=192`;
+  artEl.style.visibility = (isRef && !m.ref_image_url) ? 'hidden' : '';
+  document.getElementById('cv-panel-track').textContent = isRef ? (m.ref_title || 'Untitled') : (m.title || 'Untitled');
+  document.getElementById('cv-panel-artist').textContent = isRef ? (m.ref_source || '') : (m.artist_name || '');
+  document.getElementById('cv-panel-ts').textContent = isRef ? '' : fmtTs(m.timestamp_sec);
+  // an article points OUT instead of playing; its player/timestamp make no sense
+  document.getElementById('cv-panel-play').style.display = isRef ? 'none' : '';
+  document.getElementById('cv-panel-open').style.display = isRef ? '' : 'none';
+  document.getElementById('cv-panel-listen').style.display = isRef ? 'none' : '';
+  document.getElementById('cv-panel-tscol').style.display = isRef ? 'none' : '';
+  document.getElementById('cv-panel-note').value = m.note_text || '';
+  document.getElementById('cv-panel-detail').value = m.detail_text || '';
+  document.getElementById('cv-panel-openlisten').href = `/listen?note=${m.id}`;
+  document.getElementById('cv-panel-cat').value = m.note_category || '';
+  document.getElementById('cv-panel-tsedit').value = fmtTs(m.timestamp_sec);
+  document.getElementById('cv-cats').innerHTML =
+    [...new Set(notes.map(n => n.note_category).filter(Boolean))].sort()
+      .map(c => `<option value="${esc(c)}">`).join('');
+  document.getElementById('cv-threads-dl').innerHTML =
+    threads.map(t => `<option value="${esc(t.name)}">`).join('');
+  renderPanelThreads();
+  renderPanelProps();
+  if (!isRef) renderMarkers();
+  panelEl.classList.add('open');
+}
+function closeNotePanel(){ panelEl.classList.remove('open'); panelM = null; player.pause(); syncPP(); }
+document.getElementById('cv-panel-close').addEventListener('click', closeNotePanel);
+document.getElementById('cv-panel-play').addEventListener('click', ()=>{
+  if (panelM) panelPlayAt(+panelM.timestamp_sec || 0);
+});
+document.getElementById('cv-panel-open').addEventListener('click', ()=>{
+  if (panelM) openRef(panelM);
+});
+
+// ---- the panel's track player: pause, scrub, and every saved moment of this
+// track as a marker on the timeline — hop between the parts you wrote about
+function panelPlayAt(sec){
+  if (!panelM || !panelM.file_id) return;
+  fetch('/api/seinnteoir/pause', { method:'POST' }).catch(()=>{});
+  if (panelM.track_id !== window.__peTrack){               // play tracking (one per listen)
+    window.__peTrack = panelM.track_id;
+    fetch('/api/play-event', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ track_id: panelM.track_id, file_id: panelM.file_id, source: 'canvas' }) })
+      .catch(()=>{});
+  }
+  const src = `/audio/${panelM.file_id}`;
+  const sameSrc = player.src.endsWith(src);
+  if (sameSrc && !player.paused){ try { player.currentTime = sec; } catch(_){} return; }
+  if (!sameSrc) player.src = src;
+  player.play().then(()=>{ try { player.currentTime = sec; } catch(_){} syncPP(); }).catch(()=>{});
+}
+const ppBtn = document.getElementById('cv-pp');
+const scrub = document.getElementById('cv-scrub');
+const timeEl = document.getElementById('cv-time');
+function syncPP(){ ppBtn.textContent = player.paused ? '▶' : '❚❚'; }
+ppBtn.addEventListener('click', ()=>{
+  if (player.paused){
+    if (panelM && !player.src.endsWith(`/audio/${panelM.file_id}`)) panelPlayAt(+panelM.timestamp_sec || 0);
+    else { fetch('/api/seinnteoir/pause', { method:'POST' }).catch(()=>{}); player.play().catch(()=>{}); }
+  } else player.pause();
+  setTimeout(syncPP, 120);
+});
+player.addEventListener('timeupdate', ()=>{
+  if (!panelEl.classList.contains('open')) return;
+  if (player.duration > 0 && !scrub.matches(':active'))
+    scrub.value = Math.round(player.currentTime / player.duration * 1000);
+  timeEl.textContent = `${fmtTs(player.currentTime)} / ${fmtTs(player.duration || 0)}`;
+});
+player.addEventListener('play', syncPP);
+player.addEventListener('pause', syncPP);
+scrub.addEventListener('input', ()=>{
+  if (player.duration > 0) try { player.currentTime = scrub.value / 1000 * player.duration; } catch(_){}
+});
+function renderMarkers(){
+  const box = document.getElementById('cv-markers');
+  const siblings = notes.filter(n => n.track_id === panelM.track_id)
+                        .sort((a,b)=>(a.timestamp_sec||0)-(b.timestamp_sec||0));
+  const dur = Math.max(...siblings.map(n => (n.timestamp_sec || 0) + 1), 60);
+  box.innerHTML = siblings.map(n =>
+    `<button class="cv-marker${n.id === panelM.id ? ' current' : ''}"
+       style="left:${Math.min(98, (n.timestamp_sec || 0) / dur * 100)}%"
+       data-ts="${n.timestamp_sec || 0}" data-id="${n.id}"
+       title="${fmtTs(n.timestamp_sec)} — ${esc((n.note_text || '').slice(0, 60))}"></button>`).join('');
+  box.querySelectorAll('.cv-marker').forEach(b => b.addEventListener('click', ()=>{
+    panelPlayAt(+b.dataset.ts);                              // listen at that written moment
+  }));
+}
+
+// type / timestamp / threads / delete — everything the workspace can do
+document.getElementById('cv-panel-cat').addEventListener('change', async e=>{
+  if (!panelM) return;
+  const v = e.target.value.trim();
+  await fetch(`/api/listen/note/${panelM.id}`, { method:'PATCH',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ note_category: v || null }) });
+  panelM.note_category = v || null; refreshNode(panelM);
+});
+document.getElementById('cv-panel-tsedit').addEventListener('change', async e=>{
+  if (!panelM) return;
+  const s = e.target.value.trim();
+  let sec = 0;
+  if (s.includes(':')){ const p = s.split(':'); sec = (parseInt(p[0])||0)*60 + (parseFloat(p[1])||0); }
+  else sec = parseFloat(s) || 0;
+  await fetch(`/api/listen/note/${panelM.id}`, { method:'PATCH',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ timestamp_sec: sec }) });
+  panelM.timestamp_sec = sec;
+  document.getElementById('cv-panel-ts').textContent = fmtTs(sec);
+  refreshNode(panelM); renderMarkers();
+});
+function renderPanelThreads(){
+  const box = document.getElementById('cv-panel-threads');
+  box.innerHTML = (panelM.threads || []).map(t =>
+    `<span class="cv-panel__thread"><span class="dot" style="background:${esc(t.colour || 'var(--muted)')}"></span>
+       ${esc(t.name)} <button data-tid="${t.id}" title="remove from thread">✕</button></span>`).join('')
+    || '<span style="font-size:.74rem;color:var(--muted);">none yet</span>';
+  box.querySelectorAll('button[data-tid]').forEach(b => b.addEventListener('click', async ()=>{
+    await fetch(`/api/thread/${b.dataset.tid}/moments/${panelM.id}`, { method:'DELETE' });
+    panelM.threads = (panelM.threads || []).filter(t => t.id !== +b.dataset.tid);
+    renderPanelThreads(); refreshNode(panelM);
+  }));
+}
+document.getElementById('cv-panel-thread-add').addEventListener('change', async e=>{
+  const name = e.target.value.trim();
+  if (!name || !panelM) return;
+  let th = threads.find(t => (t.name || '').toLowerCase() === name.toLowerCase());
+  if (!th){
+    const r = await fetch('/api/threads', { method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) }).then(x=>x.json());
+    threads = await fetch('/api/threads').then(x=>x.json());
+    th = threads.find(t => t.id === r.id) || { id: r.id, name, colour: null };
+    buildThreads();
+  }
+  await fetch(`/api/thread/${th.id}/moments`, { method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ note_id: panelM.id }) });
+  panelM.threads = panelM.threads || [];
+  if (!panelM.threads.some(t => t.id === th.id)) panelM.threads.push({ id: th.id, name: th.name, colour: th.colour || null });
+  e.target.value = '';
+  renderPanelThreads(); refreshNode(panelM);
+});
+document.getElementById('cv-panel-delete').addEventListener('click', async ()=>{
+  if (!panelM) return;
+  const m = panelM;
+  await fetch(`/api/listen/note/${m.id}`, { method:'DELETE' });
+  const el = nodeEls.get(m.id); if (el) el.remove();
+  nodeEls.delete(m.id);
+  notes = notes.filter(n => n.id !== m.id);
+  links = links.filter(l => l.from_note_id !== m.id && l.to_note_id !== m.id);
+  drawLinks(); refreshCount();
+  closeNotePanel();
+});
+function renderPanelProps(){
+  const box = document.getElementById('cv-panel-props');
+  box.innerHTML = (panelM.properties || []).map(p =>
+    `<span class="cv-panel__prop">${esc(p.name)}${p.value ? ': ' + esc(p.value) : ''}
+       <button data-pid="${p.id}" title="remove">✕</button></span>`).join('')
+    || '<span style="font-size:.74rem;color:var(--muted);">none yet</span>';
+  box.querySelectorAll('button[data-pid]').forEach(b => b.addEventListener('click', async ()=>{
+    await fetch(`/api/note/property/${b.dataset.pid}`, { method:'DELETE' });
+    panelM.properties = (panelM.properties || []).filter(p => p.id !== +b.dataset.pid);
+    renderPanelProps(); refreshNode(panelM);
+  }));
+}
+document.getElementById('cv-panel-prop-add').addEventListener('click', async ()=>{
+  const name = document.getElementById('cv-panel-prop-name').value.trim();
+  const value = document.getElementById('cv-panel-prop-value').value.trim();
+  if (!name || !panelM) return;
+  const r = await fetch(`/api/note/${panelM.id}/property`, { method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, value }) }).then(x=>x.json());
+  if (r && r.id){ panelM.properties = panelM.properties || []; panelM.properties.push({ id:r.id, name:r.name, value:r.value }); }
+  document.getElementById('cv-panel-prop-name').value = '';
+  document.getElementById('cv-panel-prop-value').value = '';
+  renderPanelProps(); refreshNode(panelM);
+});
+// autosave on blur — the curator keeps listening and arranging
+document.getElementById('cv-panel-note').addEventListener('blur', async e=>{
+  if (!panelM) return;
+  const text = e.target.value.trim();
+  if (!text || text === panelM.note_text) return;
+  await fetch(`/api/listen/note/${panelM.id}`, { method:'PATCH',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ note_text: text }) });
+  panelM.note_text = text; refreshNode(panelM);
+});
+document.getElementById('cv-panel-detail').addEventListener('blur', async e=>{
+  if (!panelM) return;
+  const text = e.target.value;
+  if (text === (panelM.detail_text || '')) return;
+  await fetch(`/api/listen/note/${panelM.id}`, { method:'PATCH',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ detail_text: text }) });
+  panelM.detail_text = text.trim() || null; refreshNode(panelM);
+});
+
+// ── saved maps: the canvas IS a research artifact ────────────────────────────
+function buildMapSelector(){
+  const sel = document.getElementById('cv-mapsel');
+  sel.innerHTML = `<option value="">✦ Free canvas</option>`
+    + allMaps.map(m => `<option value="${m.id}" ${m.id===mapId?'selected':''}>🗺 ${esc(m.title)} · ${m.node_count}</option>`).join('')
+    + `<option value="__new">＋ New map…</option>`;
+}
+document.getElementById('cv-mapsel').addEventListener('change', async e => {
+  const v = e.target.value;
+  if (v === '__new'){
+    const title = prompt('Name your new map — a piece of research (e.g. "Glasgow techno ↔ ex-partners"):');
+    if (!title || !title.trim()){ buildMapSelector(); return; }
+    const m = await fetch('/api/research/maps', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ title: title.trim() }) }).then(r => r.json());
+    location.href = '/listen/canvas?map=' + m.id;
+  } else if (v){ location.href = '/listen/canvas?map=' + v; }
+  else { location.href = '/listen/canvas'; }
+});
+document.getElementById('cv-savemap').addEventListener('click', async () => {
+  const ents = entities.filter(e => e._nk === 'entity');
+  // a map made on the free canvas snapshots the cards you placed; a map copied
+  // from a map carries its pinned notes too (free-canvas notes are the stream, not a selection).
+  const noteNodes = mapMode ? notes.filter(m => m._nk === 'note') : [];
+  if (!ents.length && !noteNodes.length){ alert('Add some cards first — ＋ card — then save the map you made.'); return; }
+  const title = prompt('Name this map (it becomes a piece of research):',
+    (mapMode && curMap) ? curMap.title + ' copy' : '');
+  if (!title || !title.trim()) return;
+  const nodes = ents.map(e => ({ kind:'entity', ref_id: e.id, x: e._x, y: e._y }))
+    .concat(noteNodes.map(m => ({ kind:'note', ref_id: m.id, x: m._x, y: m._y })));
+  const m = await fetch('/api/research/maps', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title: title.trim(), nodes }) }).then(r => r.json());
+  location.href = '/listen/canvas?map=' + m.id;
+});
+
+// ── add a research card to the canvas ────────────────────────────────────────
+const addpop = document.getElementById('cv-addpop');
+async function openAddpop(){
+  allEnts = await fetch('/api/research/entities').then(r=>r.json()).catch(()=>[]);
+  const b = document.getElementById('cv-addcard').getBoundingClientRect();
+  addpop.style.left = Math.min(b.left, innerWidth - 300) + 'px'; addpop.style.top = (b.bottom + 6) + 'px';
+  addpop.classList.add('open');
+  const search = document.getElementById('cv-addpop-search');
+  search.placeholder = mapMode ? 'Artist, label, venue, genre — or a listening note…' : 'Artist, label, venue or genre…';
+  search.value = ''; renderAddMatches('');
+  setTimeout(()=>search.focus(), 0);
+}
+function closeAddpop(){ addpop.classList.remove('open'); }
+function renderAddMatches(q){
+  q = q.toLowerCase();
+  const onCanvas = new Set(entities.map(e => e.id));
+  const items = allEnts.filter(e => !q || e.name.toLowerCase().includes(q)).slice(0, 40)
+    .map(e => ({ type:'entity', id:e.id, name:e.name, kind:e.kind, on:onCanvas.has(e.id) }));
+  if (mapMode){                                            // a map can also hold your own listening notes
+    const onMap = new Set(notes.map(m => m.id));
+    allNotes.filter(m => {
+      const hay = ((m.note_text||'')+' '+(m.title||'')+' '+(m.artist_name||'')+' '+(m.ref_title||'')).toLowerCase();
+      return !q || hay.includes(q);
+    }).slice(0, 24).forEach(m => items.push({ type:'note', id:m.id,
+      name:(m.note_text || m.ref_title || m.title || 'note').slice(0,60), kind:'note', on:onMap.has(m.id) }));
+  }
+  const box = document.getElementById('cv-addpop-matches');
+  box.innerHTML = items.length
+    ? items.map(it => `<div class="cv-addpop__m" data-type="${it.type}" data-id="${it.id}"><span>${esc(it.name)}${it.on ? ' · on '+(it.type==='note'?'map':'canvas') : ''}</span><span class="k">${esc(it.kind)}</span></div>`).join('')
+    : '<div class="cv-addpop__empty">no match — name a new one + ＋ add</div>';
+  box.querySelectorAll('[data-id]').forEach(d => d.onclick = async ()=>{
+    closeAddpop();
+    if (d.dataset.type === 'note'){ const m = allNotes.find(x => x.id === +d.dataset.id); if (m) await placeNote(m); }
+    else { const e = allEnts.find(x => x.id === +d.dataset.id); if (e) await placeEntity(e); }
+  });
+}
+document.getElementById('cv-addcard').addEventListener('click', e => {
+  e.stopPropagation(); addpop.classList.contains('open') ? closeAddpop() : openAddpop();
+});
+document.getElementById('cv-addpop-search').addEventListener('input', e => renderAddMatches(e.target.value));
+document.getElementById('cv-addpop-go').addEventListener('click', async ()=>{
+  const name = document.getElementById('cv-addpop-search').value.trim(); if (!name) return;
+  const kind = document.getElementById('cv-addpop-kind').value;
+  const e = await fetch('/api/research/entities', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ kind, name }) }).then(r => r.json());
+  closeAddpop(); await placeEntity(e);
+});
+document.addEventListener('click', e => {
+  if (addpop.classList.contains('open') && !addpop.contains(e.target) && e.target.id !== 'cv-addcard') closeAddpop();
+});
+
+// ── board background: a tone + an optional image, per saved map (free canvas → settings) ──
+// Tones stay inside the dark, warm, low-saturation desk so a re-toned board never clashes
+// or loses card legibility. The image sits BEHIND the cards, desaturated under a scrim.
+const BG_SWATCHES = [
+  { c: '#1a1611', n: 'peat' },   { c: '#16140f', n: 'ash' },    { c: '#1d1510', n: 'ember' },
+  { c: '#141619', n: 'slate' },  { c: '#201b13', n: 'vellum' },
+];
+const CV_BG_DEFAULT = '#1a1611';
+function clampedHueTone(h){ return `hsl(${Math.round(h)} 16% 9%)`; }   // S/L pinned dark: can't make a bright board
+function applyBg(){
+  cv.style.setProperty('--cv-bg', bgColour || CV_BG_DEFAULT);
+  cv.style.setProperty('--cv-scrim', bgScrim + '%');
+  if (bgImg){ bgImg.style.backgroundImage = bgImage ? `url('${bgImage}')` : 'none'; }
+  cv.classList.toggle('has-bg-img', !!bgImage);
+  document.querySelectorAll('.cv-swatch').forEach(s => s.classList.toggle('on', s.dataset.c === (bgColour || CV_BG_DEFAULT)));
+  document.getElementById('cv-presence-lbl').style.display = bgImage ? '' : 'none';
+  document.getElementById('cv-presence').style.display = bgImage ? 'flex' : 'none';
+  document.querySelectorAll('#cv-presence button').forEach(b => b.classList.toggle('on', +b.dataset.s === bgScrim));
+}
+async function loadBg(){
+  try { bgScrim = parseInt(localStorage.getItem('mr_canvas_scrim') || '62') || 62; } catch(_){}
+  if (mapMode && curMap){ bgColour = curMap.bg_colour || null; bgImage = curMap.bg_image || null; }
+  else {
+    const s = await fetch('/api/settings').then(r=>r.json()).catch(()=>({}));
+    bgColour = s.canvas_bg_colour || null; bgImage = s.canvas_bg_image || null;
+  }
+  applyBg();
+}
+async function saveBg(){
+  if (mapMode && mapId){
+    await fetch('/api/research/map/'+mapId, { method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ bg_colour: bgColour, bg_image: bgImage }) }).catch(()=>{});
+  } else {
+    await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ canvas_bg_colour: bgColour || '', canvas_bg_image: bgImage || '' }) }).catch(()=>{});
+  }
+}
+// build swatches once
+(function(){
+  const box = document.getElementById('cv-swatches');
+  box.innerHTML = BG_SWATCHES.map(s => `<button class="cv-swatch" data-c="${s.c}" style="background:${s.c}" title="${s.n}"></button>`).join('');
+  box.querySelectorAll('.cv-swatch').forEach(b => b.onclick = ()=>{ bgColour = b.dataset.c; applyBg(); saveBg(); });
+})();
+document.getElementById('cv-hue').addEventListener('input', e=>{ bgColour = clampedHueTone(+e.target.value); applyBg(); });
+document.getElementById('cv-hue').addEventListener('change', saveBg);
+const bgpop = document.getElementById('cv-bgpop');
+document.getElementById('cv-bg-btn').addEventListener('click', e=>{
+  e.stopPropagation();
+  if (bgpop.classList.contains('open')){ bgpop.classList.remove('open'); return; }
+  const b = e.currentTarget.getBoundingClientRect();
+  bgpop.style.left = Math.min(b.left, innerWidth - 280) + 'px'; bgpop.style.top = (b.bottom + 6) + 'px';
+  bgpop.classList.add('open');
+});
+document.addEventListener('click', e=>{
+  if (bgpop.classList.contains('open') && !bgpop.contains(e.target) && e.target.id !== 'cv-bg-btn') bgpop.classList.remove('open');
+});
+document.getElementById('cv-bg-upload').addEventListener('click', ()=> document.getElementById('cv-bg-file').click());
+document.getElementById('cv-bg-file').addEventListener('change', async e=>{
+  const f = e.target.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/api/research/map-background', { method:'POST', body: fd }).then(x=>x.json()).catch(()=>null);
+  if (r && r.url){ bgImage = r.url; applyBg(); saveBg(); }
+  e.target.value = '';
+});
+document.getElementById('cv-bg-clear').addEventListener('click', ()=>{ bgImage = null; applyBg(); saveBg(); });
+document.querySelectorAll('#cv-presence button').forEach(b => b.onclick = ()=>{
+  bgScrim = +b.dataset.s; try{ localStorage.setItem('mr_canvas_scrim', bgScrim); }catch(_){}
+  applyBg(); applyView();
+});
+
+load();
+</script>
+<!-- the persistent player travels with you onto the canvas too — arrange your
+     mind-map while the cue keeps playing. Hidden when nothing's cued. -->
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+</body>
+</html>

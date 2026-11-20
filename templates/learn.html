@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        /* ============================================================
+           LEARN PAGE LAYOUT
+           ============================================================ */
+        .learn-layout {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 36px 24px 80px;
+        }
+
+        .learn-header {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .learn-header h1 {
+            font-family: var(--font-serif);
+            font-size: 2.2rem;
+            font-weight: 400;
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        .learn-header p {
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
+        /* Tab navigation */
+        .learn-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+        }
+
+        .learn-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            margin-bottom: -1px;
+        }
+
+        .learn-tab:hover { color: var(--text); }
+
+        .learn-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Tab panels */
+        .learn-panel { display: none; }
+        .learn-panel.active { display: block; }
+
+        /* ============================================================
+           STATS PANEL
+           ============================================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 16px;
+        }
+
+        .stat-card__value {
+            font-family: var(--font-mono);
+            font-size: 2rem;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .stat-card__label {
+            font-size: 0.76rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .stats-section {
+            margin-bottom: 36px;
+        }
+
+        .stats-section-heading {
+            font-size: 0.68rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 14px;
+        }
+
+        /* Bar chart */
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+        }
+
+        .bar-row__label {
+            min-width: 140px;
+            color: var(--muted);
+            text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bar-row__track {
+            flex: 1;
+            background: var(--surface2);
+            border-radius: 2px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .bar-row__fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            opacity: 0.7;
+            transition: width 0.4s ease;
+        }
+
+        .bar-row__count {
+            min-width: 40px;
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: var(--muted2);
+        }
+
+        /* Year timeline */
+        .year-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 80px;
+            margin-top: 8px;
+        }
+
+        .year-bar {
+            flex: 1;
+            background: var(--accent);
+            opacity: 0.5;
+            border-radius: 1px 1px 0 0;
+            min-width: 2px;
+            transition: opacity 0.15s;
+            cursor: pointer;
+        }
+
+        .year-bar:hover { opacity: 1; }
+
+        /* ============================================================
+           QUIZ PANEL
+           ============================================================ */
+        .quiz-config {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 28px;
+        }
+
+        .quiz-config h2 {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-weight: 400;
+            font-size: 1.15rem;
+            margin-bottom: 20px;
+        }
+
+        .quiz-modes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-mode-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.84rem;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .quiz-mode-btn:hover { border-color: var(--accent); color: var(--text); }
+        .quiz-mode-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+        .quiz-count-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-count-row label { font-size: 0.82rem; color: var(--muted); }
+
+        .quiz-count-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent);
+        }
+
+        .quiz-count-val {
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            color: var(--accent);
+            min-width: 24px;
+        }
+
+        /* Quiz question display */
+        .quiz-area { display: none; }
+        .quiz-area.active { display: block; }
+
+        .quiz-progress {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-progress-bar {
+            flex: 1;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .quiz-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .quiz-progress-text {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .quiz-score-live {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .quiz-question-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            margin-bottom: 16px;
+        }
+
+        .quiz-question-type {
+            font-size: 0.68rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            margin-bottom: 10px;
+        }
+
+        .quiz-question-text {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.2rem;
+            font-weight: 400;
+            color: var(--text);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        /* Ear test mini-player */
+        .quiz-player {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+        }
+
+        .quiz-player button {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.85rem;
+            transition: all 0.15s;
+        }
+
+        .quiz-player button:hover, .quiz-player button.playing {
+            border-color: var(--accent); color: var(--accent);
+        }
+
+        .quiz-player input[type="range"] {
+            flex: 1; -webkit-appearance: none; height: 3px;
+            border-radius: 2px; background: var(--border); outline: none; cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        .quiz-player .q-time {
+            font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
+        }
+
+        /* Answer choices */
+        .quiz-choices {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .quiz-choice {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 12px 16px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+        }
+
+        .quiz-choice:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .quiz-choice.correct {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .quiz-choice.wrong {
+            border-color: var(--danger);
+            background: rgba(192,112,112,0.1);
+            color: var(--danger);
+        }
+
+        .quiz-choice:disabled { cursor: default; }
+
+        /* Explanation box (revealed after answer) */
+        .quiz-explanation {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 16px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.86rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .quiz-explanation.visible { display: block; }
+
+        .quiz-explanation .result-label {
+            font-size: 0.72rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .quiz-explanation .result-label.correct { color: var(--accent); }
+        .quiz-explanation .result-label.wrong    { color: var(--danger); }
+
+        .quiz-next-btn {
+            margin-top: 16px;
+            width: 100%;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .quiz-next-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Results screen */
+        .quiz-results {
+            display: none;
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .quiz-results.active { display: block; }
+
+        .quiz-results__score {
+            font-family: var(--font-mono);
+            font-size: 4rem;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .quiz-results__label {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 32px;
+        }
+
+        .quiz-history-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.84rem;
+        }
+
+        .quiz-history-row__score {
+            font-family: var(--font-mono);
+            color: var(--accent);
+            min-width: 50px;
+        }
+
+        .quiz-history-row__mode {
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        .quiz-history-row__date {
+            margin-left: auto;
+            font-size: 0.74rem;
+            color: var(--muted2);
+        }
+
+        /* ============================================================
+           MAP PANEL
+           ============================================================ */
+        .map-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .map-controls span {
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        #artist-map {
+            width: 100%;
+            height: 520px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #artist-map svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Artist tooltip */
+        .map-tooltip {
+            position: absolute;
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s;
+            max-width: 240px;
+            z-index: 10;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        .map-tooltip.visible { opacity: 1; }
+
+        .map-tooltip__name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+
+        .map-tooltip__meta {
+            color: var(--muted);
+            font-size: 0.76rem;
+            line-height: 1.5;
+        }
+
+        /* Dot on map */
+        .artist-dot {
+            cursor: pointer;
+            transition: r 0.15s, opacity 0.15s;
+        }
+
+        .artist-dot:hover { opacity: 1 !important; }
+
+        /* Artist sidebar panel (shown on dot click) */
+        .artist-detail {
+            display: none;
+            margin-top: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+        }
+
+        .artist-detail.visible { display: block; }
+
+        .artist-detail__name {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.2rem;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+
+        .artist-detail__meta {
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.8;
+            margin-bottom: 12px;
+        }
+
+        .artist-detail__bio {
+            font-size: 0.86rem;
+            line-height: 1.6;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+
+        .artist-detail__enrich {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        /* Enrich button in map view */
+        .enrich-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-size: 0.78rem;
+            padding: 4px 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .enrich-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .enrich-btn:disabled { opacity: 0.4; cursor: default; }
+
+        /* Coverage notice */
+        .coverage-notice {
+            font-size: 0.78rem;
+            color: var(--muted2);
+            padding: 12px 0;
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           RESOURCES PANEL
+           ============================================================ */
+        .resources-filters {
+            display: flex; flex-direction: column; gap: 10px;
+            margin-bottom: 20px;
+        }
+        .resources-filters__row {
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        }
+        .resources-search {
+            flex: 1; min-width: 220px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 9px 14px;
+        }
+        .resources-search:focus { outline: none; border-color: var(--accent); }
+
+        .resources-pills {
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .resources-pills:empty { display: none; }
+        .resources-pill {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.78rem;
+            padding: 4px 12px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .resources-pill:hover { color: var(--text); border-color: var(--muted); }
+        .resources-pill.active {
+            color: var(--accent);
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+        .resources-pill .count {
+            margin-left: 6px;
+            opacity: 0.6;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+        }
+
+        .resources-meta {
+            font-size: 0.78rem;
+            color: var(--muted2);
+            margin-bottom: 12px;
+        }
+
+        .resources-list {
+            display: flex; flex-direction: column;
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .resource-row {
+            display: flex; gap: 14px; align-items: flex-start;
+            padding: 14px 18px;
+            background: var(--surface);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .resource-row:hover { background: var(--surface2); }
+        .resource-row__kind {
+            flex-shrink: 0;
+            font-family: var(--font-mono);
+            font-size: 0.66rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted2);
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            min-width: 44px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .resource-row.pinned .resource-row__kind {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .resource-row__body { flex: 1; min-width: 0; }
+        .resource-row__title {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.05rem;
+            color: var(--text);
+            margin-bottom: 4px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .resource-row__desc {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .resource-row__meta {
+            font-size: 0.74rem;
+            color: var(--muted2);
+            display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+        }
+        .resource-row__meta .chip {
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+        .resource-row__meta .chip.cat {
+            color: var(--accent);
+            border-color: rgba(120,188,150,0.3);
+        }
+        .resource-row__actions {
+            display: flex; gap: 2px;
+            opacity: 0;
+            transition: opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .resource-row:hover .resource-row__actions { opacity: 1; }
+        .resource-row__actions button {
+            background: none; border: none;
+            color: var(--muted2); cursor: pointer;
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: var(--radius);
+        }
+        .resource-row__actions button:hover { color: var(--accent); background: var(--surface2); }
+
+        .resources-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.88rem;
+            background: var(--surface);
+        }
+
+        /* Modal */
+        .res-modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(10, 14, 12, 0.75);
+            z-index: 9500;
+            align-items: flex-start; justify-content: center;
+            padding: 60px 20px 20px;
+            overflow-y: auto;
+        }
+        .res-modal-overlay.visible { display: flex; }
+        .res-modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            max-width: 560px; width: 100%;
+            padding: 26px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+        .res-modal__head {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 18px;
+        }
+        .res-modal__head h2 {
+            font-family: var(--font-serif); font-style: italic;
+            font-size: 1.2rem; font-weight: 400; margin: 0;
+        }
+        .res-modal__close {
+            background: none; border: none;
+            color: var(--muted2); cursor: pointer;
+            font-size: 1.4rem;
+            padding: 0 6px; line-height: 1;
+        }
+        .res-modal__close:hover { color: var(--text); }
+        .res-form { display: flex; flex-direction: column; gap: 12px; }
+        .res-form label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .res-form input[type="text"],
+        .res-form input[type="url"],
+        .res-form select,
+        .res-form textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 0.88rem;
+            padding: 9px 12px;
+            box-sizing: border-box;
+        }
+        .res-form textarea {
+            resize: vertical;
+            min-height: 180px;
+            line-height: 1.6;
+        }
+        .res-form input:focus, .res-form select:focus, .res-form textarea:focus {
+            outline: none; border-color: var(--accent);
+        }
+        .res-form__row { display: flex; gap: 10px; }
+        .res-form__row > * { flex: 1; }
+        .res-form__actions {
+            display: flex; justify-content: flex-end; gap: 8px;
+            margin-top: 10px;
+        }
+        .res-form__pin {
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        .res-note-modal__body {
+            font-size: 0.94rem;
+            line-height: 1.7;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 6px 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="learn-layout floor-sheet">
+
+    <div class="learn-header">
+        <h1>Learn</h1>
+        <p>Know your collection. Quiz, map, and statistics.</p>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="learn-tabs">
+        <button class="learn-tab active" onclick="showTab('quiz')">Quiz</button>
+        <button class="learn-tab" onclick="showTab('stats')">Statistics</button>
+        <button class="learn-tab" onclick="showTab('map')">Artist Map</button>
+        <button class="learn-tab" onclick="showTab('resources')">Resources</button>
+    </div>
+
+    <!-- ============================================================
+         QUIZ PANEL
+         ============================================================ -->
+    <div class="learn-panel active" id="tab-quiz">
+
+        <!-- Config screen -->
+        <div class="quiz-config" id="quiz-config">
+            <h2>Start a quiz</h2>
+
+            <div style="font-size:0.8rem; color:var(--muted2); margin-bottom:12px; letter-spacing:0.06em; text-transform:uppercase;">Mode</div>
+            <div class="quiz-modes">
+                <button class="quiz-mode-btn selected" data-mode="mixed" onclick="selectMode(this)">Mixed</button>
+                <button class="quiz-mode-btn" data-mode="artist" onclick="selectMode(this)">Artists</button>
+                <button class="quiz-mode-btn" data-mode="context" onclick="selectMode(this)">Context</button>
+                <button class="quiz-mode-btn" data-mode="theory" onclick="selectMode(this)">Theory</button>
+                <button class="quiz-mode-btn" data-mode="ear" onclick="selectMode(this)">Ear training</button>
+                <button class="quiz-mode-btn" data-mode="notes" onclick="selectMode(this)">Your notes</button>
+            </div>
+
+            <div class="quiz-count-row">
+                <label>Questions</label>
+                <input type="range" id="quiz-count" min="5" max="20" value="10" step="1"
+                       oninput="document.getElementById('quiz-count-val').textContent = this.value">
+                <span class="quiz-count-val" id="quiz-count-val">10</span>
+            </div>
+
+            <div style="font-size:0.78rem; color:var(--muted2); margin-bottom:16px; line-height:1.6;">
+                <strong style="color:var(--muted);">Artist</strong> — where they're from, their genre.<br>
+                <strong style="color:var(--muted);">Context</strong> — label, release year.<br>
+                <strong style="color:var(--muted);">Theory</strong> — BPM, key. Requires audio analysis.<br>
+                <strong style="color:var(--muted);">Ear training</strong> — identify tracks and artists by listening.<br>
+                <strong style="color:var(--muted);">Your notes</strong> — tested on things you've written.
+            </div>
+
+            <button class="btn btn--primary" onclick="startQuiz()">Start</button>
+
+            <!-- Recent sessions -->
+            <div id="quiz-history-section" style="margin-top:28px;"></div>
+        </div>
+
+        <!-- Quiz in progress -->
+        <div class="quiz-area" id="quiz-area">
+            <div class="quiz-progress">
+                <div class="quiz-progress-bar">
+                    <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
+                </div>
+                <span class="quiz-progress-text" id="quiz-progress-text">1 / 10</span>
+                <span class="quiz-score-live" id="quiz-score-live">0</span>
+            </div>
+
+            <div class="quiz-question-card" id="quiz-question-card">
+                <!-- populated by JS -->
+            </div>
+
+            <div class="quiz-explanation" id="quiz-explanation">
+                <div class="result-label" id="quiz-result-label"></div>
+                <div id="quiz-explanation-text"></div>
+            </div>
+
+            <button class="quiz-next-btn" id="quiz-next-btn" onclick="nextQuestion()" style="display:none;">
+                Next →
+            </button>
+        </div>
+
+        <!-- Results screen -->
+        <div class="quiz-results" id="quiz-results">
+            <div class="quiz-results__score" id="results-score">—</div>
+            <div class="quiz-results__label" id="results-label"></div>
+            <div style="margin-top:24px; display:flex; gap:12px; justify-content:center;">
+                <button class="btn btn--ghost" onclick="showReview()">Review answers</button>
+                <button class="btn btn--primary" onclick="resetQuiz()">Play again</button>
+            </div>
+            <div id="quiz-review-list" style="margin-top:28px; text-align:left;"></div>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         STATS PANEL
+         ============================================================ -->
+    <div class="learn-panel" id="tab-stats">
+
+        <div class="stats-grid" id="stats-grid">
+            <div class="loading">Loading stats...</div>
+        </div>
+
+        <div id="stats-charts">
+            <!-- populated by JS -->
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         MAP PANEL
+         ============================================================ -->
+    <div class="learn-panel" id="tab-map">
+
+        <div class="map-controls">
+            <span id="map-status">Loading artists...</span>
+            <button class="enrich-btn" id="enrich-all-btn" onclick="enrichNextBatch()" style="display:none;">
+                ⟳ Enrich more artists
+            </button>
+        </div>
+
+        <div class="coverage-notice" id="coverage-notice" style="display:none;"></div>
+
+        <div id="artist-map">
+            <div class="loading">Loading map...</div>
+        </div>
+
+        <div class="map-tooltip" id="map-tooltip"></div>
+
+        <div class="artist-detail" id="artist-detail">
+            <!-- populated on dot click -->
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         RESOURCES PANEL — websites, PDFs, own notes, anything else
+         that helps with DJing (genre refs, theory, history, …)
+         ============================================================ -->
+    <div class="learn-panel" id="tab-resources">
+
+        <div class="resources-filters">
+            <div class="resources-filters__row">
+                <input type="text" class="resources-search" id="resources-search"
+                       placeholder="Search resources…" oninput="onResourceSearch()">
+                <button class="btn btn--primary" onclick="openResourceModal()">+ Add resource</button>
+            </div>
+            <div class="resources-pills" id="resources-kind-pills"></div>
+            <div class="resources-pills" id="resources-category-pills"></div>
+            <div class="resources-pills" id="resources-tag-pills"></div>
+        </div>
+
+        <div class="resources-meta" id="resources-meta"></div>
+
+        <div class="resources-list" id="resources-list">
+            <div class="resources-empty">Loading…</div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ============================================================
+     RESOURCE ADD/EDIT MODAL
+     ============================================================ -->
+<!-- Backdrop click does NOT close — only the × or Cancel button does. -->
+<div class="res-modal-overlay" id="res-modal-overlay">
+    <div class="res-modal">
+        <div class="res-modal__head">
+            <h2 id="res-modal-title">Add resource</h2>
+            <button class="res-modal__close" onclick="closeResourceModal()">×</button>
+        </div>
+
+        <form class="res-form" id="res-form" onsubmit="submitResourceForm(event)">
+            <input type="hidden" id="res-id" value="">
+
+            <div>
+                <label>Kind</label>
+                <input type="text" id="res-kind" list="res-kinds-list" placeholder="link / pdf / note / video / book"
+                       oninput="onResourceKindChange()">
+                <datalist id="res-kinds-list"></datalist>
+            </div>
+
+            <div>
+                <label>Title</label>
+                <input type="text" id="res-title" required>
+            </div>
+
+            <div id="res-url-row">
+                <label>URL</label>
+                <input type="text" id="res-url" placeholder="https://…">
+            </div>
+
+            <div id="res-file-row" style="display:none;">
+                <label>File path</label>
+                <input type="text" id="res-file-path" placeholder="/Users/…/file.pdf">
+                <div style="font-size:0.72rem; color:var(--muted2); margin-top:4px;">
+                    Paste the full path. Music Room references the file in place — it doesn't copy it.
+                </div>
+            </div>
+
+            <div id="res-body-row" style="display:none;">
+                <label>Body</label>
+                <textarea id="res-body" placeholder="Write your note here…"></textarea>
+            </div>
+
+            <div class="res-form__row">
+                <div>
+                    <label>Category</label>
+                    <input type="text" id="res-category" list="res-categories-list"
+                           placeholder="e.g. genres, theory, history">
+                    <datalist id="res-categories-list"></datalist>
+                </div>
+                <div>
+                    <label>Tags</label>
+                    <input type="text" id="res-tags" placeholder="comma, separated">
+                </div>
+            </div>
+
+            <div>
+                <label>Description</label>
+                <input type="text" id="res-description" placeholder="A short line about what this is">
+            </div>
+
+            <div>
+                <label>Place (optional)</label>
+                <select id="res-place"><option value="">— none —</option></select>
+            </div>
+
+            <div class="res-form__pin">
+                <input type="checkbox" id="res-pinned"><label for="res-pinned" style="margin:0; text-transform:none; letter-spacing:0; font-size:0.86rem; color:var(--text);">Pin to top</label>
+            </div>
+
+            <div class="res-form__actions">
+                <button type="button" class="btn btn--ghost" id="res-form-delete-btn" style="display:none;" onclick="deleteResourceFromForm()">Delete</button>
+                <button type="button" class="btn btn--ghost" onclick="closeResourceModal()">Cancel</button>
+                <button type="submit" class="btn btn--primary" id="res-form-submit-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================
+     RESOURCE NOTE VIEWER (read-only display for kind=note)
+     ============================================================ -->
+<div class="res-modal-overlay" id="res-note-overlay" onclick="onResourceNoteBackdrop(event)">
+    <div class="res-modal" onclick="event.stopPropagation()">
+        <div class="res-modal__head">
+            <h2 id="res-note-title"></h2>
+            <button class="res-modal__close" onclick="closeResourceNote()">×</button>
+        </div>
+        <div class="res-note-modal__body" id="res-note-body"></div>
+        <div class="res-form__actions" style="margin-top:18px;">
+            <button class="btn btn--ghost" onclick="editFromNoteView()">Edit</button>
+            <button class="btn btn--ghost" onclick="closeResourceNote()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden audio for quiz ear training -->
+<audio id="quiz-audio" preload="none"></audio>
+
+<script>
+// =============================================================
+// STATE
+// =============================================================
+
+let activeTab      = 'quiz';
+let quizMode       = 'mixed';
+let quizQuestions  = [];
+let quizCurrent    = 0;
+let quizScore      = 0;
+let quizAnswers    = [];
+let quizAnswered   = false;
+let statsLoaded    = false;
+let mapLoaded      = false;
+let mapArtists     = [];
+let resourcesLoaded = false;
+let resourcesAll   = [];          // full last-fetched list
+let resourceFilter = {            // active filters (UI state)
+    kind: null, category: null, tag: null, search: '',
+};
+let resourceKinds      = [];      // [{kind, count}]
+let resourceCategories = [];      // [{category, count}]
+let resourceTags       = [];      // [{tag, count}]
+let resourcePlaces     = [];      // [{id, name}] for the modal dropdown
+
+const quizAudio = document.getElementById('quiz-audio');
+
+// =============================================================
+// TABS
+// =============================================================
+
+function showTab(tab) {
+    const order = ['quiz','stats','map','resources'];
+    document.querySelectorAll('.learn-tab').forEach((b,i) => {
+        b.classList.toggle('active', order[i] === tab);
+    });
+    document.querySelectorAll('.learn-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    activeTab = tab;
+    if (tab === 'stats' && !statsLoaded) loadStats();
+    if (tab === 'map'   && !mapLoaded)   loadMap();
+    if (tab === 'resources' && !resourcesLoaded) loadResources();
+}
+
+// =============================================================
+// QUIZ
+// =============================================================
+
+function selectMode(btn) {
+    document.querySelectorAll('.quiz-mode-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    quizMode = btn.dataset.mode;
+}
+
+async function startQuiz() {
+    const count = parseInt(document.getElementById('quiz-count').value);
+    document.getElementById('quiz-config').style.display = 'none';
+
+    const res  = await fetch('/api/learn/quiz/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: quizMode, count }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.questions || !data.questions.length) {
+        alert(data.error || 'Could not generate questions. Try enriching artists first or adding notes to tracks.');
+        document.getElementById('quiz-config').style.display = '';
+        return;
+    }
+
+    quizQuestions = data.questions;
+    quizCurrent   = 0;
+    quizScore     = 0;
+    quizAnswers   = [];
+    quizAnswered  = false;
+
+    document.getElementById('quiz-area').classList.add('active');
+    document.getElementById('quiz-results').classList.remove('active');
+    renderQuestion();
+}
+
+function renderQuestion() {
+    if (quizCurrent >= quizQuestions.length) {
+        finishQuiz();
+        return;
+    }
+
+    const q     = quizQuestions[quizCurrent];
+    const total = quizQuestions.length;
+    quizAnswered = false;
+
+    // Progress
+    document.getElementById('quiz-progress-fill').style.width = `${(quizCurrent/total)*100}%`;
+    document.getElementById('quiz-progress-text').textContent = `${quizCurrent+1} / ${total}`;
+    document.getElementById('quiz-score-live').textContent    = `${quizScore} correct`;
+
+    // Type label
+    const typeLabels = {
+        artist_origin: 'Artist · Origin',
+        artist_genre:  'Artist · Genre',
+        track_label:   'Context · Label',
+        track_year:    'Context · Year',
+        track_bpm:     'Theory · BPM',
+        track_key:     'Theory · Key',
+        ear_artist:    'Ear training · Artist',
+        ear_title:     'Ear training · Title',
+        notes_recall:  'Your notes',
+    };
+
+    // Ear player HTML
+    let playerHtml = '';
+    if (q.file_id && (q.type === 'ear_artist' || q.type === 'ear_title')) {
+        playerHtml = `
+        <div class="quiz-player">
+            <button id="quiz-play-btn" onclick="toggleQuizAudio(${q.file_id})" title="Play clip">▶</button>
+            <input type="range" id="quiz-scrub" min="0" max="100" value="0" step="0.1"
+                   oninput="seekQuizAudio(this.value)" style="accent-color:var(--accent);">
+            <span class="q-time" id="quiz-time">—</span>
+        </div>`;
+        // Reset audio
+        quizAudio.src = `/audio/${q.file_id}`;
+        quizAudio.load();
+        quizAudio.pause();
+        // Seek to random point 30-90s in (so they can't just listen to the intro)
+        quizAudio.addEventListener('loadedmetadata', () => {
+            const dur = quizAudio.duration;
+            if (dur > 60) {
+                quizAudio.currentTime = Math.min(30 + Math.random() * 60, dur - 20);
+            }
+        }, { once: true });
+    }
+
+    document.getElementById('quiz-question-card').innerHTML = `
+        <div class="quiz-question-type">${typeLabels[q.type] || q.type}</div>
+        <div class="quiz-question-text">${q.question}</div>
+        ${playerHtml}
+        <div class="quiz-choices">
+            ${q.choices.map(c => `
+                <button class="quiz-choice" onclick="answerQuestion('${c.replace(/'/g,"\\'")}')">
+                    ${c}
+                </button>`).join('')}
+        </div>`;
+
+    document.getElementById('quiz-explanation').classList.remove('visible');
+    document.getElementById('quiz-next-btn').style.display = 'none';
+}
+
+function toggleQuizAudio(fileId) {
+    const btn = document.getElementById('quiz-play-btn');
+    if (!btn) return;
+    if (quizAudio.paused) {
+        quizAudio.play();
+        btn.textContent = '⏸';
+        btn.classList.add('playing');
+    } else {
+        quizAudio.pause();
+        btn.textContent = '▶';
+        btn.classList.remove('playing');
+    }
+}
+
+function seekQuizAudio(pct) {
+    if (quizAudio.duration) quizAudio.currentTime = (pct/100)*quizAudio.duration;
+}
+
+quizAudio.addEventListener('timeupdate', () => {
+    const scrub = document.getElementById('quiz-scrub');
+    const time  = document.getElementById('quiz-time');
+    if (scrub && quizAudio.duration) scrub.value = (quizAudio.currentTime/quizAudio.duration)*100;
+    if (time) {
+        const s = Math.floor(quizAudio.currentTime);
+        time.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+    }
+});
+
+quizAudio.addEventListener('ended', () => {
+    const btn = document.getElementById('quiz-play-btn');
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); }
+});
+
+function answerQuestion(choice) {
+    if (quizAnswered) return;
+    quizAnswered = true;
+
+    const q         = quizQuestions[quizCurrent];
+    const isCorrect = choice === q.correct_answer;
+    if (isCorrect) quizScore++;
+
+    // Stop audio
+    quizAudio.pause();
+
+    // Style choices
+    document.querySelectorAll('.quiz-choice').forEach(btn => {
+        btn.disabled = true;
+        if (btn.textContent.trim() === q.correct_answer) btn.classList.add('correct');
+        if (btn.textContent.trim() === choice && !isCorrect) btn.classList.add('wrong');
+    });
+
+    // Show explanation
+    const expEl = document.getElementById('quiz-explanation');
+    const label = document.getElementById('quiz-result-label');
+    label.textContent = isCorrect ? '✓ Correct' : '✗ Wrong';
+    label.className   = `result-label ${isCorrect ? 'correct' : 'wrong'}`;
+    document.getElementById('quiz-explanation-text').textContent = q.explanation;
+    expEl.classList.add('visible');
+
+    // Record answer
+    quizAnswers.push({
+        type:           q.type,
+        track_id:       q.track_id,
+        question:       q.question,
+        correct_answer: q.correct_answer,
+        user_answer:    choice,
+        is_correct:     isCorrect,
+        explanation:    q.explanation,
+    });
+
+    // Show next button
+    document.getElementById('quiz-next-btn').style.display = '';
+    document.getElementById('quiz-next-btn').textContent =
+        quizCurrent + 1 < quizQuestions.length ? 'Next →' : 'See results →';
+}
+
+function nextQuestion() {
+    quizCurrent++;
+    renderQuestion();
+}
+
+async function finishQuiz() {
+    quizAudio.pause();
+    document.getElementById('quiz-area').classList.remove('active');
+    const results = document.getElementById('quiz-results');
+    results.classList.add('active');
+
+    const pct = quizQuestions.length > 0 ? Math.round((quizScore/quizQuestions.length)*100) : 0;
+    document.getElementById('results-score').textContent = `${quizScore} / ${quizQuestions.length}`;
+    document.getElementById('results-label').textContent = `${pct}% — ${
+        pct >= 80 ? 'Strong.' : pct >= 50 ? 'Getting there.' : 'Keep studying.'
+    }`;
+
+    // Save session
+    await fetch('/api/learn/quiz/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: quizMode, scope: 'all', answers: quizAnswers }),
+    });
+}
+
+function showReview() {
+    const list = document.getElementById('quiz-review-list');
+    list.innerHTML = quizAnswers.map((a, i) => `
+        <div style="padding:12px 0; border-bottom:1px solid var(--border);">
+            <div style="font-size:0.74rem; color:var(--muted2); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">
+                Q${i+1} · ${a.type.replace('_',' ')}
+            </div>
+            <div style="font-size:0.88rem; margin-bottom:6px;">${a.question}</div>
+            <div style="font-size:0.82rem;">
+                Your answer: <span style="color:${a.is_correct ? 'var(--accent)' : 'var(--danger)'};">${a.user_answer}</span>
+                ${!a.is_correct ? `· Correct: <span style="color:var(--accent);">${a.correct_answer}</span>` : ''}
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:6px;">${a.explanation}</div>
+        </div>`).join('');
+}
+
+function resetQuiz() {
+    quizAudio.pause();
+    document.getElementById('quiz-results').classList.remove('active');
+    document.getElementById('quiz-config').style.display = '';
+    loadQuizHistory();
+}
+
+async function loadQuizHistory() {
+    const res      = await fetch('/api/learn/quiz/history');
+    const sessions = await res.json();
+    const el       = document.getElementById('quiz-history-section');
+    if (!sessions.length) { el.innerHTML = ''; return; }
+
+    el.innerHTML = `
+        <div class="stats-section-heading">Recent sessions</div>
+        ${sessions.slice(0,5).map(s => {
+            const pct = s.total > 0 ? Math.round((s.score/s.total)*100) : 0;
+            const date = new Date(s.finished_at).toLocaleDateString('en-IE', {day:'numeric',month:'short'});
+            return `<div class="quiz-history-row">
+                <span class="quiz-history-row__score">${s.score}/${s.total}</span>
+                <span>${pct}%</span>
+                <span class="quiz-history-row__mode">${s.mode}</span>
+                <span class="quiz-history-row__date">${date}</span>
+            </div>`;
+        }).join('')}`;
+}
+
+// =============================================================
+// STATS
+// =============================================================
+
+async function loadStats() {
+    const res  = await fetch('/api/learn/stats');
+    const data = await res.json();
+    statsLoaded = true;
+    renderStats(data);
+}
+
+function renderStats(d) {
+    // Top stat cards
+    const pct_analysis = d.total_tracks > 0 ? Math.round((d.analysed/d.total_tracks)*100) : 0;
+    const pct_enriched = d.total_artists > 0 ? Math.round((d.enriched_artists/d.total_artists)*100) : 0;
+    const pct_quiz     = d.quiz.total_questions > 0 ? Math.round((d.quiz.total_correct/d.quiz.total_questions)*100) : 0;
+
+    document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card"><div class="stat-card__value">${d.total_tracks}</div><div class="stat-card__label">Tracks</div></div>
+        <div class="stat-card"><div class="stat-card__value">${d.total_artists}</div><div class="stat-card__label">Artists</div></div>
+        <div class="stat-card"><div class="stat-card__value">${d.unknown_artists}</div><div class="stat-card__label">Unknown</div></div>
+        <div class="stat-card"><div class="stat-card__value">${pct_analysis}%</div><div class="stat-card__label">Analysed</div></div>
+        <div class="stat-card"><div class="stat-card__value">${pct_enriched}%</div><div class="stat-card__label">Enriched artists</div></div>
+        <div class="stat-card"><div class="stat-card__value">${d.quiz.total_sessions}</div><div class="stat-card__label">Quizzes taken</div></div>
+        ${d.quiz.total_questions > 0 ? `<div class="stat-card"><div class="stat-card__value">${pct_quiz}%</div><div class="stat-card__label">Quiz accuracy</div></div>` : ''}
+    `;
+
+    const charts = document.getElementById('stats-charts');
+    let html = '';
+
+    // Year timeline
+    if (d.years && d.years.length) {
+        const maxCount = Math.max(...d.years.map(y => y.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Year distribution</div>
+            <div class="year-chart">
+                ${d.years.map(y => `
+                    <div class="year-bar" style="height:${Math.max(4,(y.count/maxCount)*100)}%"
+                         title="${y.year}: ${y.count} tracks"></div>`).join('')}
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--muted2); margin-top:6px;">
+                <span>${d.years[0]?.year}</span>
+                <span>${d.years[Math.floor(d.years.length/2)]?.year}</span>
+                <span>${d.years[d.years.length-1]?.year}</span>
+            </div>
+        </div>`;
+    }
+
+    // Format breakdown
+    if (d.formats && d.formats.length) {
+        const maxF = Math.max(...d.formats.map(f => f.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Format</div>
+            <div class="bar-chart">
+                ${d.formats.map(f => `
+                    <div class="bar-row">
+                        <span class="bar-row__label">${(f.file_format||'unknown').toUpperCase()}</span>
+                        <div class="bar-row__track">
+                            <div class="bar-row__fill" style="width:${(f.count/maxF)*100}%"></div>
+                        </div>
+                        <span class="bar-row__count">${f.count}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    // Country breakdown
+    if (d.countries && d.countries.length) {
+        const maxC = Math.max(...d.countries.map(c => c.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Country of origin</div>
+            <div class="bar-chart">
+                ${d.countries.map(c => `
+                    <div class="bar-row">
+                        <span class="bar-row__label">${c.country}</span>
+                        <div class="bar-row__track">
+                            <div class="bar-row__fill" style="width:${(c.count/maxC)*100}%"></div>
+                        </div>
+                        <span class="bar-row__count">${c.count}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    // Genre breakdown
+    if (d.genres && d.genres.length) {
+        const maxG = Math.max(...d.genres.map(g => g.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Genre</div>
+            <div class="bar-chart">
+                ${d.genres.map(g => `
+                    <div class="bar-row">
+                        <span class="bar-row__label">${g.genre}</span>
+                        <div class="bar-row__track">
+                            <div class="bar-row__fill" style="width:${(g.count/maxG)*100}%"></div>
+                        </div>
+                        <span class="bar-row__count">${g.count}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    // Gender breakdown
+    if (d.gender && d.gender.length) {
+        const maxGe = Math.max(...d.gender.map(g => g.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Artist gender</div>
+            <div class="bar-chart">
+                ${d.gender.map(g => `
+                    <div class="bar-row">
+                        <span class="bar-row__label">${g.gender || 'unknown'}</span>
+                        <div class="bar-row__track">
+                            <div class="bar-row__fill" style="width:${(g.count/maxGe)*100}%"></div>
+                        </div>
+                        <span class="bar-row__count">${g.count}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    // Labels
+    if (d.labels && d.labels.length) {
+        const maxL = Math.max(...d.labels.map(l => l.count));
+        html += `
+        <div class="stats-section">
+            <div class="stats-section-heading">Top labels</div>
+            <div class="bar-chart">
+                ${d.labels.map(l => `
+                    <div class="bar-row">
+                        <span class="bar-row__label">${l.label}</span>
+                        <div class="bar-row__track">
+                            <div class="bar-row__fill" style="width:${(l.count/maxL)*100}%"></div>
+                        </div>
+                        <span class="bar-row__count">${l.count}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    if (!html) html = `<div style="color:var(--muted); font-size:0.88rem; padding:20px 0;">Enrich your artists to see genre, country and gender breakdowns. Run <code>python3 enricher.py --artists</code> or click a dot on the map and enrich individual artists.</div>`;
+
+    charts.innerHTML = html;
+}
+
+// =============================================================
+// MAP
+// =============================================================
+
+async function loadMap() {
+    const res     = await fetch('/api/learn/artists');
+    mapArtists    = await res.json();
+    mapLoaded     = true;
+
+    const statusEl = document.getElementById('map-status');
+    const noticeEl = document.getElementById('coverage-notice');
+    const enrichEl = document.getElementById('enrich-all-btn');
+
+    if (!mapArtists.length) {
+        document.getElementById('artist-map').innerHTML = `
+            <div class="loading">No enriched artists yet.<br>
+            <small style="color:var(--muted2);">Use the panel below to enrich artists one by one, or run<br>
+            <code>python3 enricher.py --artists</code> in the terminal.</small></div>`;
+        statusEl.textContent = '0 artists mapped';
+        enrichEl.style.display = '';
+        renderEnrichPanel();
+        return;
+    }
+
+    statusEl.textContent = `${mapArtists.length} artists mapped`;
+    enrichEl.style.display = '';
+    noticeEl.style.display = '';
+    noticeEl.textContent   = `Showing ${mapArtists.length} artists with location data. Dot size = track count in your library.`;
+
+    renderMap(mapArtists);
+    renderEnrichPanel();
+}
+
+function renderMap(artists) {
+    const container = document.getElementById('artist-map');
+
+    // Simple equirectangular projection SVG world map
+    // Background path is a simplified world outline
+    const W = 1000, H = 500;
+
+    function project(lat, lon) {
+        const x = ((lon + 180) / 360) * W;
+        const y = ((90 - lat) / 180) * H;
+        return { x, y };
+    }
+
+    const maxCount = Math.max(...artists.map(a => a.track_count), 1);
+
+    const dots = artists.map(a => {
+        const { x, y } = project(a.latitude, a.longitude);
+        const r = 3 + Math.sqrt(a.track_count / maxCount) * 8;
+        const name  = (a.artist_name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        const city  = [a.city, a.country].filter(Boolean).join(', ').replace(/&/g,'&amp;');
+        return `<circle class="artist-dot"
+            cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}"
+            fill="var(--accent)" opacity="0.65"
+            data-name="${name}" data-city="${city}"
+            data-tracks="${a.track_count}" data-genres="${(a.genres||'').replace(/"/g,'')}"
+            data-scene="${(a.scene||'').replace(/"/g,'')}"
+            onclick="showArtistDetail('${name}')"/>`;
+    }).join('');
+
+    container.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+             style="display:block; background:var(--surface2);">
+            <!-- Graticule -->
+            ${[-60,-30,0,30,60].map(lat => {
+                const y = project(lat, 0).y;
+                return `<line x1="0" y1="${y.toFixed(0)}" x2="${W}" y2="${y.toFixed(0)}" stroke="var(--border)" stroke-width="0.5"/>`;
+            }).join('')}
+            ${[-120,-60,0,60,120].map(lon => {
+                const x = project(0, lon).x;
+                return `<line x1="${x.toFixed(0)}" y1="0" x2="${x.toFixed(0)}" y2="${H}" stroke="var(--border)" stroke-width="0.5"/>`;
+            }).join('')}
+            <!-- Equator -->
+            <line x1="0" y1="${project(0,0).y.toFixed(0)}" x2="${W}" y2="${project(0,0).y.toFixed(0)}" stroke="var(--border2)" stroke-width="1"/>
+            <!-- Artist dots -->
+            ${dots}
+        </svg>`;
+
+    // Tooltip on hover
+    const tooltip = document.getElementById('map-tooltip');
+    container.querySelectorAll('.artist-dot').forEach(dot => {
+        dot.addEventListener('mouseenter', e => {
+            tooltip.innerHTML = `
+                <div class="map-tooltip__name">${dot.dataset.name}</div>
+                <div class="map-tooltip__meta">
+                    ${dot.dataset.city ? dot.dataset.city + '<br>' : ''}
+                    ${dot.dataset.tracks} track${dot.dataset.tracks !== '1' ? 's' : ''} in library<br>
+                    ${dot.dataset.genres ? dot.dataset.genres.split(',').slice(0,3).join(', ') : ''}
+                </div>`;
+            tooltip.classList.add('visible');
+        });
+        dot.addEventListener('mousemove', e => {
+            const rect = container.getBoundingClientRect();
+            let tx = e.clientX - rect.left + 12;
+            let ty = e.clientY - rect.top + 12;
+            if (tx + 250 > rect.width) tx -= 260;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top  = ty + 'px';
+        });
+        dot.addEventListener('mouseleave', () => {
+            tooltip.classList.remove('visible');
+        });
+    });
+}
+
+async function showArtistDetail(artistName) {
+    const panel = document.getElementById('artist-detail');
+    panel.classList.add('visible');
+    panel.innerHTML = `<div class="loading" style="padding:20px 0;">Loading...</div>`;
+
+    const res  = await fetch(`/api/learn/artist/${encodeURIComponent(artistName)}`);
+    const data = await res.json();
+    const p    = data.profile || {};
+    const tracks = data.tracks || [];
+
+    const meta = [
+        p.city && p.country ? `${p.city}, ${p.country}` : p.country || null,
+        p.active_from ? `Active ${p.active_from}${p.active_to ? '–' + p.active_to : '–'}` : null,
+        p.gender || null,
+        p.ethnicity_notes || null,
+    ].filter(Boolean).join(' · ');
+
+    panel.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div class="artist-detail__name">${p.artist_name || artistName}</div>
+            <button class="enrich-btn" onclick="enrichOneArtist('${artistName}', true)">↻ Refresh</button>
+        </div>
+        ${meta ? `<div class="artist-detail__meta">${meta}</div>` : ''}
+        ${p.bio_summary ? `<div class="artist-detail__bio">${p.bio_summary}</div>` : ''}
+        ${p.scene ? `<div style="font-size:0.82rem; color:var(--muted); margin-bottom:10px;"><em>${p.scene}</em></div>` : ''}
+        ${p.genres ? `<div style="font-size:0.8rem; color:var(--muted2); margin-bottom:10px;">${p.genres}</div>` : ''}
+        ${p.labels ? `<div style="font-size:0.8rem; color:var(--muted2); margin-bottom:10px;">Labels: ${p.labels}</div>` : ''}
+        ${p.influences ? `<div style="font-size:0.8rem; color:var(--muted2); margin-bottom:10px;">Influences: ${p.influences}</div>` : ''}
+        ${p.notable_works ? `<div style="font-size:0.8rem; color:var(--muted2); margin-bottom:10px;">Key releases: ${p.notable_works}</div>` : ''}
+        ${tracks.length ? `
+        <div style="margin-top:12px; font-size:0.76rem; color:var(--muted2); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">
+            In your library (${tracks.length} tracks)
+        </div>
+        <div style="max-height:160px; overflow-y:auto;">
+            ${tracks.map(t => `
+                <div style="padding:5px 0; border-bottom:1px solid var(--border); font-size:0.82rem; display:flex; gap:12px;">
+                    <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.title || 'Untitled'}</span>
+                    <span style="color:var(--muted2); flex-shrink:0;">${t.year || ''}</span>
+                    ${t.bpm ? `<span style="color:var(--muted2); font-family:var(--font-mono); font-size:0.76rem; flex-shrink:0;">${Math.round(t.bpm)} BPM</span>` : ''}
+                </div>`).join('')}
+        </div>` : ''}`;
+}
+
+let enrichQueue = [];
+let enrichIndex = 0;
+
+function renderEnrichPanel() {
+    // Get unique artist names not yet enriched from all tracks
+    fetch('/api/learn/stats').then(r => r.json()).then(data => {
+        const unenriched = data.total_artists - data.enriched_artists;
+        if (unenriched > 0) {
+            document.getElementById('enrich-all-btn').style.display = '';
+            document.getElementById('enrich-all-btn').textContent = `⟳ Enrich next artists (${unenriched} remaining)`;
+        }
+    });
+}
+
+async function enrichNextBatch() {
+    const btn = document.getElementById('enrich-all-btn');
+    btn.disabled = true;
+    btn.textContent = '⟳ Fetching...';
+
+    // Get a batch of unenriched artists
+    const res = await fetch('/api/tracks?limit=500&sort=artist_name');
+    const data = await res.json();
+    const enrichedRes = await fetch('/api/learn/artists');
+    const enrichedArtists = new Set((await enrichedRes.json()).map(a => a.artist_name.toLowerCase()));
+
+    const unenriched = [...new Set(
+        data.tracks
+            .map(t => t.artist_name)
+            .filter(a => a && !enrichedArtists.has(a.toLowerCase()))
+    )].slice(0, 10); // batch of 10
+
+    if (!unenriched.length) {
+        btn.textContent = '✓ All enriched';
+        return;
+    }
+
+    for (let i = 0; i < unenriched.length; i++) {
+        btn.textContent = `⟳ ${i+1}/${unenriched.length}: ${unenriched[i]}...`;
+        await enrichOneArtist(unenriched[i], false);
+    }
+
+    btn.disabled = false;
+    // Reload map
+    mapLoaded = false;
+    await loadMap();
+    if (statsLoaded) { statsLoaded = false; loadStats(); }
+}
+
+async function enrichOneArtist(artistName, force = false) {
+    const res = await fetch('/api/learn/enrich_artist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist_name: artistName, force }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        console.warn(`Enrichment failed for ${artistName}:`, data.error);
+    }
+    return data;
+}
+
+// =============================================================
+// RESOURCES
+// =============================================================
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function timeAgo(iso) {
+    if (!iso) return '';
+    const t = new Date(iso.replace(' ', 'T') + 'Z').getTime();
+    if (!isFinite(t)) return '';
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60)       return `${Math.floor(s)}s ago`;
+    if (s < 3600)     return `${Math.floor(s/60)}m ago`;
+    if (s < 86400)    return `${Math.floor(s/3600)}h ago`;
+    if (s < 86400*30) return `${Math.floor(s/86400)}d ago`;
+    const months = Math.floor(s/(86400*30));
+    if (months < 12)  return `${months}mo ago`;
+    return `${Math.floor(months/12)}y ago`;
+}
+
+async function loadResources() {
+    resourcesLoaded = true;
+    await Promise.all([
+        refreshResourceKinds(),
+        refreshResourceCategories(),
+        refreshResourceTags(),
+        refreshPlaces(),
+    ]);
+    await fetchResources();
+}
+
+async function refreshResourceKinds() {
+    try {
+        const r = await fetch('/api/resource/kinds');
+        resourceKinds = await r.json();
+    } catch (_) { resourceKinds = []; }
+}
+async function refreshResourceCategories() {
+    try {
+        const r = await fetch('/api/resource/categories');
+        resourceCategories = await r.json();
+    } catch (_) { resourceCategories = []; }
+}
+async function refreshResourceTags() {
+    try {
+        const r = await fetch('/api/resource/tags');
+        resourceTags = await r.json();
+    } catch (_) { resourceTags = []; }
+}
+async function refreshPlaces() {
+    try {
+        const r = await fetch('/api/places');
+        resourcePlaces = (await r.json()).map(p => ({ id: p.id, name: p.name }));
+    } catch (_) { resourcePlaces = []; }
+}
+
+async function fetchResources() {
+    const qs = new URLSearchParams();
+    if (resourceFilter.kind)     qs.set('kind', resourceFilter.kind);
+    if (resourceFilter.category) qs.set('category', resourceFilter.category);
+    if (resourceFilter.tag)      qs.set('tag', resourceFilter.tag);
+    if (resourceFilter.search)   qs.set('search', resourceFilter.search);
+    const url = '/api/resources' + (qs.toString() ? '?' + qs.toString() : '');
+    const res = await fetch(url);
+    resourcesAll = await res.json();
+    renderResourcePills();
+    renderResources();
+}
+
+function renderResourcePills() {
+    // Kinds — only show ones that have at least one entry, plus an "all" pill
+    const kindsWithCount = resourceKinds.filter(k => k.count > 0);
+    document.getElementById('resources-kind-pills').innerHTML =
+        renderPillRow('kind', kindsWithCount, 'kind', 'count');
+    document.getElementById('resources-category-pills').innerHTML =
+        renderPillRow('category', resourceCategories, 'category', 'count');
+    document.getElementById('resources-tag-pills').innerHTML =
+        renderPillRow('tag', resourceTags, 'tag', 'count');
+}
+
+function renderPillRow(field, items, nameKey, countKey) {
+    if (!items || !items.length) return '';
+    const active = resourceFilter[field];
+    const allActive = active == null ? 'active' : '';
+    let html = `<button class="resources-pill ${allActive}" onclick="setResourceFilter('${field}', null)">All</button>`;
+    html += items.map(it => {
+        const name  = it[nameKey];
+        const count = it[countKey];
+        const cls   = active === name ? 'active' : '';
+        return `<button class="resources-pill ${cls}" onclick="setResourceFilter('${field}', '${escHtml(name).replace(/'/g, "\\'")}')">
+            ${escHtml(name)}<span class="count">${count}</span>
+        </button>`;
+    }).join('');
+    return html;
+}
+
+function setResourceFilter(field, value) {
+    resourceFilter[field] = value;
+    fetchResources();
+}
+
+let _resourceSearchTimer = null;
+function onResourceSearch() {
+    const val = document.getElementById('resources-search').value.trim();
+    clearTimeout(_resourceSearchTimer);
+    _resourceSearchTimer = setTimeout(() => {
+        resourceFilter.search = val;
+        fetchResources();
+    }, 220);
+}
+
+function renderResources() {
+    const el = document.getElementById('resources-list');
+    const meta = document.getElementById('resources-meta');
+    if (!resourcesAll.length) {
+        el.innerHTML = `<div class="resources-empty">No resources yet. Click "+ Add resource" to start.</div>`;
+        meta.textContent = '';
+        return;
+    }
+    meta.textContent = `${resourcesAll.length} resource${resourcesAll.length === 1 ? '' : 's'}`;
+    el.innerHTML = resourcesAll.map(r => {
+        const chips = [];
+        if (r.category)   chips.push(`<span class="chip cat">${escHtml(r.category)}</span>`);
+        (r.tag_list || []).forEach(t => chips.push(`<span class="chip">#${escHtml(t)}</span>`));
+        if (r.place_name) chips.push(`<span class="chip">@${escHtml(r.place_name)}</span>`);
+        if (r.last_visited_at) chips.push(`<span>last opened ${timeAgo(r.last_visited_at)}</span>`);
+        const desc = r.description ? `<div class="resource-row__desc">${escHtml(r.description)}</div>` : '';
+        return `<div class="resource-row ${r.is_pinned ? 'pinned' : ''}" onclick="onResourceRowClick(${r.id})">
+            <span class="resource-row__kind">${escHtml(r.kind || 'link')}</span>
+            <div class="resource-row__body">
+                <div class="resource-row__title">${escHtml(r.title)}</div>
+                ${desc}
+                <div class="resource-row__meta">${chips.join('')}</div>
+            </div>
+            <div class="resource-row__actions">
+                <button title="Edit" onclick="event.stopPropagation(); editResource(${r.id})">✎</button>
+                <button title="Pin / unpin" onclick="event.stopPropagation(); togglePinResource(${r.id})">${r.is_pinned ? '★' : '☆'}</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function onResourceRowClick(id) {
+    const r = resourcesAll.find(x => x.id === id);
+    if (!r) return;
+    if (r.kind === 'note' || (!r.url && !r.file_path)) {
+        openNoteViewer(r);
+        return;
+    }
+    await fetch(`/api/resource/${id}/open`, { method: 'POST' });
+    // Bump visit timestamp in our local copy without re-fetching
+    r.last_visited_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    renderResources();
+}
+
+function openNoteViewer(r) {
+    document.getElementById('res-note-title').textContent = r.title || '(untitled note)';
+    document.getElementById('res-note-body').textContent  = r.body || '';
+    document.getElementById('res-note-overlay').classList.add('visible');
+    document.getElementById('res-note-overlay').dataset.id = r.id;
+}
+function closeResourceNote() {
+    document.getElementById('res-note-overlay').classList.remove('visible');
+}
+function onResourceNoteBackdrop(e) {
+    if (e.target.id === 'res-note-overlay') closeResourceNote();
+}
+function editFromNoteView() {
+    const id = parseInt(document.getElementById('res-note-overlay').dataset.id, 10);
+    closeResourceNote();
+    if (id) editResource(id);
+}
+
+// ─── Add / Edit modal ──────────────────────────────────────────────
+function openResourceModal(prefill) {
+    const data = prefill || {};
+    document.getElementById('res-modal-title').textContent = data.id ? 'Edit resource' : 'Add resource';
+    document.getElementById('res-id').value          = data.id || '';
+    document.getElementById('res-kind').value        = data.kind || 'link';
+    document.getElementById('res-title').value       = data.title || '';
+    document.getElementById('res-url').value         = data.url || '';
+    document.getElementById('res-file-path').value   = data.file_path || '';
+    document.getElementById('res-body').value        = data.body || '';
+    document.getElementById('res-category').value    = data.category || '';
+    document.getElementById('res-tags').value        = (data.tag_list || []).join(', ');
+    document.getElementById('res-description').value = data.description || '';
+    document.getElementById('res-pinned').checked    = !!data.is_pinned;
+
+    // Kinds datalist
+    document.getElementById('res-kinds-list').innerHTML =
+        resourceKinds.map(k => `<option value="${escHtml(k.kind)}">`).join('');
+    // Categories datalist
+    document.getElementById('res-categories-list').innerHTML =
+        resourceCategories.map(c => `<option value="${escHtml(c.category)}">`).join('');
+    // Places dropdown
+    const placeSel = document.getElementById('res-place');
+    placeSel.innerHTML = '<option value="">— none —</option>' +
+        resourcePlaces.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+    placeSel.value = data.place_id != null ? String(data.place_id) : '';
+
+    // Delete button visibility
+    document.getElementById('res-form-delete-btn').style.display = data.id ? '' : 'none';
+
+    onResourceKindChange();
+    document.getElementById('res-modal-overlay').classList.add('visible');
+    setTimeout(() => document.getElementById('res-title').focus(), 50);
+}
+
+function closeResourceModal() {
+    document.getElementById('res-modal-overlay').classList.remove('visible');
+}
+
+function onResourceKindChange() {
+    const kind = (document.getElementById('res-kind').value || '').trim().toLowerCase();
+    const isNote  = (kind === 'note');
+    const isFile  = (kind === 'pdf' || kind === 'audio' || kind === 'image' || kind === 'file');
+    const isUrl   = !isNote && !isFile;
+    document.getElementById('res-url-row').style.display  = isUrl  ? '' : 'none';
+    document.getElementById('res-file-row').style.display = isFile ? '' : 'none';
+    document.getElementById('res-body-row').style.display = isNote ? '' : 'none';
+}
+
+async function submitResourceForm(e) {
+    e.preventDefault();
+    const id = document.getElementById('res-id').value;
+    const placeRaw = document.getElementById('res-place').value;
+    const payload = {
+        kind:        document.getElementById('res-kind').value.trim() || null,
+        title:       document.getElementById('res-title').value.trim(),
+        url:         document.getElementById('res-url').value.trim(),
+        file_path:   document.getElementById('res-file-path').value.trim(),
+        body:        document.getElementById('res-body').value,
+        category:    document.getElementById('res-category').value.trim(),
+        tags:        document.getElementById('res-tags').value.trim(),
+        description: document.getElementById('res-description').value.trim(),
+        place_id:    placeRaw ? parseInt(placeRaw, 10) : null,
+        is_pinned:   document.getElementById('res-pinned').checked,
+    };
+    if (!payload.title) { alert('Title is required.'); return; }
+    const url    = id ? `/api/resource/${id}` : '/api/resources';
+    const method = id ? 'PATCH' : 'POST';
+    const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Save failed.');
+        return;
+    }
+    closeResourceModal();
+    await refreshResourceKinds();
+    await refreshResourceCategories();
+    await refreshResourceTags();
+    await fetchResources();
+}
+
+function editResource(id) {
+    const r = resourcesAll.find(x => x.id === id);
+    if (!r) return;
+    openResourceModal(r);
+}
+
+async function togglePinResource(id) {
+    const r = resourcesAll.find(x => x.id === id);
+    if (!r) return;
+    await fetch(`/api/resource/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ is_pinned: !r.is_pinned }),
+    });
+    fetchResources();
+}
+
+async function deleteResourceFromForm() {
+    const id = document.getElementById('res-id').value;
+    if (!id) return;
+    if (!confirm('Delete this resource?')) return;
+    await fetch(`/api/resource/${id}`, { method: 'DELETE' });
+    closeResourceModal();
+    await refreshResourceKinds();
+    await refreshResourceCategories();
+    await refreshResourceTags();
+    await fetchResources();
+}
+
+// =============================================================
+// INIT
+// =============================================================
+loadQuizHistory();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

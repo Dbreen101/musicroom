@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Just Listen — Music Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+<script src="/static/js/room_transition.js"></script>
+<style>
+  /* =============================================================
+     JUST LISTEN — the sit-back lens. The record's own art is the
+     hero; everything else recedes. A calm skin over the persistent
+     Seinnteoir (the music keeps playing as you arrive and leave).
+  ============================================================= */
+  :root{ --jl-ink:#efe6cf; --jl-muted:#a99a78; --jl-gold:#f5e6b0; --jl-accent:#7eb8a4;
+         --spring:cubic-bezier(.34,1.45,.5,1); }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#0d0b08;
+    font-family:var(--font-serif, 'EB Garamond', Georgia, serif); color:var(--jl-ink); }
+
+  /* the cover, blurred + darkened, fills the room behind everything — the
+     content's own imagery sets the mood (Apple/Spotify-now-playing register) */
+  #jl-bg{ position:fixed; inset:-8%; background-size:cover; background-position:center;
+    filter:blur(60px) brightness(.34) saturate(1.1); transform:scale(1.12);
+    transition:background-image .6s ease, opacity .6s ease; }
+  #jl-bg::after{ content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse 75% 70% at 50% 42%, rgba(13,11,8,.25), rgba(13,11,8,.9)); }
+
+  .jl-wrap{ position:fixed; inset:0; z-index:2; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:0; padding:5vh 24px; }
+
+  /* the hovering record: a strong soft shadow beneath sells the float */
+  .jl-stage{ position:relative; display:flex; flex-direction:column; align-items:center; }
+  .jl-art-shadow{ position:absolute; left:50%; bottom:-6%; width:62%; height:7%;
+    transform:translateX(-50%); border-radius:50%;
+    background:radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%);
+    filter:blur(9px); animation:jl-shadow 7s ease-in-out infinite; }
+  .jl-art{ position:relative; width:min(44vh, 430px); aspect-ratio:1/1; border-radius:12px;
+    overflow:hidden; background:#1c160f; animation:jl-float 7s ease-in-out infinite;
+    box-shadow:0 44px 90px -24px rgba(0,0,0,.8), 0 14px 40px rgba(0,0,0,.5); cursor:default; }
+  .jl-art img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;
+    opacity:0; transition:opacity .55s ease; }
+  .jl-art img.on{ opacity:1; }
+  .jl-art__fallback{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-style:italic; font-size:5rem; color:rgba(245,230,176,.5); background:#2a2014; }
+  @keyframes jl-float{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-12px); } }
+  @keyframes jl-shadow{ 0%,100%{ transform:translateX(-50%) scale(1); opacity:.55; }
+                        50%{ transform:translateX(-50%) scale(.86); opacity:.34; } }
+
+  /* title / artist */
+  .jl-meta{ margin-top:6vh; text-align:center; max-width:min(560px,90vw); }
+  .jl-title{ font-style:italic; font-size:clamp(1.5rem, 3.2vh, 2.3rem); line-height:1.2;
+    color:var(--jl-gold); text-shadow:0 2px 18px rgba(0,0,0,.6);
+    overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .jl-artist{ font-size:clamp(.95rem, 2vh, 1.2rem); color:var(--jl-ink); opacity:.82; margin-top:6px; }
+
+  /* scrubber */
+  .jl-scrub-wrap{ margin-top:4vh; width:min(560px, 86vw); display:flex; flex-direction:column; gap:7px; }
+  .jl-scrub{ -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:3px;
+    background:rgba(245,230,176,.18); outline:none; cursor:pointer;
+    transition:height .2s var(--spring); }
+  .jl-scrub:hover{ height:9px; }
+  .jl-scrub::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+    background:var(--jl-gold); cursor:pointer; transition:transform .2s var(--spring), box-shadow .2s; }
+  .jl-scrub:hover::-webkit-slider-thumb{ transform:scale(1.3); box-shadow:0 0 0 6px rgba(245,230,176,.16); }
+  .jl-times{ display:flex; justify-content:space-between; font-family:var(--font-mono, monospace);
+    font-size:.74rem; color:var(--jl-muted); letter-spacing:.5px; }
+
+  /* transport */
+  .jl-controls{ margin-top:3.4vh; display:flex; align-items:center; gap:26px; }
+  .jl-btn{ appearance:none; border:none; cursor:pointer; color:var(--jl-ink); background:none;
+    display:flex; align-items:center; justify-content:center; font-size:1.5rem; line-height:1;
+    width:48px; height:48px; border-radius:50%; transition:all .22s var(--spring); opacity:.85; }
+  .jl-btn:hover{ opacity:1; transform:scale(1.12); color:var(--jl-gold); }
+  .jl-btn:active{ transform:scale(.9); }
+  .jl-play{ width:72px; height:72px; font-size:1.7rem; color:#0d0b08; background:var(--jl-gold);
+    box-shadow:0 6px 22px rgba(245,230,176,.28); opacity:1; }
+  .jl-play:hover{ color:#0d0b08; transform:scale(1.06); }
+  .jl-play.playing{ animation:jl-breathe 3s ease-in-out infinite; }
+  /* volume — drives the shared server player, same in every listening mode */
+  .jl-vol{ margin-top:2.8vh; display:flex; align-items:center; gap:12px; width:min(280px,68vw); }
+  .jl-vol__ic{ font-size:.92rem; opacity:.7; flex:0 0 auto; }
+  .jl-vol__slider{ -webkit-appearance:none; appearance:none; flex:1; height:5px; border-radius:3px;
+    background:rgba(245,230,176,.18); cursor:pointer; }
+  .jl-vol__slider::-webkit-slider-thumb{ -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--jl-gold); cursor:pointer; transition:transform .2s var(--spring); }
+  .jl-vol__slider:hover::-webkit-slider-thumb{ transform:scale(1.25); }
+  @keyframes jl-breathe{ 0%,100%{ box-shadow:0 6px 22px rgba(245,230,176,.22); }
+                         50%{ box-shadow:0 6px 34px rgba(245,230,176,.6); } }
+
+  /* the cue counter — barely there */
+  .jl-counter{ margin-top:2.6vh; font-family:var(--font-mono, monospace); font-size:.72rem;
+    letter-spacing:1.5px; color:var(--jl-muted); opacity:.7; }
+
+  /* quiet ways out + into the other lenses, top corners */
+  .jl-top{ position:fixed; top:20px; left:0; right:0; z-index:3; display:flex; justify-content:space-between;
+    padding:0 24px; pointer-events:none; }
+  .jl-top a, .jl-top button{ pointer-events:auto; appearance:none; text-decoration:none; cursor:pointer;
+    font-family:var(--font-serif, serif); font-size:.86rem; color:var(--jl-muted); background:rgba(20,15,10,.5);
+    border:1px solid rgba(245,230,176,.16); border-radius:100px; padding:7px 15px; backdrop-filter:blur(8px);
+    transition:all .22s var(--spring); }
+  .jl-top a:hover, .jl-top button:hover{ color:var(--jl-ink); border-color:rgba(245,230,176,.4); transform:translateY(-1px); }
+  .jl-lenses{ display:flex; gap:8px; }
+
+  /* nothing cued */
+  .jl-empty{ position:fixed; inset:0; z-index:2; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; text-align:center; color:var(--jl-muted); font-style:italic; padding:24px; }
+  .jl-empty.show{ display:flex; }
+  .jl-empty a{ color:var(--jl-gold); text-decoration:none; font-style:normal; font-size:.9rem;
+    border:1px solid rgba(245,230,176,.3); border-radius:100px; padding:8px 18px; }
+
+  /* the cue — what's lined up. A calm panel that slides in from the right; you
+     can see the whole line of records, jump to one, lift one out, or reorder —
+     all without the music ever pausing. */
+  #jl-cue-n{ font-variant-numeric:tabular-nums; opacity:.8; }
+  .jl-cue{ position:fixed; top:0; right:0; bottom:0; z-index:4; width:min(360px, 88vw);
+    background:rgba(13,11,8,.78); backdrop-filter:blur(22px);
+    border-left:1px solid rgba(245,230,176,.14); box-shadow:-20px 0 60px rgba(0,0,0,.5);
+    transform:translateX(100%); transition:transform .34s var(--spring);
+    display:flex; flex-direction:column; }
+  .jl-cue.open{ transform:translateX(0); }
+  .jl-cue__head{ display:flex; align-items:center; justify-content:space-between;
+    padding:22px 22px 14px; font-style:italic; font-size:1.1rem; color:var(--jl-gold); }
+  .jl-cue__head button{ appearance:none; border:none; background:none; cursor:pointer;
+    color:var(--jl-muted); font-size:1.1rem; transition:color .2s; }
+  .jl-cue__head button:hover{ color:var(--jl-ink); }
+  .jl-cue__rows{ flex:1; overflow-y:auto; padding:0 12px 24px; }
+  .jl-crow{ display:flex; align-items:center; gap:11px; padding:8px 10px; border-radius:10px;
+    cursor:pointer; transition:background .18s; }
+  .jl-crow:hover{ background:rgba(245,230,176,.07); }
+  .jl-crow.active{ background:rgba(126,184,164,.12); }
+  .jl-crow.jl-drag-over{ box-shadow:inset 0 2px 0 var(--jl-gold); }
+  .jl-crow.jl-dragging{ opacity:.4; }
+  .jl-crow__grip{ color:var(--jl-muted); opacity:.4; cursor:grab; font-size:.9rem; line-height:1;
+    flex-shrink:0; user-select:none; }
+  .jl-crow__grip:active{ cursor:grabbing; }
+  .jl-crow__art{ width:38px; height:38px; border-radius:6px; flex-shrink:0; object-fit:cover;
+    background:#241b10; }
+  .jl-crow__art--blank{ display:flex; align-items:center; justify-content:center;
+    color:rgba(245,230,176,.4); font-style:italic; font-size:1rem; }
+  .jl-crow__main{ flex:1; min-width:0; }
+  .jl-crow__t{ font-size:.9rem; color:var(--jl-ink); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; }
+  .jl-crow.active .jl-crow__t{ color:var(--jl-accent); }
+  .jl-crow__a{ font-size:.76rem; color:var(--jl-muted); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; margin-top:1px; }
+  .jl-crow__eq{ flex-shrink:0; width:14px; color:var(--jl-accent); font-size:.8rem; text-align:center; }
+  .jl-crow__x{ appearance:none; border:none; background:none; cursor:pointer; flex-shrink:0;
+    color:var(--jl-muted); opacity:0; font-size:.95rem; transition:opacity .18s, color .18s; }
+  .jl-crow:hover .jl-crow__x{ opacity:.7; }
+  .jl-crow__x:hover{ color:#d98a8a; opacity:1; }
+  .jl-cue__empty{ padding:18px 14px; color:var(--jl-muted); font-style:italic; font-size:.88rem; }
+</style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<div id="jl-bg"></div>
+
+<div class="jl-top">
+  <a href="#" id="jl-back" title="Back to where you were (the music keeps playing)">‹ back</a>
+  <div class="jl-lenses">
+    <button id="jl-cue-btn" title="The cue — what's lined up">☰ cue <span id="jl-cue-n"></span></button>
+    <button id="jl-to-room" title="The Music Room">♪ room</button>
+  </div>
+</div>
+
+<!-- the cue: see the whole line of records, jump to one, lift one out, reorder -->
+<div class="jl-cue" id="jl-cue">
+  <div class="jl-cue__head"><span>The cue</span><button id="jl-cue-close" title="Close">✕</button></div>
+  <div class="jl-cue__rows" id="jl-cue-rows"></div>
+</div>
+
+<div class="jl-wrap" id="jl-wrap">
+  <div class="jl-stage">
+    <div class="jl-art-shadow"></div>
+    <div class="jl-art" id="jl-art">
+      <span class="jl-art__fallback" id="jl-fallback">♪</span>
+      <img id="jl-img-a" alt="">
+      <img id="jl-img-b" alt="">
+    </div>
+  </div>
+  <div class="jl-meta">
+    <div class="jl-title" id="jl-title">—</div>
+    <div class="jl-artist" id="jl-artist"></div>
+  </div>
+  <div class="jl-scrub-wrap">
+    <input type="range" class="jl-scrub" id="jl-scrub" min="0" max="1000" value="0" step="1">
+    <div class="jl-times"><span id="jl-elapsed">0:00</span><span id="jl-remain">-0:00</span></div>
+  </div>
+  <div class="jl-controls">
+    <button class="jl-btn" id="jl-prev" title="Previous">⏮</button>
+    <button class="jl-btn jl-play" id="jl-play" title="Play / pause">▶</button>
+    <button class="jl-btn" id="jl-next" title="Next">⏭</button>
+  </div>
+  <div class="jl-vol">
+    <span class="jl-vol__ic" id="jl-vol-ic">🔊</span>
+    <input type="range" class="jl-vol__slider" id="jl-vol" min="0" max="1" step="any" value="0.8" title="Volume">
+  </div>
+  <div class="jl-counter" id="jl-counter"></div>
+</div>
+
+<div class="jl-empty" id="jl-empty">
+  <div>Nothing cued.</div>
+  <a href="/room">cue some records in the Music Room</a>
+</div>
+
+<script>
+// ─── one continuous player, shown calmly ────────────────────────────────────
+// Just Listen never owns the audio — it reflects + commands the persistent
+// server-side Seinnteoir, so the cue plays on without a pause across arrival,
+// departure, and every other listening lens.
+const $ = id => document.getElementById(id);
+let state = null, lastTrackId = null, dragging = false, localPos = 0, lastPollAt = 0;
+let imgFront = $('jl-img-a'), imgBack = $('jl-img-b');
+
+function fmt(s){ if(!isFinite(s)||s==null) return '0:00'; const m=Math.floor(s/60),x=Math.floor(s%60); return m+':'+String(x).padStart(2,'0'); }
+
+function swapArt(it){
+  $('jl-fallback').style.display = 'none';
+  // library records have artwork by id; Explore streams (mixes/podcasts)
+  // carry their own image_url instead
+  const url = (it.track_id != null) ? `/api/artwork/${it.track_id}` : (it.image_url || '');
+  if (!url){
+    $('jl-fallback').textContent = (it.title||it.artist||'♪').trim()[0] || '♪';
+    $('jl-fallback').style.display = 'flex'; $('jl-bg').style.backgroundImage = 'none';
+    imgFront.classList.remove('on'); imgBack.classList.remove('on');
+    return;
+  }
+  imgBack.classList.remove('on');
+  imgBack.onload = ()=>{
+    imgBack.classList.add('on'); imgFront.classList.remove('on');
+    const t = imgFront; imgFront = imgBack; imgBack = t;     // swap roles
+    $('jl-bg').style.backgroundImage = `url("${url}")`;
+  };
+  imgBack.onerror = ()=>{ $('jl-fallback').textContent = (it.title||it.artist||'♪').trim()[0] || '♪';
+    $('jl-fallback').style.display = 'flex'; $('jl-bg').style.backgroundImage = 'none'; };
+  imgBack.src = url;
+}
+
+function render(){
+  const q = (state && state.queue) || [];
+  // before play, idx is -1 (a silent cue) — show the record that WILL play
+  // (queue[0]) so a freshly-cued line never reads as "Nothing cued".
+  const it = q[(state && state.idx >= 0) ? state.idx : 0];
+  $('jl-empty').classList.toggle('show', !it);
+  $('jl-wrap').style.visibility = it ? 'visible' : 'hidden';
+  if (!it){ renderCue(); $('jl-cue-n').textContent = ''; return; }
+  // identity must work for streams too — their track_id is null, which used
+  // to make null→null read as "no change" and leave the title blank forever
+  const nowKey = (it.track_id != null) ? 't' + it.track_id
+               : (it.audio_url || it.url || it.title || 'stream');
+  if (nowKey !== lastTrackId){
+    lastTrackId = nowKey;
+    swapArt(it);
+    $('jl-title').textContent = it.title || 'Untitled';
+    $('jl-artist').textContent = it.artist || '';
+  }
+  localPos = state.position; lastPollAt = performance.now();
+  updateScrub();
+  const p = $('jl-play');
+  p.textContent = state.playing ? '❚❚' : '▶';
+  p.classList.toggle('playing', !!state.playing);
+  $('jl-counter').textContent = q.length > 1 ? `${(state.idx >= 0 ? state.idx : 0) + 1} / ${q.length}` : '';
+  $('jl-cue-n').textContent = q.length || '';
+  // volume reflects the live server volume (unless the user is dragging it)
+  const vEl = $('jl-vol');
+  if (vEl && document.activeElement !== vEl){
+    const v = (state.volume == null ? 0.8 : state.volume);
+    vEl.value = v;
+    $('jl-vol-ic').textContent = v <= 0.001 ? '🔇' : (v < 0.5 ? '🔉' : '🔊');
+  }
+  renderCue();
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function updateScrub(){
+  if (dragging) return;
+  const dur = (state && state.duration) || 0;
+  const pct = dur > 0 ? Math.min(1000, (localPos / dur) * 1000) : 0;
+  $('jl-scrub').value = pct;
+  $('jl-elapsed').textContent = fmt(localPos);
+  $('jl-remain').textContent  = '-' + fmt(Math.max(0, dur - localPos));
+}
+// advance the scrubber smoothly between polls
+function tick(){
+  if (state && state.playing && !dragging){
+    localPos = Math.min((state.duration||0), state.position + (performance.now() - lastPollAt)/1000);
+    updateScrub();
+  }
+  requestAnimationFrame(tick);
+}
+async function poll(){
+  try { state = await fetch('/api/seinnteoir/state').then(r=>r.json()); render(); } catch(_){}
+}
+function cmd(name, body){
+  return fetch('/api/seinnteoir/' + name, { method:'POST', headers:{'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : '{}' }).catch(()=>{});
+}
+
+// transport
+$('jl-play').onclick = ()=> cmd('toggle').then(()=>setTimeout(poll,80));
+$('jl-prev').onclick = ()=> cmd('prev').then(()=>setTimeout(poll,120));
+$('jl-next').onclick = ()=> cmd('next').then(()=>setTimeout(poll,120));
+const scrub = $('jl-scrub');
+scrub.addEventListener('input', ()=>{
+  dragging = true;
+  const dur=(state&&state.duration)||0; const sec=(scrub.value/1000)*dur;
+  $('jl-elapsed').textContent = fmt(sec);
+  $('jl-remain').textContent = '-' + fmt(Math.max(0,dur-sec));
+});
+scrub.addEventListener('change', ()=>{
+  const dur=(state&&state.duration)||0; const sec=(scrub.value/1000)*dur;
+  cmd('seek', { sec }).then(()=>{ setTimeout(()=>{ dragging=false; poll(); }, 150); });
+});
+
+// volume — posts to the SAME server player, so it controls the audio here just
+// like on the cassette (throttled: immediate + the trailing value)
+const jvol = $('jl-vol');
+let _jvolT = null, _jvolLatest = null;
+function _postJVol(v){
+  _jvolLatest = v;
+  if (_jvolT) return;
+  cmd('volume', { volume: v });
+  _jvolT = setTimeout(()=>{ _jvolT = null; if (_jvolLatest !== v) cmd('volume', { volume: _jvolLatest }); }, 90);
+}
+jvol.addEventListener('input', ()=>{
+  const v = Math.max(0, Math.min(1, parseFloat(jvol.value) || 0));
+  if (state) state.volume = v;                         // optimistic
+  $('jl-vol-ic').textContent = v <= 0.001 ? '🔇' : (v < 0.5 ? '🔉' : '🔊');
+  _postJVol(v);
+});
+
+// ─── the cue panel — see + edit what's lined up, music never pausing ─────────
+let cueOpen = false, _cueSig = '', _cdrag = -1;
+function toggleCue(open){
+  cueOpen = (open === undefined) ? !cueOpen : open;
+  $('jl-cue').classList.toggle('open', cueOpen);
+  if (cueOpen){ _cueSig = ''; renderCue(); }
+}
+$('jl-cue-btn').onclick = ()=> toggleCue();
+$('jl-cue-close').onclick = ()=> toggleCue(false);
+
+function renderCue(){
+  if (!cueOpen) return;
+  const rows = $('jl-cue-rows');
+  if (rows.querySelector('.jl-dragging')) return;        // never clobber a drag
+  const q = (state && state.queue) || [];
+  if (!q.length){ rows.innerHTML = '<div class="jl-cue__empty">Nothing cued yet.</div>'; _cueSig = 'empty'; return; }
+  const sig = (state.idx) + '|' + (state.playing?'1':'0') + '|' + q.map(x=>x.track_id).join(',');
+  if (sig === _cueSig && rows.firstChild) return;
+  _cueSig = sig;
+  rows.innerHTML = q.map((it,i)=>{
+    const active = i === state.idx;
+    const art = it.track_id
+      ? `<img class="jl-crow__art" src="/api/artwork/${it.track_id}?s=192" alt=""
+             onerror="this.classList.add('jl-crow__art--blank');this.removeAttribute('src');this.textContent='♪';">`
+      : `<div class="jl-crow__art jl-crow__art--blank">♪</div>`;
+    const eq = active ? (state.playing ? '▮' : '❚') : '';
+    return `<div class="jl-crow ${active?'active':''}" draggable="true" data-idx="${i}"
+                 title="${esc((it.artist||'Unknown')+' — '+(it.title||'Untitled'))}">
+      <span class="jl-crow__grip" title="Drag to reorder">⋮⋮</span>
+      ${art}
+      <div class="jl-crow__main">
+        <div class="jl-crow__t">${esc(it.title||'Untitled')}</div>
+        <div class="jl-crow__a">${esc(it.artist||'Unknown')}</div>
+      </div>
+      <span class="jl-crow__eq">${eq}</span>
+      <button class="jl-crow__x" data-x="${i}" title="Lift out of the cue">✕</button>
+    </div>`;
+  }).join('');
+  bindCueRows();
+}
+function bindCueRows(){
+  const rows = $('jl-cue-rows');
+  rows.querySelectorAll('.jl-crow').forEach(row=>{
+    const i = +row.dataset.idx;
+    row.onclick = (e)=>{ if (e.target.closest('.jl-crow__x')) return;
+      cmd('play_at', { idx:i }).then(()=>setTimeout(poll,120)); };
+    row.querySelector('.jl-crow__x').onclick = (e)=>{ e.stopPropagation();
+      cmd('remove', { idx:i }).then(()=>{ _cueSig=''; setTimeout(poll,120); }); };
+    row.addEventListener('dragstart', e=>{ _cdrag=i; row.classList.add('jl-dragging');
+      try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(i)); }catch(_){ } });
+    row.addEventListener('dragend', ()=>{ _cdrag=-1; row.classList.remove('jl-dragging');
+      rows.querySelectorAll('.jl-drag-over').forEach(r=>r.classList.remove('jl-drag-over')); });
+    row.addEventListener('dragover', e=>{ e.preventDefault(); row.classList.add('jl-drag-over'); });
+    row.addEventListener('dragleave', ()=> row.classList.remove('jl-drag-over'));
+    row.addEventListener('drop', e=>{ e.preventDefault(); row.classList.remove('jl-drag-over');
+      cueReorder(_cdrag, +row.dataset.idx); });
+  });
+}
+function cueReorder(from, to){
+  const q = (state && state.queue) || [];
+  if (from<0 || from>=q.length || to<0 || to>=q.length || from===to) return;
+  const ids = q.map(x=>x.track_id);
+  const [m] = ids.splice(from,1);
+  ids.splice(to,0,m);
+  _cueSig = '';
+  cmd('reorder', { order:ids }).then(()=>setTimeout(poll,120));
+}
+
+// ways out — the music keeps playing either way
+$('jl-back').addEventListener('click', e=>{ e.preventDefault();
+  if (history.length > 1) history.back(); else location.href = '/room'; });
+$('jl-to-room').addEventListener('click', ()=> (window.rtGo || (h=>location.href=h))('/room'));
+// space toggles, arrows skip — sit-back keyboard
+addEventListener('keydown', e=>{
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === ' '){ e.preventDefault(); $('jl-play').click(); }
+  if (e.key === 'ArrowRight') $('jl-next').click();
+  if (e.key === 'ArrowLeft')  $('jl-prev').click();
+  if (e.key === 'q' || e.key === 'Q') toggleCue();          // q peeks the cue
+  if (e.key === 'Escape'){ if (cueOpen) toggleCue(false); else $('jl-back').click(); }
+});
+
+poll();
+setInterval(poll, 1000);
+requestAnimationFrame(tick);
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

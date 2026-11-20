@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House rules — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <link rel="stylesheet" href="/static/css/ui.css">
+    <style>
+        /* the house rules: HOUSE_RULES.md in the code, shown as it is */
+        .hr-doc { max-width: 640px; }
+        .hr-doc h1 { display: none; }
+        .hr-doc h2 { margin: 30px 0 8px; font-family: var(--f-display, Georgia, serif); font-weight: 400; font-size: 1.5rem; }
+        .hr-doc p, .hr-doc li { font-size: .92rem; line-height: 1.65; }
+        .hr-doc ul { margin: 0 0 8px; padding-left: 1.1em; }
+        .hr-doc li { margin: 4px 0; }
+        body.hr-bare { padding: 26px 30px 40px !important; }
+        body.hr-bare .gr-main { padding: 0; }
+    </style>
+</head>
+<body class="gr-page{% if bare %} hr-bare{% endif %}">
+{% if not bare %}{% include "_gr_nav.html" %}{% endif %}
+<main class="gr-main gr-main--narrow">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">The Music Room</div>
+        <h1 class="gr-h1">House rules</h1>
+    </header>
+    <article class="hr-doc">{{ body|safe }}</article>
+</main>
+{% if not bare %}<script src="/static/js/theme.js"></script>{% endif %}
+</body>
+</html>

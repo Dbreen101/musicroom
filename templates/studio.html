@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <style>
+        .studio-scene { background: transparent; }
+        .studio-wrap { max-width: 1000px; margin: 0 auto; padding: 36px 28px 100px; }
+        .studio-header { margin-bottom: 22px; }
+        .studio-header h1 { font-family: var(--font-celtic); font-size: 2.1rem; font-weight: 400; }
+        .studio-header p { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+        .studio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .studio-card {
+            display: block; text-decoration: none; color: inherit;
+            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 18px 18px 16px; transition: border-color var(--transition), transform var(--transition);
+        }
+        .studio-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .studio-card__dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-bottom: 10px; }
+        .studio-card__name { font-family: var(--font-serif); font-style: italic; font-size: 1.25rem; line-height: 1.2; }
+        .studio-card__meta { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+        .studio-empty { color: var(--muted2); font-style: italic; padding: 40px 0; }
+        .studio-empty a { color: var(--accent); text-decoration: none; }
+        .studio-hint { font-size: 0.78rem; color: var(--muted2); margin-top: 18px; }
+        .studio-hint a { color: var(--accent); text-decoration: none; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="studio-scene">
+    <div class="studio-wrap floor-sheet">
+        <div class="studio-header">
+            <h1>Studio</h1>
+            <p>Your own productions — each album is a place; open one to find its tracks and their versions.</p>
+        </div>
+        <div class="studio-grid" id="studio-grid">
+            <div class="studio-empty">Loading…</div>
+        </div>
+        <div class="studio-hint">
+            Add productions on the <a href="/import">Import</a> page (“My productions”). They also live in the Music Room.
+        </div>
+    </div>
+</div>
+
+<script>
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function loadAlbums(){
+    const grid = document.getElementById('studio-grid');
+    let d;
+    try { d = await fetch('/api/studio/albums').then(r => r.json()); }
+    catch(e){ grid.innerHTML = '<div class="studio-empty">Could not load.</div>'; return; }
+    const albums = (d && d.albums) || [];
+    if (!albums.length){
+        grid.innerHTML = `<div class="studio-empty">No productions yet. Import your own music on the <a href="/import">Import</a> page.</div>`;
+        return;
+    }
+    grid.innerHTML = albums.map(a => `
+        <a class="studio-card" href="/place/${a.id}">
+            <span class="studio-card__dot" style="background:${esc(a.colour_primary || 'var(--accent)')};"></span>
+            <div class="studio-card__name">${esc(a.name)}</div>
+            <div class="studio-card__meta">${a.track_count} track${a.track_count === 1 ? '' : 's'}</div>
+        </a>`).join('');
+}
+loadAlbums();
+</script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

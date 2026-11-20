@@ -1,0 +1,2218 @@
+{# -- The Forest -- #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Room — The Forest</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/forest_trees.js"></script>
+    <script src="/static/js/place_illustration.js"></script>
+    <script src="/static/js/forest_structures.js"></script>
+    <script src="/static/js/soft_palette.js"></script>
+    <script src="/static/js/page_tones.js"></script>
+    <style>
+        body { margin: 0; background: var(--bg); overflow: hidden; color: var(--text); }
+
+        :root {
+            --sky-top:        #1a2228;
+            --sky-mid-high:   #18221d;
+            --sky-mid:        #131c17;
+            --sky-mid-low:    #101713;
+            --sky-floor:      #100c08;
+            --horizon-warm:   rgba(140,90,55,0.10);
+            --horizon-warm-2: rgba(95,60,35,0.05);
+            --moon-glow:      rgba(180,195,200,0.08);
+            --moon-pos:       22% -8%;
+            /* Time-of-day tints for ground / mist / lake. Set by JS in
+               applyTimePalette() so they shift with the sun. */
+            --haze-tint:      rgba(60,75,72,0.18);
+            --mist-tint:      rgba(120,140,135,0.18);
+            --mist-tint-2:    rgba(100,118,110,0.13);
+            --floor-light:    rgba(45,55,38,0.30);
+            --floor-deep:     rgba(22,18,14,0.50);
+            --floor-bottom:   rgba(14,10,8,0.78);
+            --lake-deep:      #13191e;
+            --lake-shore:     #1c1d14;
+            --ground-tint:    #2a2a1c;
+            --shore-tint:     #3a3528;
+            --world-w:        1800px;
+            --world-h:        1120px;
+            --pan-x:          0px;
+            --pan-y:          0px;
+            --zoom:           1;
+        }
+
+        .forest-scene {
+            position: fixed;
+            inset: 53px 0 0 0;
+            overflow: hidden;
+            cursor: grab;
+            background:
+                radial-gradient(ellipse 70% 30% at 50% 95%,
+                    var(--horizon-warm)   0%,
+                    var(--horizon-warm-2) 40%,
+                    transparent           70%),
+                radial-gradient(ellipse 70% 50% at var(--moon-pos),
+                    var(--moon-glow) 0%,
+                    transparent      60%),
+                linear-gradient(180deg,
+                    var(--sky-top)        0%,
+                    var(--sky-mid-high)  18%,
+                    var(--sky-mid)       38%,
+                    var(--sky-mid-low)   60%,
+                    var(--sky-floor)     80%,
+                    #100c08            100%);
+            transition: background 4s ease;
+        }
+        .forest-scene.dragging { cursor: grabbing; }
+
+        /* Static ambient layers — fixed to viewport, tinted by time of day */
+        .horizon-haze {
+            position: absolute; left: -10%; right: -10%;
+            top: 32%; height: 22%;
+            background:
+                linear-gradient(180deg,
+                    transparent 0%,
+                    var(--haze-tint) 45%,
+                    transparent 100%);
+            filter: blur(10px);
+            pointer-events: none;
+            transition: background 4s ease;
+        }
+        .ground-mist {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 36%;
+            background:
+                radial-gradient(ellipse 55% 100% at 25% 100%,
+                    var(--mist-tint) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 80% at 72% 100%,
+                    var(--mist-tint-2) 0%, transparent 65%),
+                radial-gradient(ellipse 90% 50% at 50% 105%,
+                    var(--mist-tint-2) 0%, transparent 70%);
+            filter: blur(16px);
+            pointer-events: none;
+            animation: mist-drift 26s ease-in-out infinite;
+            transition: background 4s ease;
+        }
+        @keyframes mist-drift {
+            0%,100% { transform: translateX(0); opacity: 0.85; }
+            50%     { transform: translateX(28px); opacity: 1; }
+        }
+        .forest-floor {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
+            background:
+                radial-gradient(ellipse at 18% 80%, var(--floor-light) 0%, transparent 45%),
+                radial-gradient(ellipse at 78% 88%, var(--floor-light) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 105%, var(--floor-deep) 0%, transparent 60%),
+                linear-gradient(180deg,
+                    transparent 0%,
+                    var(--floor-deep) 55%,
+                    var(--floor-bottom) 100%);
+            pointer-events: none;
+            transition: background 4s ease;
+        }
+
+        /* World — wider-than-tall rectangle that holds trees & places.
+           The visible "forest" is an ellipse inside this rectangle; everything
+           outside the ellipse is rendered as water so the forest reads as
+           an island. The rectangle is always larger than the viewport at
+           minimum zoom so the user never sees the world's edge. */
+        .world {
+            position: absolute;
+            left: 50%; top: 50%;
+            width:  var(--world-w);
+            height: var(--world-h);
+            transform: translate(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y))) scale(var(--zoom));
+            transform-origin: center center;
+            will-change: transform;
+            /* Irish-forest-floor — the baked peat/moss/leaf-litter texture
+               tiled and blended with the palette ground tint so it shifts
+               through the day. Screen-relative depth (near dark + far mist)
+               is handled by .forest-floor / .ground-mist / .horizon-haze and
+               by the SVG's own atmospheric haze, so no world-space vignette
+               here (that would freeze a dark band into world coordinates). */
+            background:
+                var(--ground-tint, #2a2820)
+                    url('/static/textures/forest_floor.jpg?v=5');
+            /* cover (not a fixed tile) → the texture is scaled to fill the
+               whole world as one image, so there are NO repeat seams / grid
+               lines (the tile edges were most visible across the Well's open
+               clearing). */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-blend-mode: soft-light;
+            transition: transform 0.15s ease, background-color 4s ease;
+        }
+        .world.dragging { transition: none; }
+
+        /* Trees overlay — entire square. overflow visible so a tree on the
+           top row isn't hard-clipped at y=0 (the world always exceeds the
+           viewport at min zoom, so this never shows an edge). */
+        .world-trees {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        .world-trees svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+        /* The wood is drawn as ONE static SVG so the browser caches it as a
+           single composited bitmap — pan/zoom stay smooth at thousands of
+           trees. (Animating sub-elements inside a big SVG forces a full-layer
+           repaint every frame, which was the source of the jank.) Detail is
+           re-randomised on each load / place-move instead of animated. */
+
+        /* Distant birds — static silhouettes high in the sky. */
+        .sky-birds { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+        .sky-bird  { position: absolute; color: rgba(28,30,26,0.42); }
+
+        /* Place nodes anchor inside the world */
+        .world-places { position: absolute; inset: 0; pointer-events: none; }
+        .world-places .place-node { pointer-events: auto; }
+
+        .fireflies { position: absolute; inset: 0; pointer-events: none; }
+        .firefly {
+            position: absolute;
+            width: 1.6px; height: 1.6px;
+            border-radius: 50%;
+            background: rgba(255,225,160,0.55);
+            box-shadow: 0 0 3px rgba(255,215,140,0.45), 0 0 8px rgba(220,170,90,0.20);
+            opacity: 0;
+            animation: drift 24s linear infinite;
+        }
+        @keyframes drift {
+            0%   { transform: translate(0,0); opacity: 0; }
+            15%  { opacity: 0.55; }
+            55%  { opacity: 0.28; }
+            85%  { opacity: 0.42; }
+            100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+        }
+
+        /* Place nodes */
+        .place-node {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: filter 0.3s ease;
+            text-decoration: none !important;
+            color: rgba(228,222,196,0.92);
+        }
+        .place-node:hover { filter: brightness(1.08); }
+        .place-node.is-dragging { transition: none !important; z-index: 10; filter: brightness(1.18); }
+        .place-node:hover, .place-node:focus, .place-node:active { text-decoration: none !important; }
+
+        /* A sunlit forest-floor opening: warm dappled light in the centre,
+           a mossy lit ring, fading into the dense dark wood at the edge so
+           the clearing reads as carved out of the trees. */
+        .clearing-floor {
+            position: absolute;
+            top: 60%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 230px; height: 96px;
+            border-radius: 50%;
+            background:
+                radial-gradient(ellipse at 50% 42%,
+                    rgba(196,180,120,0.30) 0%,
+                    rgba(120,134,80,0.30)  26%,
+                    rgba(58,70,44,0.30)    52%,
+                    rgba(30,36,24,0.14)    74%,
+                    transparent            90%);
+            filter: blur(3px);
+            pointer-events: none;
+        }
+        /* Soft contact shadow directly under the illustration's base. */
+        .clearing-floor::after {
+            content: ''; position: absolute;
+            left: 50%; top: 50%;
+            width: 56%; height: 34%;
+            transform: translate(-46%, -10%);
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 50% 50%,
+                rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.18) 50%, transparent 78%);
+            filter: blur(2px);
+        }
+        .well-node .clearing-floor {
+            width: 380px; height: 156px; top: 60%;
+            background:
+                radial-gradient(ellipse at 50% 42%,
+                    rgba(210,196,140,0.32) 0%,
+                    rgba(130,146,90,0.32)  26%,
+                    rgba(60,74,48,0.32)    52%,
+                    rgba(30,36,24,0.14)    74%,
+                    transparent            90%);
+        }
+
+        .place-illustration {
+            position: relative; z-index: 2;
+            filter:
+                drop-shadow(2px 7px 6px rgba(0,0,0,0.55))
+                drop-shadow(0 2px 3px rgba(0,0,0,0.5))
+                drop-shadow(0 0 14px color-mix(in srgb, var(--place-accent) 30%, transparent));
+        }
+
+        /* Art wrapper — keeps the clearing glow + cog glued to the
+           illustration so the name / track-count can sit ABOVE the
+           illustration (not over the trees below) without shifting them. */
+        .place-art {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Caption (name + track count) floats ABOVE the illustration, OUT of
+           flow, so the node centres the ILLUSTRATION on the place point — i.e.
+           in the middle of its carved clearing. (When the caption was in flow
+           it shifted the illustration down, below the clearing.) */
+        .place-caption {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 6;
+            width: max-content;
+            max-width: 260px;
+            pointer-events: none;            /* only the plates below are clickable */
+        }
+
+        /* Name — a dark "carved sign" plate so the text is legible over ANY
+           tree / floor colour. */
+        .place-label {
+            position: relative;
+            z-index: 6;
+            pointer-events: auto;
+            margin: 0;
+            padding: 4px 13px;
+            width: fit-content; max-width: 260px;
+            text-align: center;
+            font-family: var(--font-celtic);
+            font-weight: 400;
+            font-size: 1.26rem;
+            color: #f7eed2;
+            background: rgba(15,11,7,0.78);
+            border: 1px solid rgba(196,168,112,0.42);
+            border-radius: 9px;
+            box-shadow: 0 3px 11px rgba(0,0,0,0.55);
+            text-shadow: 0 1px 2px rgba(0,0,0,1);
+            line-height: 1.2;
+            letter-spacing: 0.03em;
+            text-decoration: none !important;
+        }
+        .place-label::first-letter {
+            font-size: 1.45em;
+            color: #ffeebc;
+            padding-right: 0.04em;
+        }
+        .place-meta {
+            position: relative;
+            z-index: 6;
+            pointer-events: auto;
+            margin: 0;
+            padding: 2px 10px;
+            width: fit-content;
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 0.84rem;
+            color: #f2e8cc;
+            background: rgba(15,11,7,0.8);
+            border: 1px solid rgba(196,168,112,0.28);
+            border-radius: 7px;
+            box-shadow: 0 2px 7px rgba(0,0,0,0.5);
+            text-shadow: 0 1px 2px rgba(0,0,0,1);
+            letter-spacing: 0.02em;
+        }
+        .well-node .place-label {
+            font-size: 2rem;
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+        }
+        .well-node .place-label::first-letter {
+            font-size: 1.4em;
+        }
+
+        /* The Well */
+        .well-node { z-index: 5; }
+        .well-clearing {
+            position: relative;
+            width: 240px; height: 240px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .well-clearing svg {
+            position: relative; z-index: 2;
+            filter:
+                drop-shadow(0 6px 14px rgba(0,0,0,0.75))
+                drop-shadow(0 0 18px rgba(140,180,160,0.20));
+        }
+        .well-water-glow {
+            position: absolute;
+            top: 32%; left: 50%;
+            transform: translateX(-50%);
+            width: 100px; height: 28px;
+            border-radius: 50%;
+            background: radial-gradient(circle,
+                rgba(220,235,225,0.55) 0%,
+                rgba(170,195,180,0.22) 50%,
+                transparent 80%);
+            filter: blur(4px);
+            animation: well-shimmer 6s ease-in-out infinite;
+        }
+        @keyframes well-shimmer {
+            0%,100% { opacity: 0.65; transform: translateX(-50%) scale(1); }
+            50%     { opacity: 0.95; transform: translateX(-50%) scale(1.06); }
+        }
+
+        /* Hover edit cog on places */
+        .place-edit-cog {
+            position: absolute;
+            top: -8px; right: -10px;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: rgba(20,28,22,0.85);
+            border: 1px solid rgba(180,160,110,0.5);
+            color: rgba(220,200,160,0.85);
+            display: flex;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 0.78rem;
+            opacity: 0;
+            transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+            z-index: 4;
+        }
+        .place-node:hover .place-edit-cog { opacity: 1; }
+        .place-edit-cog:hover {
+            color: rgba(245,232,200,1);
+            border-color: rgba(220,200,160,0.9);
+        }
+
+        /* Forest controls — bottom corners */
+        /* the forest's keys: square, hairline, mono caps (the working document) */
+        .add-place-btn, .recenter-btn, .zoom-btn {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            color: var(--muted);
+            transition: color .18s, border-color .18s, background .18s;
+            z-index: 10;
+            cursor: pointer;
+            font-family: var(--f-mono, var(--font-main));
+            font-size: 0.66rem; letter-spacing: .1em; text-transform: uppercase;
+        }
+        .add-place-btn {
+            position: absolute;
+            bottom: 26px; right: 72px;
+            padding: 0 16px; height: 36px;
+            border-radius: 0;
+        }
+        .recenter-btn {
+            position: absolute;
+            bottom: 26px; right: 312px;
+            width: 36px; height: 36px;
+            border-radius: 0;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .zoom-controls {
+            position: absolute;
+            bottom: 26px; right: 230px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
+        }
+        .zoom-btn {
+            width: 36px; height: 36px;
+            border-radius: 0;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .add-place-btn:hover, .recenter-btn:hover, .zoom-btn:hover {
+            color: var(--text);
+            border-color: var(--text);
+        }
+        .add-place-btn:active, .recenter-btn:active, .zoom-btn:active { background: var(--text); color: var(--bg); }
+
+        .forest-empty {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-family: var(--f-mono, var(--font-main));
+            font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+            color: var(--muted);
+            z-index: 4;
+        }
+
+        .modal { max-width: 560px; }
+    </style>
+<script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+{{ theme_head|safe }}
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d" class="active">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="forest3d" id="forest3d">
+    <div class="forest3d-canvas" id="forest3d-canvas"></div>
+
+    <button class="add-place-btn" onclick="openPlaceModal()">+ make a new place</button>
+    <button class="recenter-btn" onclick="window.forest3D && window.forest3D.centerOnWell()" title="Centre on the Music Room">⊙</button>
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="window.forest3D && window.forest3D.zoomBy(-1)" title="Zoom out">−</button>
+        <button class="zoom-btn" onclick="window.forest3D && window.forest3D.zoomBy(1)" title="Zoom in">+</button>
+    </div>
+    <div class="forest3d-hint">drag to look · arrow keys to move · scroll to zoom · click a place to enter</div>
+</div>
+
+<!-- Create / Edit Place Modal -->
+<div class="modal-overlay" id="place-modal">
+    <div class="modal">
+        <h2 id="place-modal-title">New Place</h2>
+        <div class="form-field"><label>Name</label>
+            <input type="text" id="p-name" placeholder="e.g. The After Midnight Club"></div>
+        <div class="form-field"><label>Description</label>
+            <textarea id="p-desc" rows="2" placeholder="What is this place? What does it feel like?"></textarea></div>
+        <div class="form-row">
+            <div class="form-field"><label>Inside / Outside</label>
+                <select id="p-inout">
+                    <option value="">—</option>
+                    <option value="inside">Inside</option>
+                    <option value="outside">Outside</option>
+                    <option value="both">Both</option>
+                </select></div>
+            <div class="form-field"><label>Size</label>
+                <select id="p-size">
+                    <option value="">—</option>
+                    <option value="headphones">Headphones</option>
+                    <option value="intimate">Intimate</option>
+                    <option value="small venue">Small Venue</option>
+                    <option value="large venue">Large Venue</option>
+                    <option value="open air">Open Air</option>
+                </select></div>
+        </div>
+        <div class="form-row">
+            <div class="form-field"><label>Time Start</label>
+                <input type="text" id="p-time-start" placeholder="22:00"></div>
+            <div class="form-field"><label>Time End</label>
+                <input type="text" id="p-time-end" placeholder="06:00"></div>
+        </div>
+        <div class="form-field"><label>Moods</label>
+            <input type="text" id="p-moods" placeholder="hypnotic, dark, euphoric"></div>
+        <div class="form-field"><label>Crowd notes</label>
+            <input type="text" id="p-crowd" placeholder="Who is here? What do they want?"></div>
+        <div class="form-row">
+            <div class="form-field"><label>Primary colour <span style="color:var(--muted2);font-size:0.72rem;">glow + page accent</span></label>
+                <div class="colour-picker-row">
+                    <input type="color" id="p-colour-primary" value="#9a7a4a"
+                           oninput="document.getElementById('p-colour-primary-hex').value=this.value; updatePlacePreview();">
+                    <input type="text"  id="p-colour-primary-hex" value="#9a7a4a"
+                           oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))document.getElementById('p-colour-primary').value=this.value; updatePlacePreview();"
+                           style="font-family: var(--font-mono); font-size: 0.82rem;"></div></div>
+            <div class="form-field"><label>Ground colour <span style="color:var(--muted2);font-size:0.72rem;">mood</span></label>
+                <div class="colour-picker-row">
+                    <input type="color" id="p-theme-bg" value="#2a2418"
+                           oninput="document.getElementById('p-theme-bg-hex').value=this.value; updatePlacePreview();">
+                    <input type="text"  id="p-theme-bg-hex" value="" placeholder="(default)"
+                           oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))document.getElementById('p-theme-bg').value=this.value; updatePlacePreview();"
+                           style="font-family: var(--font-mono); font-size: 0.82rem;"></div></div>
+        </div>
+        <!-- secondary colour is no longer surfaced here; kept as a hidden field
+             so its stored value round-trips unchanged on edit/save -->
+        <input type="hidden" id="p-colour-secondary-hex" value="#3a2a18">
+
+        <div class="form-field">
+            <label>Illustration</label>
+            <select id="p-illustration" onchange="updatePlacePreview()"
+                    style="width:100%; background:var(--bg); border:1px solid var(--border);
+                           color:var(--text); padding:7px 10px; font-family:var(--font-main);
+                           font-size:0.88rem; border-radius:var(--radius);"></select>
+        </div>
+
+        <!-- Illustration colours — four roles, each with a smart auto default.
+             STRUCTURE is the main body of the building/object: set it (e.g. a
+             pink) for a pink club. Leave a field blank to auto-derive. -->
+        <div class="form-field">
+            <label style="display:flex; justify-content:space-between; align-items:baseline;">
+                <span>Illustration colours</span>
+                <button type="button" onclick="resetIllustrationColours()"
+                        style="background:none; border:none; color:var(--muted); font-size:0.74rem;
+                               font-family:var(--font-main); cursor:pointer; font-style:italic;">
+                    reset to auto
+                </button>
+            </label>
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+                <div id="p-ill-preview" style="flex-shrink:0; width:96px; height:96px;
+                     background:rgba(20,16,10,0.35); border-radius:10px; padding:6px;
+                     display:flex; align-items:center; justify-content:center;"></div>
+                <div style="flex:1; min-width:230px; display:grid; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center;">
+                    <span style="font-size:0.78rem; color:var(--muted);">Light</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-light" oninput="illColourPicked('light', this.value)">
+                        <input type="text"  id="p-ill-light-hex" placeholder="(auto)"
+                               oninput="illHexTyped('light', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Structure</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-structure" oninput="illColourPicked('structure', this.value)">
+                        <input type="text"  id="p-ill-structure-hex" placeholder="(auto)"
+                               oninput="illHexTyped('structure', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Outline</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-outline" oninput="illColourPicked('outline', this.value)">
+                        <input type="text"  id="p-ill-outline-hex" placeholder="(auto)"
+                               oninput="illHexTyped('outline', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Detail</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-detail" oninput="illColourPicked('detail', this.value)">
+                        <input type="text"  id="p-ill-detail-hex" placeholder="(auto)"
+                               oninput="illHexTyped('detail', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                </div>
+            </div>
+            <div style="font-size:0.74rem; color:var(--muted2); margin-top:6px; font-style:italic;">
+                Blank = derive from the mood. <strong>Structure</strong> is the body — set it for, say, a pink club.
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--ghost btn--small" id="p-delete-btn"
+                    onclick="deletePlaceFromForest()"
+                    style="margin-right:auto; color:var(--danger); border-color:var(--danger); display:none;">
+                Delete place
+            </button>
+            <button class="btn btn--ghost" onclick="closePlaceModal()">Cancel</button>
+            <button class="btn btn--primary" id="p-save-btn" onclick="savePlace()">Create</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// =============================================================
+// FOREST MODEL
+//
+// World coordinate system:
+//   The world is a fixed square (.world). It's centred so that
+//   the Well sits at the centre of the layer (50%, 50%).
+//   Place positions are stored as % of the layer (50,50 = Well).
+//   Trees are positioned the same way.
+//   Pan + zoom are applied to .world as CSS transforms.
+//
+// World size grows with the number of places — your first place
+// can't be miles away, but a 20-place forest can sprawl.
+// =============================================================
+
+// World is a wide rectangle. The visible "forest" is an ellipse inscribed
+// inside it (with organic edge noise). Outside the ellipse is water.
+const WORLD_ASPECT = 0.62;   // height = width * 0.62 → wider than tall
+
+function worldSize(placeCount) {
+    const w = 1400 + placeCount * 150;
+    return { w, h: Math.round(w * WORLD_ASPECT) };
+}
+// kept for back-compat callers
+function worldSizePx(placeCount) { return worldSize(placeCount).w; }
+
+// Minimum gap between places, in % of world width. Used by the place
+// collision-avoidance loop in constrainPosition.
+function clearingRadiusPct() { return 7; }
+
+let _state = {
+    places: [],
+    panX: 0, panY: 0, zoom: 1,
+    justDragged: false,
+};
+
+// -----------------------------------------------------------------
+// Place positions
+// -----------------------------------------------------------------
+const WELL_PCT = { x: 50, y: 50 };
+
+function hashFloat(seed, salt) {
+    let h = (seed * 9301 + 49297 + salt * 233280) % 233280;
+    return h / 233280;
+}
+
+function placePosition(p, allPlaces) {
+    if (p.is_well) return { x: WELL_PCT.x, y: WELL_PCT.y };
+
+    if (typeof p.x_pct === 'number' && typeof p.y_pct === 'number') {
+        return { x: p.x_pct, y: p.y_pct };
+    }
+
+    // Deterministic auto-arrangement around the Well — scattered across the
+    // whole rectangular world (with an inset margin so places don't sit on
+    // the very edge).
+    const others = allPlaces.filter(pp => !pp.is_well);
+    const idx    = others.findIndex(pp => pp.id === p.id);
+    const total  = others.length;
+
+    const baseAngle = (idx / Math.max(1, total)) * Math.PI * 2 - Math.PI / 2;
+    const jitterAng = (hashFloat(p.id, 7) - 0.5) * 0.45;
+    const angle     = baseAngle + jitterAng;
+
+    const rRadial = 0.55 + hashFloat(p.id, 13) * 0.30;
+    // Scale by the rectangle's half-width / half-height with a 6% safety inset.
+    return {
+        x: WELL_PCT.x + Math.cos(angle) * (50 - 6) * 0.70 * rRadial,
+        y: WELL_PCT.y + Math.sin(angle) * (50 - 6) * 0.70 * rRadial,
+    };
+}
+
+// Clamp a point into the rectangular world (with a small safety margin).
+function clampToWorld(p, padPct = 5) {
+    return {
+        x: Math.max(padPct, Math.min(100 - padPct, p.x)),
+        y: Math.max(padPct, Math.min(100 - padPct, p.y)),
+    };
+}
+
+// Constrain to the rectangular world + avoid collision with other places
+function constrainPosition(pos, place, allPlaces) {
+    const others = allPlaces.filter(pp => pp.id !== place.id);
+    const RC     = clearingRadiusPct();
+
+    pos = clampToWorld(pos, 5);
+
+    for (let iter = 0; iter < 6; iter++) {
+        let collided = false;
+        for (const o of others) {
+            const op = placePosition(o, allPlaces);
+            const ddx = pos.x - op.x;
+            const ddy = pos.y - op.y;
+            const dd  = Math.sqrt(ddx*ddx + ddy*ddy);
+            const minD = RC * 2;
+            if (dd < minD && dd > 0.0001) {
+                const push = (minD - dd) / dd;
+                pos = { x: pos.x + ddx * push, y: pos.y + ddy * push };
+                collided = true;
+            }
+        }
+        if (!collided) break;
+    }
+
+    return clampToWorld(pos, 5);
+}
+
+// =============================================================
+// TREES + EDGE
+// =============================================================
+
+// Time-of-day → light direction, shadow length/strength, haze + dapple
+// colours. Drives both the cast shadows and atmospheric perspective so the
+// wood reads correctly from dawn (long warm shadows) to night (faint, cool).
+function computeLight(alt) {
+    const night  = alt < -4;
+    const day    = Math.max(0, Math.min(1, (alt + 6) / 36));
+    const lowSun = 1 - Math.max(0, Math.min(1, alt / 28));   // 1 at horizon
+    return {
+        dx: 0.5, dy: 0.34,                                   // shadow falls down-right
+        len:   night ? 0.55 : (0.78 + lowSun * 1.7),
+        alpha: night ? 0.12 : (0.15 + day * 0.17),
+        mistHex:   night ? '#212c33' : (alt < 6 ? '#5b5560' : '#bcc6c0'),
+        dappleHex: night ? '#9fb6c8' : (alt < 6 ? '#ffcaa0' : '#fff6dd'),
+        night, day,
+    };
+}
+function currentLight() {
+    const lat = parseFloat(localStorage.getItem('forest_lat')) || DEFAULT_LAT;
+    const lon = parseFloat(localStorage.getItem('forest_lon')) || DEFAULT_LON;
+    return computeLight(sunAltitude(new Date(), lat, lon));
+}
+
+// Per-session forest seed. Changes on every page load and every place-move
+// (reseeded at the top of loadPlaces), so the wood "grows differently" each
+// time — exactly as if you'd walked into a new part of the forest — while
+// staying perfectly still between redraws (the 5-min light tick re-lights the
+// SAME arrangement, it doesn't reshuffle). Initialised from the clock so the
+// very first draw is already varied.
+let _forestSeed = (Date.now() >>> 0) || 1;
+function reseedForest() {
+    _forestSeed = (((Math.random() * 4294967296) >>> 0) ^ (Date.now() >>> 0)) >>> 0;
+}
+
+// A small, fast PRNG seeded by (candidate index ⊕ forest seed). Within one
+// draw it's deterministic, so a redraw with the same seed is byte-identical
+// (smooth, no flicker); a new seed reshuffles the whole wood.
+function rngFor(i) {
+    let s = (((i * 2654435761) >>> 0) ^ _forestSeed) >>> 0;
+    return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+function drawWorldTrees(places) {
+    const el = document.getElementById('world-trees');
+    if (!el) return;
+    const { w, h } = worldSize(places.length);
+    const light = currentLight();
+
+    // Clearings around every place (percent coords). Keeps tree/undergrowth
+    // BASES out of the opening; tree crowns may rise behind a place, which is
+    // correct — places render in a layer above all trees.
+    const clearings = places.map(p => {
+        const pos = placePosition(p, places);
+        return { x: pos.x, y: pos.y,
+                 r: p.is_well ? 10 : 6, rLbl: p.is_well ? 6.5 : 4.5 };
+    });
+    function inAnyClearing(px, py, pad) {
+        for (const c of clearings) {
+            const dx = px - c.x, dy = py - c.y;
+            if (dx*dx + dy*dy < (c.r + pad) ** 2) return true;
+            const ldy = dy - c.rLbl;
+            const rx2 = (c.r + pad) ** 2, ry2 = (c.rLbl + pad) ** 2;
+            if ((dx*dx) / rx2 + (ldy*ldy) / ry2 < 1) return true;
+        }
+        return false;
+    }
+    // Depth (0 far/top → 1 near/bottom) and haze from the vertical position.
+    const hazeAt = (py) => (py < 56 ? (1 - py / 56) * 0.82 : 0);
+
+    // Shared scene context (haze + species set per object before each draw).
+    const ctx = { light, mistHex: light.mistHex, dappleHex: light.dappleHex,
+                  night: light.night, haze: 0, species: null };
+
+    const objs = [];   // { y, shadow, body }
+
+    // ---- trees ----------------------------------------------------------
+    // Heavily populated. Count scales with area, clamped for performance.
+    // Far trees are cheap (2-blob LOD), so most of this count is near-free.
+    const TREES = Math.max(320, Math.min(1300, Math.floor((w * h) / 1150)));
+    for (let i = 0; i < TREES; i++) {
+        const r = rngFor(i * 2 + 1);
+        const px = r() * 100, py = r() * 100;
+        if (inAnyClearing(px, py, 2)) continue;
+        // Depth-biased thinning: a dense, misty wall of trees at the back
+        // (far/top), opening toward the front (near/bottom) so trunks,
+        // branches and forest floor read — still a heavy wood overall.
+        const keep = py < 58 ? 1 : (py < 78 ? 0.86 : 0.58);
+        if (r() > keep) continue;
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        // near trees much taller (perspective); far trees shorter
+        const hgt = (60 + (py / 100) * 150) * (0.8 + r() * 0.5);
+        ctx.haze = haze;
+        ctx.species = ForestTrees.pickSpecies(r);
+        objs.push(ForestTrees.tree(x, y, hgt, r, ctx));
+    }
+
+    // ---- undergrowth (ferns, rocks, logs, mushrooms, bluebells…) ---------
+    const UNDER = Math.floor(TREES * 0.3);
+    const UTYPES = [['fern',34],['grass',24],['rock',12],['mushrooms',9],
+                    ['bluebells',9],['log',7],['stump',5]];
+    const uTot = UTYPES.reduce((s, t) => s + t[1], 0);
+    for (let i = 0; i < UNDER; i++) {
+        const r = rngFor(i * 2 + 500002);
+        // weight toward the mid/near floor where the eye actually lands
+        const py = 34 + Math.pow(r(), 0.7) * 64;
+        const px = r() * 100;
+        if (inAnyClearing(px, py, 0.5)) continue;
+        let pick = r() * uTot, kind = 'fern';
+        for (const [k, wt] of UTYPES) { if ((pick -= wt) <= 0) { kind = k; break; } }
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        const s = (10 + (py / 100) * 26) * (0.7 + r() * 0.6);
+        ctx.haze = haze;
+        objs.push(ForestTrees[kind](x, y, s, r, ctx, haze));
+    }
+
+    // ---- critters (a sparse few — a delight to find, not a zoo) ----------
+    const CRIT = Math.max(5, Math.min(16, Math.floor((w * h) / 165000)));
+    for (let i = 0; i < CRIT; i++) {
+        const r = rngFor(i * 2 + 900007);
+        const py = 44 + r() * 54, px = r() * 100;
+        if (inAnyClearing(px, py, 1)) continue;
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        const s = (13 + (py / 100) * 16) * (0.85 + r() * 0.4);
+        ctx.haze = haze;
+        objs.push(ForestTrees.critter(ForestTrees.pickCritter(r), x, y, s, r, ctx, haze));
+    }
+
+    // ---- compose: shadows on the floor first, then bodies far→near ------
+    objs.sort((a, b) => a.y - b.y);
+
+    // Daytime sun-dapple pools breaking through the canopy (cheap, behind all).
+    let dapple = '';
+    if (!light.night) {
+        const D = Math.max(0, Math.min(7, Math.floor((w * h) / 360000)));
+        for (let i = 0; i < D; i++) {
+            const r = rngFor(i * 2 + 700001);
+            const px = r() * 100, py = 30 + r() * 60;
+            if (inAnyClearing(px, py, 0)) continue;
+            const x = (px / 100) * w, y = (py / 100) * h, rr = 90 + r() * 150;
+            dapple += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rr.toFixed(0)}" ry="${(rr*0.5).toFixed(0)}" fill="url(#ft-dapple)"/>`;
+        }
+    }
+
+    // One flat, static string → the browser caches the whole wood as a single
+    // composited bitmap. Pan/zoom never repaints it; only a reseed redraws.
+    let shadows = '', bodies = '';
+    for (const o of objs) { shadows += o.shadow || ''; bodies += o.body; }
+
+    el.innerHTML =
+        `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">`
+        + ForestTrees.defs(ctx)
+        + dapple
+        + `<g>${shadows}</g>`
+        + bodies
+        + `</svg>`;
+}
+
+// (drawWorldEdge removed — perimeter ring of trees doubled the canopy node count
+//  for marginal visual gain. Single canopy layer + CSS shore gradient is enough.)
+// (canopy arches removed — they overlay the top of the screen and obscure place names)
+
+// =============================================================
+// FIREFLIES
+// =============================================================
+function spawnFireflies(n) {
+    const el = document.getElementById('fireflies');
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+        const f = document.createElement('div');
+        f.className = 'firefly';
+        f.style.left = (Math.random() * 100) + 'vw';
+        f.style.top  = (40 + Math.random() * 55) + 'vh';
+        f.style.setProperty('--dx', ((Math.random() - 0.5) * 120) + 'px');
+        f.style.setProperty('--dy', (-30 - Math.random() * 180) + 'px');
+        f.style.animationDelay    = (Math.random() * 24) + 's';
+        f.style.animationDuration = (18 + Math.random() * 12) + 's';
+        el.appendChild(f);
+    }
+}
+
+// =============================================================
+// PLACES
+// =============================================================
+function renderPlaces(places) {
+    const el = document.getElementById('world-places');
+    if (!el) return;
+    if (!places.length) {
+        el.innerHTML = '';
+        document.getElementById('world').insertAdjacentHTML(
+            'beforeend',
+            `<div class="forest-empty"><p>The forest is empty.</p><button class="btn btn--ghost" onclick="openPlaceModal()">Plant your first place</button></div>`
+        );
+        return;
+    }
+
+    el.innerHTML = places.map(p => {
+        const pos    = placePosition(p, places);
+        const accent = p.colour_primary || (p.is_well ? '#9ab094' : '#9a7a4a');
+        const count  = p.track_count || 0;
+
+        if (p.is_well) {
+            // The Well now uses the same customisable illustration pipeline
+            // as every other place (4 colour roles, edit-modal controls);
+            // we just wrap it in the existing well-clearing + water-glow
+            // CSS so the sacred-spring atmosphere on the forest map stays.
+            const wellSvg = (typeof renderPlaceIllustration === 'function')
+                ? renderPlaceIllustration(p, { size: 170 })
+                : '';
+            return `
+            <a href="/room/${p.id}" class="place-node well-node" data-pid="${p.id}"
+               style="left:${pos.x}%; top:${pos.y}%; --place-accent: ${accent}">
+                <div class="place-caption">
+                    <div class="place-label">${escHtml(p.name)}</div>
+                    <div class="place-meta">${count.toLocaleString()} ${count === 1 ? 'track' : 'tracks'}</div>
+                </div>
+                <div class="place-art">
+                    <div class="clearing-floor"></div>
+                    <div class="well-clearing">
+                        <div class="well-water-glow"></div>
+                        ${wellSvg}
+                    </div>
+                </div>
+            </a>`;
+        }
+
+        const illustration = (typeof renderPlaceIllustration === 'function')
+            ? renderPlaceIllustration(p, { size: 110 })
+            : '';
+
+        const metaBits = [];
+        if (count) metaBits.push(`${count} ${count === 1 ? 'track' : 'tracks'}`);
+        if (p.time_start && p.time_end) metaBits.push(`${p.time_start}–${p.time_end}`);
+
+        return `
+        <a href="/room/${p.id}" class="place-node" data-pid="${p.id}"
+           style="left:${pos.x}%; top:${pos.y}%; --place-accent: ${accent}">
+            <button class="place-edit-cog" onclick="event.preventDefault(); event.stopPropagation(); openEditPlaceFromForest(${p.id});" title="Edit place">⚙</button>
+            <div class="place-caption">
+                <div class="place-label">${escHtml(p.name)}</div>
+                ${metaBits.length ? `<div class="place-meta">${metaBits.join(' · ')}</div>` : ''}
+            </div>
+            <div class="place-art">
+                <div class="clearing-floor"></div>
+                ${illustration}
+            </div>
+        </a>`;
+    }).join('');
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+}
+
+// =============================================================
+// RENDER PIPELINE
+// =============================================================
+async function loadPlaces() {
+    const res = await fetch('/api/places');
+    const places = await res.json();
+    _state.places = places;
+    window._state = _state;                       // the 3D module reads this
+    reseedForest();
+    if (window.forest3D) window.forest3D.rebuild(places);
+}
+
+// Drag-in-3D saves through here (mirrors the old 2D drag-release logic):
+// constrain into the world + avoid collisions, persist, then redraw so the
+// trees respect the new clearing.
+async function savePlacePosition(id, xPct, yPct) {
+    const place = _state.places.find(p => p.id === id);
+    if (!place) return null;
+    const cons = constrainPosition({ x: xPct, y: yPct }, place, _state.places);
+    place.x_pct = cons.x; place.y_pct = cons.y;
+    try {
+        await fetch(`/api/place/${id}/position`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x_pct: cons.x, y_pct: cons.y }),
+        });
+    } catch (_) {}
+    loadPlaces();
+    return cons;
+}
+// expose the bits the 3D module needs (it runs in its own module scope)
+window.savePlacePosition   = savePlacePosition;
+window.placePosition       = placePosition;
+window.constrainPosition   = constrainPosition;
+window.openEditPlaceFromForest_ref = () => openEditPlaceFromForest;
+
+// ── camera, trees, places + interaction now live in the Three.js module
+//    at the bottom of this file (window.forest3D). The old 2D pan/zoom/
+//    drag layer was removed when the forest became 3D.
+
+// =============================================================
+// REFRESH WHEN COMING BACK TO THE TAB
+// =============================================================
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadPlaces();
+});
+
+// =============================================================
+// PLACE MODAL — create + edit
+// =============================================================
+let _editingPlaceId = null;
+
+function populateIllustrationSelect(selectId, current) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const kinds = (window.PLACE_ILLUSTRATION_KINDS || [{ key: 'auto', label: 'Auto (from data)' }]);
+    sel.innerHTML = kinds.map(k =>
+        `<option value="${k.key}">${k.label}</option>`
+    ).join('');
+    sel.value = current || 'auto';
+}
+
+function openPlaceModal(placeForEdit) {
+    _editingPlaceId = placeForEdit ? placeForEdit.id : null;
+    document.getElementById('place-modal-title').textContent = placeForEdit ? 'Edit place' : 'New Place';
+    document.getElementById('p-save-btn').textContent        = placeForEdit ? 'Save' : 'Create';
+    document.getElementById('p-delete-btn').style.display    = placeForEdit && !placeForEdit.is_well ? 'inline-block' : 'none';
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+    if (placeForEdit) {
+        set('p-name',             placeForEdit.name);
+        set('p-desc',             placeForEdit.description);
+        set('p-inout',            placeForEdit.inside_outside);
+        set('p-size',             placeForEdit.size);
+        set('p-time-start',       placeForEdit.time_start);
+        set('p-time-end',         placeForEdit.time_end);
+        set('p-moods',            placeForEdit.moods);
+        set('p-crowd',            placeForEdit.crowd_notes);
+        set('p-colour-primary',     placeForEdit.colour_primary   || '#9a7a4a');
+        set('p-colour-primary-hex', placeForEdit.colour_primary   || '#9a7a4a');
+        set('p-colour-secondary-hex', placeForEdit.colour_secondary || '#3a2a18');
+        set('p-theme-bg-hex',       placeForEdit.theme_bg || '');
+        if (placeForEdit.theme_bg) set('p-theme-bg', placeForEdit.theme_bg);
+        // Four illustration colour roles (hex field = source of truth; empty = auto)
+        ['light','structure','outline','detail'].forEach(role => {
+            set('p-ill-' + role + '-hex', placeForEdit['illustration_' + role] || '');
+        });
+        populateIllustrationSelect('p-illustration', placeForEdit.illustration_kind || 'auto');
+    } else {
+        ['p-name','p-desc','p-time-start','p-time-end','p-moods','p-crowd'].forEach(id => set(id, ''));
+        set('p-inout', ''); set('p-size', '');
+        set('p-colour-primary',     '#9a7a4a');
+        set('p-colour-primary-hex', '#9a7a4a');
+        set('p-colour-secondary-hex', '#3a2a18');
+        set('p-theme-bg-hex', '');
+        ['light','structure','outline','detail'].forEach(role => set('p-ill-' + role + '-hex', ''));
+        populateIllustrationSelect('p-illustration', 'auto');
+    }
+
+    document.getElementById('place-modal').classList.add('open');
+    setTimeout(updatePlacePreview, 0);   // first preview render
+    document.getElementById('p-name').focus();
+}
+
+// -------------------------------------------------------------
+// Live illustration preview + four-role colour controls
+// (mirrors the place-page edit modal so a place can be fully
+//  recoloured here — e.g. a pink club via the Structure role)
+// -------------------------------------------------------------
+function _previewPlaceFromModal() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    return {
+        is_well:                _editingPlaceId ? !!(_state.places.find(p => p.id === _editingPlaceId) || {}).is_well : false,
+        illustration_kind:      v('p-illustration'),
+        name:                   v('p-name'),
+        description:            v('p-desc'),
+        moods:                  v('p-moods'),
+        crowd_notes:            v('p-crowd'),
+        inside_outside:         v('p-inout'),
+        size:                   v('p-size'),
+        colour_primary:         v('p-colour-primary-hex'),
+        colour_secondary:       v('p-colour-secondary-hex'),
+        theme_bg:               v('p-theme-bg-hex'),
+        illustration_light:     v('p-ill-light-hex'),
+        illustration_structure: v('p-ill-structure-hex'),
+        illustration_outline:   v('p-ill-outline-hex'),
+        illustration_detail:    v('p-ill-detail-hex'),
+    };
+}
+
+function updatePlacePreview() {
+    const host = document.getElementById('p-ill-preview');
+    if (!host || !window.renderPlaceIllustration) return;
+    const place = _previewPlaceFromModal();
+    host.innerHTML = renderPlaceIllustration(place, { size: 84 });
+    // Reflect each auto-derived colour in any swatch whose hex is still blank.
+    const defaults = window.placeIllustrationDefaults?.(place) || {};
+    ['light','structure','outline','detail'].forEach(role => {
+        const hexEl = document.getElementById('p-ill-' + role + '-hex');
+        const sw    = document.getElementById('p-ill-' + role);
+        if (sw && (!hexEl || !hexEl.value.trim()) && defaults[role]) sw.value = defaults[role];
+    });
+}
+
+function illColourPicked(role, value) {
+    const hex = document.getElementById('p-ill-' + role + '-hex');
+    if (hex) hex.value = value;            // moving a swatch makes the role explicit
+    updatePlacePreview();
+}
+function illHexTyped(role, value) {
+    const v = (value || '').trim();
+    if (v && /^#[0-9a-f]{6}$/i.test(v)) {
+        const sw = document.getElementById('p-ill-' + role);
+        if (sw) sw.value = v;
+    }
+    updatePlacePreview();
+}
+function resetIllustrationColours() {
+    ['light','structure','outline','detail'].forEach(role => {
+        const hex = document.getElementById('p-ill-' + role + '-hex');
+        if (hex) hex.value = '';
+    });
+    updatePlacePreview();
+}
+
+function openEditPlaceFromForest(pid) {
+    const place = _state.places.find(p => p.id === pid);
+    if (place) openPlaceModal(place);
+}
+
+function closePlaceModal() {
+    document.getElementById('place-modal').classList.remove('open');
+    _editingPlaceId = null;
+}
+
+['primary','secondary'].forEach(which => {
+    const picker = document.getElementById(`p-colour-${which}`);
+    const hex    = document.getElementById(`p-colour-${which}-hex`);
+    if (picker && hex) {
+        picker.addEventListener('input', () => { hex.value = picker.value; });
+        hex.addEventListener('input',    () => { picker.value = hex.value;  });
+    }
+});
+
+async function savePlace() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const body = {
+        name:              v('p-name').trim(),
+        description:       v('p-desc').trim(),
+        inside_outside:    v('p-inout'),
+        size:              v('p-size'),
+        time_start:        v('p-time-start').trim(),
+        time_end:          v('p-time-end').trim(),
+        moods:             v('p-moods').trim(),
+        crowd_notes:       v('p-crowd').trim(),
+        colour_primary:    v('p-colour-primary-hex').trim(),
+        colour_secondary:  v('p-colour-secondary-hex').trim(),
+        illustration_kind: v('p-illustration'),
+        theme_bg:                v('p-theme-bg-hex').trim(),
+        illustration_light:      v('p-ill-light-hex').trim(),
+        illustration_structure:  v('p-ill-structure-hex').trim(),
+        illustration_outline:    v('p-ill-outline-hex').trim(),
+        illustration_detail:     v('p-ill-detail-hex').trim(),
+    };
+    if (!body.name) { document.getElementById('p-name').focus(); return; }
+
+    const isEdit = !!_editingPlaceId;
+    const url    = isEdit ? `/api/place/${_editingPlaceId}` : '/api/places';
+    const method = isEdit ? 'PATCH' : 'POST';
+    const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (res.ok) { closePlaceModal(); loadPlaces(); }
+    else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Could not save place');
+    }
+}
+
+async function deletePlaceFromForest() {
+    if (!_editingPlaceId) return;
+    const place = _state.places.find(p => p.id === _editingPlaceId);
+    if (!place || place.is_well) return;
+    if (!confirm(`Delete "${place.name}"? Tracks stay in your library — they're just no longer associated with this place.`)) return;
+    const res = await fetch(`/api/place/${_editingPlaceId}`, { method: 'DELETE' });
+    if (res.ok) { closePlaceModal(); loadPlaces(); }
+}
+
+// (Place modal — backdrop click intentionally does NOT close so partially
+//  filled form data isn't lost. Use × or Cancel. ESC still closes.)
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePlaceModal();
+});
+
+// =============================================================
+// TIME-OF-DAY LIGHTING
+// =============================================================
+const DEFAULT_LAT = 53.3498;   // Dublin
+const DEFAULT_LON = -6.2603;
+
+function sunAltitude(date, lat, lon) {
+    const rad = Math.PI / 180;
+    const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+    const dayOfYear = (date.getTime() - start) / 86400000;
+    const decl = 23.45 * Math.sin(((360 / 365) * (dayOfYear - 81)) * rad);
+    const utcH = date.getUTCHours() + date.getUTCMinutes()/60 + date.getUTCSeconds()/3600;
+    const solarTime = utcH + lon / 15;
+    const hourAngle = (solarTime - 12) * 15;
+    const sinAlt = Math.sin(lat * rad) * Math.sin(decl * rad)
+                 + Math.cos(lat * rad) * Math.cos(decl * rad) * Math.cos(hourAngle * rad);
+    return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+}
+
+const PALETTES = [
+    // Deep night
+    { alt: -90,
+        sky_top: '#0c1316', sky_mid_high: '#0c1410', sky_mid: '#0b1310',
+        sky_mid_low: '#091210', sky_floor: '#0a0805',
+        horizon_warm: 'rgba(80,55,32,0.05)', horizon_warm_2: 'rgba(60,40,22,0.03)',
+        moon_glow: 'rgba(190,205,210,0.10)', moon_pos: '22% -8%',
+        ground_tint: '#15140e' },
+    // Twilight
+    { alt: -12,
+        sky_top: '#141d24', sky_mid_high: '#131c1c', sky_mid: '#101814',
+        sky_mid_low: '#0c1411', sky_floor: '#0c0a07',
+        horizon_warm: 'rgba(110,75,45,0.08)', horizon_warm_2: 'rgba(75,52,30,0.04)',
+        moon_glow: 'rgba(170,190,200,0.10)', moon_pos: '22% -8%',
+        ground_tint: '#1e1c14' },
+    // Sunrise / sunset
+    { alt: 0,
+        sky_top: '#3a3a48', sky_mid_high: '#5a3e34', sky_mid: '#7a4a30',
+        sky_mid_low: '#3a2418', sky_floor: '#1a120c',
+        horizon_warm: 'rgba(230,150,80,0.22)', horizon_warm_2: 'rgba(170,90,50,0.10)',
+        moon_glow: 'rgba(255,210,160,0.10)', moon_pos: '80% 5%',
+        ground_tint: '#322618' },
+    // Mid-morning / late-afternoon
+    { alt: 8,
+        sky_top: '#9da99a', sky_mid_high: '#c4a079', sky_mid: '#caa073',
+        sky_mid_low: '#7c5a3e', sky_floor: '#3a281a',
+        horizon_warm: 'rgba(255,210,140,0.22)', horizon_warm_2: 'rgba(220,160,95,0.12)',
+        moon_glow: 'rgba(255,235,190,0.22)', moon_pos: '78% 8%',
+        ground_tint: '#574e34' },
+    // Bright daylight — sunlit Irish forest floor, mossy + earthy
+    { alt: 30,
+        sky_top: '#cdd2c8', sky_mid_high: '#d6c9b2', sky_mid: '#cfbf9e',
+        sky_mid_low: '#a08866', sky_floor: '#564030',
+        horizon_warm: 'rgba(255,245,220,0.20)', horizon_warm_2: 'rgba(240,220,190,0.12)',
+        moon_glow: 'rgba(255,250,235,0.28)', moon_pos: '50% -8%',
+        ground_tint: '#6a6240' },
+];
+
+function lerpColor(a, b, t) {
+    const parse = (s) => {
+        if (s.startsWith('#')) {
+            const h = s.slice(1);
+            return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16), 1];
+        }
+        const m = s.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+        if (!m) return [0,0,0,1];
+        return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+    };
+    const [r1,g1,b1,a1] = parse(a);
+    const [r2,g2,b2,a2] = parse(b);
+    const r = Math.round(r1 + (r2-r1)*t);
+    const g = Math.round(g1 + (g2-g1)*t);
+    const bb = Math.round(b1 + (b2-b1)*t);
+    const al = a1 + (a2-a1)*t;
+    if (a.startsWith('#') && b.startsWith('#')) {
+        const hex = n => n.toString(16).padStart(2,'0');
+        return `#${hex(r)}${hex(g)}${hex(bb)}`;
+    }
+    return `rgba(${r},${g},${bb},${al.toFixed(3)})`;
+}
+function paletteForAltitude(alt) {
+    for (let i = 0; i < PALETTES.length - 1; i++) {
+        const lo = PALETTES[i], hi = PALETTES[i+1];
+        if (alt >= lo.alt && alt < hi.alt) {
+            const t = (alt - lo.alt) / (hi.alt - lo.alt);
+            const out = { alt };
+            for (const k of Object.keys(lo)) {
+                if (k === 'alt' || k === 'moon_pos') continue;
+                out[k] = lerpColor(lo[k], hi[k], t);
+            }
+            out.moon_pos = t < 0.5 ? lo.moon_pos : hi.moon_pos;
+            return out;
+        }
+    }
+    return PALETTES[PALETTES.length - 1];
+}
+function applyTimePalette() {
+    const lat = parseFloat(localStorage.getItem('forest_lat')) || DEFAULT_LAT;
+    const lon = parseFloat(localStorage.getItem('forest_lon')) || DEFAULT_LON;
+    const alt = sunAltitude(new Date(), lat, lon);
+    const p   = paletteForAltitude(alt);
+    const r   = document.documentElement.style;
+    r.setProperty('--sky-top',        p.sky_top);
+    r.setProperty('--sky-mid-high',   p.sky_mid_high);
+    r.setProperty('--sky-mid',        p.sky_mid);
+    r.setProperty('--sky-mid-low',    p.sky_mid_low);
+    r.setProperty('--sky-floor',      p.sky_floor);
+    r.setProperty('--horizon-warm',   p.horizon_warm);
+    r.setProperty('--horizon-warm-2', p.horizon_warm_2);
+    r.setProperty('--moon-glow',      p.moon_glow);
+    r.setProperty('--moon-pos',       p.moon_pos);
+    // Forest-floor tint — palette-driven base colour under the texture.
+    if (p.ground_tint) r.setProperty('--ground-tint', p.ground_tint);
+
+    // Fireflies belong to dusk + night only.
+    const fc = document.getElementById('fireflies');
+    if (fc) fc.style.opacity = (alt < 2) ? '1' : '0';
+
+    // Re-skin the wood for the new light (cast-shadow length + haze + tint
+    // all shift) — but only once the trees already exist, so this no-ops on
+    // the very first call (loadPlaces draws them with the current light).
+    const tl = document.getElementById('world-trees');
+    if (tl && tl.firstChild) drawWorldTrees(_state.places);
+}
+applyTimePalette();
+setInterval(applyTimePalette, 5 * 60 * 1000);
+
+// A few birds, hung still and silhouetted high in the sky. Static — they
+// just settle into new spots on each load / place-move (like all the detail).
+function spawnSkyBirds(n) {
+    const el = document.getElementById('sky-birds');
+    if (!el) return;
+    el.innerHTML = '';
+    const wing = '<svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M1 6 Q4 1 8 5 Q12 1 15 6"/></svg>';
+    for (let i = 0; i < n; i++) {
+        const b = document.createElement('div');
+        b.className = 'sky-bird';
+        b.innerHTML = wing;
+        b.style.left = (6 + Math.random() * 84) + 'vw';
+        b.style.top  = (6 + Math.random() * 26) + 'vh';
+        b.style.transform = `scale(${0.7 + Math.random() * 0.7})`;
+        el.appendChild(b);
+    }
+}
+
+if (!localStorage.getItem('forest_geo_asked') && navigator.geolocation) {
+    localStorage.setItem('forest_geo_asked', '1');
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            localStorage.setItem('forest_lat', String(pos.coords.latitude));
+            localStorage.setItem('forest_lon', String(pos.coords.longitude));
+            applyTimePalette();
+        },
+        () => { /* denied */ },
+        { maximumAge: 24 * 60 * 60 * 1000, timeout: 8000 }
+    );
+}
+
+// =============================================================
+// GO
+// =============================================================
+// (the Three.js module at the bottom installs its own resize handler AND calls
+//  loadPlaces() once its engine is ready — so we don't call it here, to avoid a
+//  double build that would leave duplicate frozen place labels.)
+</script>
+
+<!-- Live audio-health indicator: surfaces "tracks can't be read / wrong drive"
+     the moment the Forest loads. Hidden when everything is playable. -->
+<a id="forest-health" href="/audio-health" title="Audio health"
+   style="display:none;position:fixed;top:14px;right:16px;z-index:60;
+          font:500 0.82rem/1.3 var(--font-main,system-ui);text-decoration:none;
+          padding:7px 13px;border-radius:999px;color:#f5e6b0;
+          background:rgba(20,16,10,0.66);border:1px solid rgba(168,130,44,0.5);
+          backdrop-filter:blur(3px);box-shadow:0 2px 10px rgba(0,0,0,0.35);"></a>
+<script>
+(async function(){
+  try{
+    const d = await fetch('/api/library/health').then(r=>r.json());
+    const el = document.getElementById('forest-health');
+    if(!el || !d || !d.total) return;
+    if(d.warning && d.warning.kind === 'drive_unmounted'){
+      el.textContent = '⚠ ' + d.warning.volume + ' not connected · ' + d.warning.tracks + ' tracks unreadable';
+      el.style.color = '#f3d6cf';
+      el.style.background = 'rgba(90,28,20,0.78)';
+      el.style.borderColor = '#9c3b2c';
+      el.style.display = '';
+    } else if (d.missing > 0 || d.corrupt > 0){
+      el.textContent = d.playable + ' playable · ' + d.missing + ' not on this drive'
+                     + (d.corrupt ? ' · ' + d.corrupt + ' corrupt' : '');
+      el.style.display = '';
+    }
+  }catch(e){}
+})();
+</script>
+
+<style>
+  #forest3d, .forest3d { position: fixed; inset: 53px 0 0 0; overflow: hidden; }
+  .forest3d-canvas { position: absolute; inset: 0; }
+  .forest3d-canvas canvas { display: block; }
+  .forest3d-hint { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+     z-index: 6; font-size: 0.64rem; color: var(--muted); letter-spacing: .1em; text-transform: uppercase;
+     pointer-events: none; font-family: var(--f-mono, var(--font-main)); }
+  html.is-gr .forest3d-hint { display: none; }
+  /* a place's label: its name in the serif, its count as a mono-caps label —
+     written on the page, no shadows (the working document) */
+  .p3d-label { pointer-events: none; text-align: center; width: max-content; }
+  .p3d-name { font-family: var(--f-display, serif); color: var(--text); letter-spacing: -.01em;
+     font-size: 1.25rem; line-height: 1.1; white-space: nowrap; display: block; width: max-content;
+     margin: 0 auto; background: var(--bg); padding: 1px 7px 2px; }
+  .p3d-meta { font-family: var(--f-mono, monospace); font-size: 0.6rem; letter-spacing: .1em;
+     text-transform: uppercase; color: var(--muted); margin-top: 2px; display: block; width: max-content;
+     margin-left: auto; margin-right: auto; background: var(--bg); padding: 1px 6px; }
+  .p3d-cog { pointer-events: auto; margin-top: 5px; background: var(--bg);
+     border: 1px solid var(--border2); color: var(--muted); border-radius: 0;
+     width: 26px; height: 22px; font-size: 0.78rem; cursor: pointer; transition: color .15s, background .15s; }
+  .p3d-cog:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/static/vendor/three/three.module.js",
+  "three/addons/": "/static/vendor/three/addons/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// ── the working document: the wood is a DRAWING on the page. Paper (or ink,
+// turned over) for the sky and the ground, the trees in the muted grey with ink
+// trunks, every place an ink structure with its windows cut from the page —
+// and the one red on the Music Room's windows. No sun, no weather, no texture:
+// distance is a wash toward the page (fog). Tones come from the theme tokens
+// (page_tones.js), so the Paper and Ink themes both draw it right.
+const TONES = window.MRTones.read();
+const T = (k) => new THREE.Color(TONES[k]);
+
+let WORLD = 260;                                     // world half-extent — grows with place count
+const worldFor = (n)=> Math.round(Math.max(230, 200 + Math.sqrt(Math.max(1,n)) * 58));
+const wrap = document.getElementById('forest3d-canvas');
+let renderer, labelRenderer, scene, camera, controls;
+const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+let sun, hemi, amb, ground, sceneryGroup = null, placeObjs = [], puddleMat = null;
+const VW = ()=> wrap.clientWidth || innerWidth;
+const VH = ()=> wrap.clientHeight || (innerHeight - 53);
+const pctToWorld = (x,y)=> new THREE.Vector3((x/100-0.5)*WORLD, 0, (y/100-0.5)*WORLD);
+const worldToPct = (v)=> ({ x:(v.x/WORLD+0.5)*100, y:(v.z/WORLD+0.5)*100 });
+const places = ()=> (window._state && window._state.places) || [];
+
+function init(){
+  scene = new THREE.Scene();
+  // fog only swallows the far edge (the wood dissolves into haze, hiding the
+  // boundary) while the foreground stays clear — not a murky blanket.
+  scene.fog = new THREE.Fog(TONES.bg, WORLD*0.35, WORLD*1.55);   // the wash: far trees fade into the page
+  camera = new THREE.PerspectiveCamera(50, VW()/VH(), 0.5, 4000);
+  camera.position.set(0, 88, 150);          // arrive looking into the Well's clearing, over the near canopy
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(VW(), VH());
+  // an older Intel Mac drops frames drawing the whole wood at retina
+  // resolution — cap the render scale there (slightly softer, twice the
+  // frames). Apple Silicon keeps the full crispness.
+  renderer.setPixelRatio(Math.min(devicePixelRatio, {{ '1.25' if is_low_power else '2' }}));
+  renderer.toneMapping = THREE.NoToneMapping;             // flat tones, exactly the page's
+  wrap.appendChild(renderer.domElement);
+  labelRenderer = new CSS2DRenderer(); labelRenderer.setSize(VW(), VH());
+  Object.assign(labelRenderer.domElement.style, { position:'absolute', top:'0', left:'0', pointerEvents:'none' });
+  wrap.appendChild(labelRenderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.target.set(0,0,0);
+  controls.minDistance = 28; controls.maxDistance = 230;   // can't zoom out past the wood
+  controls.maxPolarAngle = 1.40; controls.minPolarAngle = 0.18;
+  controls.screenSpacePanning = false;
+  // trackpad scheme (same hand-feel as the room): click-drag orbits the view,
+  // two-finger scroll GLIDES the camera across the wood, pinch zooms
+  controls.enableZoom = false;
+  renderer.domElement.addEventListener('wheel', e=>{
+    e.preventDefault();
+    if (e.ctrlKey){                                        // pinch → zoom
+      const v = new THREE.Vector3().subVectors(camera.position, controls.target);
+      v.setLength(THREE.MathUtils.clamp(v.length() * (1 + e.deltaY * 0.0044),
+                                        controls.minDistance, controls.maxDistance));
+      camera.position.copy(controls.target).add(v);
+    } else {                                               // two-finger drag → move position
+      camera.getWorldDirection(_fwd); _fwd.y = 0; if (_fwd.lengthSq() > 1e-4) _fwd.normalize();
+      _right.crossVectors(_fwd, _UP).normalize();
+      _mv.set(0,0,0).addScaledVector(_right, e.deltaX * 0.07).addScaledVector(_fwd, -e.deltaY * 0.07);
+      camera.position.add(_mv); controls.target.add(_mv);
+    }
+  }, { passive:false });
+
+  amb  = new THREE.AmbientLight(0xffffff, 0.32); scene.add(amb);
+  hemi = new THREE.HemisphereLight(0x8fa6c0, 0x2a2418, 0.5); scene.add(hemi);
+  sun  = new THREE.DirectionalLight(0xffe6c0, 1.0); sun.position.set(80,150,60); scene.add(sun);
+
+  // the ground is the page, a hair deeper so it reads underfoot; far off it is the page
+  ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000),         // big enough for any world size; far edge hidden in fog
+                          new THREE.MeshBasicMaterial({ color: TONES.mix(TONES.bg, TONES.text, 0.035), toneMapped:false }));
+  ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+  applyTimeOfDay();
+  // the weather override: clear sky now (clear + starry at night)
+  const wb = document.getElementById('weather-btn');
+  if (wb){
+    const refresh = ()=>{ wb.style.background = weather.bright ? 'rgba(245,230,176,.85)' : '';
+                          wb.style.color = weather.bright ? '#1d160d' : ''; };
+    refresh();
+    wb.addEventListener('click', ()=>{
+      weather.bright = !weather.bright;
+      try { localStorage.setItem('mr_weather_bright', weather.bright ? '1' : '0'); } catch(_){}
+      refresh(); applyTimeOfDay();
+    });
+  }
+  addEventListener('resize', onResize);
+  renderer.domElement.addEventListener('pointerdown', onDown);
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', onUp);
+  // arrow keys move across the wood at a fixed height (forward/back + strafe)
+  addEventListener('keydown', e=>{ if (e.key in keyMove && e.target.tagName!=='INPUT' && e.target.tagName!=='TEXTAREA'){ keyMove[e.key]=1; e.preventDefault(); } });
+  addEventListener('keyup',   e=>{ if (e.key in keyMove) keyMove[e.key]=0; });
+  addEventListener('blur',    ()=>{ for (const k in keyMove) keyMove[k]=0; });
+  animate();
+}
+function onResize(){
+  camera.aspect = VW()/VH(); camera.updateProjectionMatrix();
+  renderer.setSize(VW(), VH()); labelRenderer.setSize(VW(), VH());
+}
+
+// ---- the real sky: sun + moon at their true positions, weather from the
+// user's location (Open-Meteo, free/no key), and a "brighten the weather"
+// override that clears the sky (clear + starry at night) -------------------
+const RAD = Math.PI/180;
+function _sunAltAz(date, lat, lon){
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const dayOfYear = (date.getTime() - start) / 86400000;
+  const decl = 23.45 * Math.sin(((360/365) * (dayOfYear - 81)) * RAD) * RAD;
+  const utcH = date.getUTCHours() + date.getUTCMinutes()/60 + date.getUTCSeconds()/3600;
+  const H = ((utcH + lon/15) - 12) * 15 * RAD;
+  const la = lat * RAD;
+  const sinAlt = Math.sin(la)*Math.sin(decl) + Math.cos(la)*Math.cos(decl)*Math.cos(H);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const az  = Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(la) - Math.tan(decl)*Math.cos(la)) + Math.PI;
+  return { alt, az };
+}
+function _moonAltAz(date, lat, lon){
+  // low-precision lunar position (the standard short series) — within ~1°,
+  // plenty for placing a moon in a sky
+  const d = date.getTime()/86400000 - 10957.5;        // days since J2000
+  const L = (218.316 + 13.176396*d) * RAD;            // mean longitude
+  const M = (134.963 + 13.064993*d) * RAD;            // mean anomaly
+  const F = (93.272  + 13.229350*d) * RAD;            // mean distance
+  const lng = L + 6.289*RAD*Math.sin(M);
+  const lt  = 5.128*RAD*Math.sin(F);
+  const e = 23.4397*RAD;
+  const ra  = Math.atan2(Math.sin(lng)*Math.cos(e) - Math.tan(lt)*Math.sin(e), Math.cos(lng));
+  const dec = Math.asin(Math.sin(lt)*Math.cos(e) + Math.cos(lt)*Math.sin(e)*Math.sin(lng));
+  const lst = (280.16 + 360.9856235*d)*RAD + lon*RAD; // local sidereal time
+  const H = lst - ra;
+  const la = lat * RAD;
+  const alt = Math.asin(Math.sin(la)*Math.sin(dec) + Math.cos(la)*Math.cos(dec)*Math.cos(H));
+  const az  = Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(la) - Math.tan(dec)*Math.cos(la)) + Math.PI;
+  return { alt, az };
+}
+const SKY_R = 1500;
+function _skyPos(aa){
+  return new THREE.Vector3(SKY_R*Math.cos(aa.alt)*Math.sin(aa.az),
+                           SKY_R*Math.sin(aa.alt),
+                          -SKY_R*Math.cos(aa.alt)*Math.cos(aa.az));
+}
+let stars = null, sunDisc = null, moonDisc = null, skyDome = null, sunGlow = null, moonGlow = null, clouds = [];
+let rain = null, _rainPrev = 0; const RAIN_N = 1500, RAIN_SPAN = 230, RAIN_TOP = 130;
+function buildSkyObjects(){
+  const NS = 650, pos = new Float32Array(NS*3);
+  for (let i=0;i<NS;i++){
+    const az = Math.random()*Math.PI*2, al = Math.asin(Math.random())*0.96 + 0.03;
+    pos[i*3]   = SKY_R*Math.cos(al)*Math.sin(az);
+    pos[i*3+1] = SKY_R*Math.sin(al);
+    pos[i*3+2] = -SKY_R*Math.cos(al)*Math.cos(az);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  stars = new THREE.Points(g, new THREE.PointsMaterial({ color:0xe8edf2, size:1.8,
+    sizeAttenuation:false, transparent:true, opacity:0.85, fog:false, toneMapped:false }));
+  stars.visible = false; stars.frustumCulled = false; scene.add(stars);
+  // a vertical-gradient sky dome (horizon → zenith) so the day reads as a real
+  // sky, not one flat colour. Driven by applyTimeOfDay(); painted behind all else.
+  skyDome = new THREE.Mesh(
+    new THREE.SphereGeometry(SKY_R - 10, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false,
+      uniforms: { topColor:{value:new THREE.Color(0x2f6bbf)}, bottomColor:{value:new THREE.Color(0x86b8e8)},
+                  offset:{value:120.0}, exponent:{value:0.7} },
+      vertexShader: `varying vec3 vW; void main(){ vW=(modelMatrix*vec4(position,1.0)).xyz;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `uniform vec3 topColor,bottomColor; uniform float offset,exponent; varying vec3 vW;
+        void main(){ float h=normalize(vW+vec3(0.0,offset,0.0)).y;
+          gl_FragColor=vec4(mix(bottomColor,topColor,pow(max(h,0.0),exponent)),1.0); }`
+    }));
+  skyDome.renderOrder = -1; scene.add(skyDome);
+  // the sun + moon: the disc stays near the true ~0.5°, but a soft glow halo is
+  // what you actually read as a sun in the sky / a moon at night.
+  const glowMat = (c)=> new THREE.MeshBasicMaterial({ color:c, fog:false, toneMapped:false,
+    transparent:true, opacity:0.0, blending:THREE.AdditiveBlending, depthWrite:false });
+  sunGlow  = new THREE.Mesh(new THREE.CircleGeometry(95, 36), glowMat(0xffe7a8)); sunGlow.renderOrder = 1;
+  moonGlow = new THREE.Mesh(new THREE.CircleGeometry(58, 36), glowMat(0xbcc8d6)); moonGlow.renderOrder = 1;
+  sunDisc  = new THREE.Mesh(new THREE.CircleGeometry(17, 30),
+    new THREE.MeshBasicMaterial({ color:0xfff2cf, fog:false, toneMapped:false, transparent:true }));
+  moonDisc = new THREE.Mesh(new THREE.CircleGeometry(14, 30),
+    new THREE.MeshBasicMaterial({ color:0xeef1f4, fog:false, toneMapped:false, transparent:true }));
+  sunDisc.renderOrder = moonDisc.renderOrder = 2;
+  sunGlow.visible = moonGlow.visible = sunDisc.visible = moonDisc.visible = false;
+  scene.add(sunGlow, moonGlow, sunDisc, moonDisc);
+  buildClouds();
+  buildRain();
+}
+// ---- clouds: soft procedural cumulus drifting across the sky. How many + how
+// heavy follows the REAL cloud cover; they tint with the sky (warm at dawn/dusk,
+// grey + dark when it's overcast or raining) and face you as you move. The thing
+// that was missing — an empty gradient sky reads fake; a sky with weather reads
+// like a place. ------------------------------------------------------------------
+const CLOUD_R = SKY_R * 0.86, CLOUD_MAX = 16;
+function makeCloudTexture(){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const x = c.getContext('2d');
+  const blob = (cx, cy, r, a)=>{ const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.45, `rgba(255,255,255,${a*0.5})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g;
+    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI*2); x.fill(); };
+  const N = 7;                                            // a row of puffs, domed top + flattish base
+  for (let i = 0; i < N; i++){
+    const px = 38 + i*(180/(N-1));
+    const py = 84 - Math.sin(i/(N-1)*Math.PI)*30 + (Math.random()-0.5)*8;
+    blob(px, py, 24 + Math.random()*24, 0.9);
+  }
+  for (let i = 0; i < 5; i++) blob(60 + Math.random()*136, 66 + Math.random()*20, 18 + Math.random()*16, 0.8);
+  const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+}
+function cloudPos(c){
+  return new THREE.Vector3(CLOUD_R*Math.cos(c.alt)*Math.sin(c.az),
+                           CLOUD_R*Math.sin(c.alt),
+                          -CLOUD_R*Math.cos(c.alt)*Math.cos(c.az));
+}
+function buildClouds(){
+  const tex = makeCloudTexture();
+  for (let i = 0; i < CLOUD_MAX; i++){
+    const w = 320 + Math.random()*420, h = w*(0.40 + Math.random()*0.16);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0,
+      depthTest: true, depthWrite: false, fog: false, toneMapped: false });   // trees occlude clouds; clouds sit over the dome
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    m.renderOrder = 0; m.frustumCulled = false; m.visible = false;
+    scene.add(m);
+    clouds.push({ mesh: m, baseAz: Math.random()*Math.PI*2,
+                  alt: (8 + Math.random()*20) * RAD, speed: 0.003 + Math.random()*0.009 });
+  }
+}
+// ---- rain: when the REAL weather is wet, fine streaks fall around you. A column
+// of short line-segments that follows the camera + recycles to the top; hidden when
+// it isn't actually raining (or when you've overridden to "brighten the weather").
+function buildRain(){
+  const pos = new Float32Array(RAIN_N * 2 * 3), vel = new Float32Array(RAIN_N);
+  for (let i = 0; i < RAIN_N; i++){
+    const x = (Math.random()-0.5)*RAIN_SPAN, y = Math.random()*RAIN_TOP, z = (Math.random()-0.5)*RAIN_SPAN;
+    const len = 2.0 + Math.random()*2.4;
+    pos[i*6]=x; pos[i*6+1]=y; pos[i*6+2]=z; pos[i*6+3]=x; pos[i*6+4]=y-len; pos[i*6+5]=z;
+    vel[i] = 80 + Math.random()*55;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  rain = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    color: 0xb7d0e4, transparent: true, opacity: 0, fog: true, toneMapped: false }));
+  rain.userData = { vel }; rain.frustumCulled = false; rain.visible = false;
+  scene.add(rain);
+}
+function stepRain(tNow){
+  if (!rain || !rain.visible) return;
+  let dt = tNow - _rainPrev; _rainPrev = tNow;
+  if (!(dt > 0) || dt > 0.1) dt = 0.016;
+  const p = rain.geometry.attributes.position.array, vel = rain.userData.vel;
+  const cx = camera.position.x, cz = camera.position.z;
+  for (let i = 0; i < RAIN_N; i++){
+    const dy = vel[i] * dt;
+    p[i*6+1] -= dy; p[i*6+4] -= dy;
+    if (p[i*6+4] < 0){                                   // hit the ground → recycle around the camera
+      const x = cx + (Math.random()-0.5)*RAIN_SPAN, z = cz + (Math.random()-0.5)*RAIN_SPAN;
+      const len = p[i*6+1] - p[i*6+4], y = RAIN_TOP + Math.random()*30;
+      p[i*6]=x; p[i*6+1]=y; p[i*6+2]=z; p[i*6+3]=x; p[i*6+4]=y-len; p[i*6+5]=z;
+    }
+  }
+  rain.geometry.attributes.position.needsUpdate = true;
+}
+// current weather → how grey/damp the wood reads. Open-Meteo, cached 15 min.
+const weather = { cloud: 0.35, precip: 0,
+                  bright: localStorage.getItem('mr_weather_bright') === '1' };
+async function fetchWeather(){
+  const lat = parseFloat(localStorage.getItem('forest_lat')) || 53.3498;
+  const lon = parseFloat(localStorage.getItem('forest_lon')) || -6.2603;
+  try {
+    const cached = JSON.parse(localStorage.getItem('mr_weather') || 'null');
+    if (cached && Date.now() - cached.t < 15*60*1000){
+      weather.cloud = cached.cloud; weather.precip = cached.precip;
+      applyTimeOfDay(); return;
+    }
+  } catch(_){}
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      + `&current=cloud_cover,precipitation`);
+    const d = await r.json();
+    weather.cloud  = Math.max(0, Math.min(1, (d.current.cloud_cover ?? 35) / 100));
+    weather.precip = +d.current.precipitation || 0;
+    try { localStorage.setItem('mr_weather',
+      JSON.stringify({ t: Date.now(), cloud: weather.cloud, precip: weather.precip })); } catch(_){}
+  } catch(_){ /* offline → keep the mild default */ }
+  applyTimeOfDay();
+}
+function applyTimeOfDay(){
+  // the drawing has no time of day: the sky is the page (the sun / moon /
+  // weather code below stays for the day it's wanted back)
+  if (!skyDome){ scene.background = T('bg'); scene.fog.color.copy(T('bg')); return; }
+  const lat = parseFloat(localStorage.getItem('forest_lat')) || 53.3498;
+  const lon = parseFloat(localStorage.getItem('forest_lon')) || -6.2603;
+  const alt = (typeof window.sunAltitude==='function') ? window.sunAltitude(new Date(), lat, lon) : 20;
+  const day = Math.max(0, Math.min(1, (alt+6)/36));
+  const low = 1 - Math.max(0, Math.min(1, Math.max(0,alt)/24));
+  const isNight = alt < -2;
+  const cloud  = weather.bright ? 0 : weather.cloud;
+  const precip = weather.bright ? 0 : weather.precip;
+  const skyN = new THREE.Color(0x0e1320), skyD = new THREE.Color(0x322a30), skyDay = new THREE.Color(0x86b8e8);
+  const sky = isNight ? skyN.clone() : (alt < 9 ? skyD.clone().lerp(skyDay, day) : skyDay.clone());
+  // overcast pulls the sky toward a flat grey; rain darkens it a step more
+  const grey = isNight ? new THREE.Color(0x10141a) : new THREE.Color(0x8a9298).lerp(new THREE.Color(0x646b70), low*0.4);
+  sky.lerp(grey, cloud*0.7);
+  if (precip > 0) sky.multiplyScalar(0.86);
+  // the launch's soft cast — one gentle hue per opening of the forest, glazed
+  // over the REAL weather + time of day (they still lead; this just warms or
+  // cools the day a touch differently each visit). Puddles + hemi inherit it.
+  if (window.MRSoftPalette) sky.lerp(new THREE.Color(MRSoftPalette.tint), 0.12);
+  scene.background = sky; scene.fog.color.copy(sky);
+  if (skyDome){
+    // horizon ≈ the sky/fog colour (so trees melt into it); zenith a deeper,
+    // bluer version by day, a deep night-blue at night → a believable gradient.
+    const zen = isNight ? new THREE.Color(0x0a1222)
+                        : new THREE.Color(0x2f6bbf).lerp(sky, 0.25).lerp(grey, cloud*0.6);
+    skyDome.material.uniforms.bottomColor.value.copy(sky);
+    skyDome.material.uniforms.topColor.value.copy(zen);
+  }
+  const sunCol = new THREE.Color().setHSL(0.08, 0.55, 0.5 + day*0.25).lerp(new THREE.Color(0xffb070), low*0.55);
+  // the LIGHT comes from where the sun actually is
+  const sp = _sunAltAz(new Date(), lat, lon);
+  sun.position.set(Math.cos(sp.alt)*Math.sin(sp.az)*150,
+                   Math.max(16, Math.sin(sp.alt)*170),
+                  -Math.cos(sp.alt)*Math.cos(sp.az)*150);
+  sun.color.copy(sunCol);
+  sun.intensity = (isNight ? 0.24 : (0.72 + day*1.0)) * (1 - cloud*0.55) * (precip > 0 ? 0.8 : 1);
+  hemi.color.copy(sky); hemi.intensity = (0.56 + day*0.5) * (1 + cloud*0.18);   // overcast = diffuse
+  amb.intensity = (isNight ? 0.32 : (0.46 + day*0.24)) * (1 + cloud*0.12);
+  const groundCol = new THREE.Color(0x4a463a).lerp(new THREE.Color(0xd2c8aa), day);
+  if (precip > 0) groundCol.multiplyScalar(0.82);                                // damp, darker earth
+  if (window.MRSoftPalette) groundCol.lerp(new THREE.Color(MRSoftPalette.tint), 0.07);  // a breath of the launch cast
+  ground.material.color.copy(groundCol);
+  if (puddleMat){
+    puddleMat.color.copy(sky).lerp(new THREE.Color(0xffffff), 0.18);             // puddles mirror the sky
+    puddleMat.opacity = precip > 0 ? 0.8 : 0.55;                                 // rain fills them
+  }
+  // the sky's actors
+  if (sunDisc){
+    sunDisc.position.copy(_skyPos(sp)); sunDisc.lookAt(0, 0, 0);
+    sunDisc.visible = sp.alt > 0 && cloud < 0.92;
+    sunDisc.material.opacity = 1 - cloud*0.7;
+    if (sunGlow){ sunGlow.position.copy(sunDisc.position); sunGlow.lookAt(0, 0, 0);
+      sunGlow.visible = sunDisc.visible;
+      sunGlow.scale.setScalar(1 + low*0.8);                                       // bigger, softer near the horizon
+      sunGlow.material.opacity = (0.5 + low*0.32) * (1 - cloud*0.85); }
+  }
+  if (moonDisc){
+    const mp = _moonAltAz(new Date(), lat, lon);
+    moonDisc.position.copy(_skyPos(mp)); moonDisc.lookAt(0, 0, 0);
+    moonDisc.visible = mp.alt > 0.02 && cloud < 0.92;
+    moonDisc.material.opacity = (isNight ? 1 : 0.5) * (1 - cloud*0.8);            // a day moon shows faint, as it does
+    if (moonGlow){ moonGlow.position.copy(moonDisc.position); moonGlow.lookAt(0, 0, 0);
+      moonGlow.visible = moonDisc.visible;
+      moonGlow.material.opacity = (isNight ? 0.5 : 0.16) * (1 - cloud*0.85); }
+  }
+  if (stars) stars.visible = isNight && cloud < 0.35;
+  // clouds: count + weight track the real cover; colour follows the sky. Fair
+  // weather = bright puffs that pop against the blue; only real overcast greys
+  // them down (and rain darkens them further).
+  if (clouds.length){
+    const lit = isNight ? new THREE.Color(0x39414f) : new THREE.Color(0xf8f5ec);
+    const cloudCol = lit.clone().lerp(isNight ? new THREE.Color(0x1a2330) : new THREE.Color(0x9298a0),
+                                      Math.max(0, cloud - 0.35) * 0.85);   // stays bright until it's properly overcast
+    if (!isNight) cloudCol.lerp(new THREE.Color(0xffc89e), low*0.34);      // warm at dawn / dusk
+    if (precip > 0) cloudCol.multiplyScalar(0.66);                         // rain clouds run dark
+    if (window.MRSoftPalette) cloudCol.lerp(new THREE.Color(MRSoftPalette.tint), 0.07);
+    const nVisible = Math.round(2 + cloud * (CLOUD_MAX - 2));              // a wisp or two → a full deck
+    const op = Math.min(1, (0.5 + cloud*0.42) * (isNight ? 0.6 : 1));
+    clouds.forEach((c, i)=>{
+      c.mesh.visible = i < nVisible;
+      c.mesh.material.color.copy(cloudCol);
+      c.mesh.material.opacity = op;
+    });
+  }
+  // rain: shown only when the real weather is wet (and not overridden to clear).
+  if (rain){
+    rain.visible = precip > 0;
+    rain.material.opacity = Math.min(0.55, 0.2 + precip * 0.22);
+    rain.material.color.copy(sky).lerp(new THREE.Color(0xdfeefb), 0.55);   // streaks pick up the sky
+  }
+}
+
+function clearings(){
+  return places().map(p => { const pos = window.placePosition(p, places()); const w = pctToWorld(pos.x,pos.y);
+    return { x:w.x, z:w.z, r: p.is_well ? 42 : 30 }; });   // generous openings — the structures must be SEEN across the wood
+}
+function disposeScenery(){
+  if (!sceneryGroup) return;
+  sceneryGroup.traverse(o=>{ if (o.isMesh){ o.geometry.dispose(); if (o.material.dispose) o.material.dispose(); } });
+  scene.remove(sceneryGroup); sceneryGroup = null;
+}
+const _D = new THREE.Object3D();
+function _inst(geo, mat, items){
+  if (!items.length) return;
+  const im = new THREE.InstancedMesh(geo, mat, items.length);
+  items.forEach((it,i)=>{
+    _D.position.set(it.x, it.y||0, it.z);
+    _D.rotation.set(it.rx||0, it.ry||0, it.rz||0);
+    _D.scale.set(it.sx, it.sy, it.sz);
+    _D.updateMatrix(); im.setMatrixAt(i, _D.matrix);
+    if (it.col) im.setColorAt(i, it.col);
+  });
+  if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.frustumCulled = false; sceneryGroup.add(im);
+}
+// flat (unlit) — each instance's own tone, exactly; depth comes from the fog wash
+const WHITE = ()=> new THREE.MeshBasicMaterial({ color:0xffffff, toneMapped:false });
+const FLAT = (hex)=> new THREE.MeshBasicMaterial({ color:new THREE.Color(hex), toneMapped:false });
+
+function buildScenery(){
+  disposeScenery();
+  sceneryGroup = new THREE.Group(); scene.add(sceneryGroup);
+  const cl = clearings(), half = WORLD-8;
+  // pad by a typical crown radius so canopies don't lean over and close the
+  // opening — the clearing must stay readable from above and across the wood
+  const inClearing = (x,z,pad=7)=> cl.some(c=> Math.hypot(x-c.x, z-c.z) < c.r + pad);
+
+  // ── TREES — dense canopy, size-varied (saplings → big heroes), layered ──
+  const STEP = 6.5, treePos = [];
+  for (let x=-half; x<=half; x+=STEP) for (let z=-half; z<=half; z+=STEP){
+    const jx = x+(Math.random()-0.5)*STEP*1.1, jz = z+(Math.random()-0.5)*STEP*1.1;
+    if (inClearing(jx,jz)) continue;                                        // only the place clearings stay open
+    let ts = 0.75 + Math.random()*0.7, roll = Math.random();
+    if (roll > 0.90) ts = 1.5 + Math.random()*1.0;                          // big elder trees
+    else if (roll < 0.12) ts = 0.45 + Math.random()*0.25;                  // saplings
+    treePos.push([jx,jz,ts]);
+  }
+  // The Irish wood of the vision: oak (dominant) / ash / birch / holly, with
+  // rowan for the red berries. Each species owns its trunk too — pale slender
+  // birch trunks are what make the wood read as Irish at twilight.
+  const species = [
+    { w:38, c:0x3f5c34, g:()=>new THREE.IcosahedronGeometry(5.0,0), h:9,  tc:0x4a3825, tr:1,    th:1,    berry:null },     // oak — broad
+    { w:20, c:0x4c6b3c, g:()=>new THREE.IcosahedronGeometry(3.8,0), h:11, tc:0x564434, tr:0.8,  th:1.2,  berry:null },     // ash — tall
+    { w:22, c:0x5f7d44, g:()=>new THREE.IcosahedronGeometry(2.9,0), h:9,  tc:0xd6d2c4, tr:0.5,  th:1.15, berry:null },     // birch — pale trunk
+    { w:12, c:0x24371f, g:()=>new THREE.IcosahedronGeometry(2.5,0), h:4,  tc:0x3a2e20, tr:0.7,  th:0.55, berry:0xb3302a }, // holly — low, dark, berried
+    { w:8,  c:0x33492c, g:()=>new THREE.IcosahedronGeometry(3.0,0), h:7,  tc:0x564434, tr:0.75, th:0.85, berry:0xc23a2a }, // rowan — red berries
+  ];
+  // drawn: every species' canopy in the muted tone, every trunk in ink (the
+  // species keep their shapes — oak broad, ash tall, holly low)
+  species.forEach(s => { s.c = TONES.mix(TONES.text, TONES.bg, 0.58); s.tc = TONES.text; });
+  const crownCol = T('rule');
+  const wTotS = species.reduce((a,s)=>a+s.w,0);
+  const bucket = species.map(()=>[]);
+  treePos.forEach(t=>{ let r=Math.random()*wTotS, si=0;
+    for (let i=0;i<species.length;i++){ if ((r-=species[i].w)<=0){ si=i; break; } }
+    bucket[si].push(t); });
+  const berries = [];
+  species.forEach((s,si)=>{
+    const arr = bucket[si]; if(!arr.length) return; const base = new THREE.Color(s.c);
+    const tBase = new THREE.Color(s.tc);
+    _inst(new THREE.CylinderGeometry(0.42*s.tr, 0.95*s.tr, 8*s.th, 5).translate(0, 4*s.th, 0), WHITE(),
+      arr.map(([x,z,ts])=>({ x, z, sx:ts, sy:ts*(0.9+Math.random()*0.3), sz:ts, ry:Math.random()*6.28,
+        col: tBase.clone().offsetHSL(0,0,(Math.random()-0.5)*0.06) })));
+    _inst(s.g(), WHITE(), arr.map(([x,z,ts])=>({ x, y:s.h*ts, z, sx:ts, sy:ts*1.08, sz:ts, ry:Math.random()*6.28,
+      col: base.clone().offsetHSL(0,0,(Math.random()-0.5)*0.06) })));
+    // a lighter crown on top → the drawing's second tone
+    _inst(s.g(), WHITE(), arr.map(([x,z,ts])=>({ x:x+1.3*ts, y:(s.h+1.7)*ts, z:z-1.1*ts,
+      sx:ts*0.64, sy:ts*0.64, sz:ts*0.64, ry:Math.random()*6.28, col: crownCol.clone().offsetHSL(0,0,(Math.random()-0.5)*0.04) })));
+    if (s.berry) arr.forEach(([x,z,ts])=>{ if (Math.random()<0.3){ const n=1+Math.floor(Math.random()*3);
+      for (let k=0;k<n;k++) berries.push({ x:x+(Math.random()-0.5)*4*ts, y:(s.h+(Math.random()-0.3)*2)*ts, z:z+(Math.random()-0.5)*4*ts,
+        sx:0.5*ts, sy:0.5*ts, sz:0.5*ts, col:T('red') }); } });
+  });
+  _inst(new THREE.SphereGeometry(1,6,5), WHITE(), berries);
+
+  // ── UNDERGROWTH — logs, stumps, grass, ferns, bluebells, rocks, mushrooms ──
+  const G={grass:[],fern:[],bell:[],rock:[],log:[],stumpB:[],stumpT:[],mush:[]};
+  const W=[['fern',24],['grass',30],['rock',12],['bluebell',12],['log',9],['stump',7],['mushroom',6]];
+  const wTot=W.reduce((a,b)=>a+b[1],0);
+  for (let i=0;i<760;i++){
+    const x=(Math.random()-0.5)*2*half, z=(Math.random()-0.5)*2*half;
+    if (inClearing(x,z,2)) continue;                   // low growth may hug the openings
+    let p=Math.random()*wTot, kind='fern'; for (const [k,w] of W){ if ((p-=w)<=0){ kind=k; break; } }
+    const s=0.7+Math.random()*0.7, ry=Math.random()*6.28;
+    if (kind==='grass'){ const n=3+(Math.random()*4|0); for (let k=0;k<n;k++) G.grass.push({
+      x:x+(Math.random()-0.5)*1.4, z:z+(Math.random()-0.5)*1.4, sx:0.5, sy:2.2+Math.random()*1.8, sz:0.5,
+      ry:Math.random()*6.28, rz:(Math.random()-0.5)*0.55, col:T('muted').offsetHSL(0,0,(Math.random()-0.5)*0.06) }); }
+    else if (kind==='fern'){ const n=4+(Math.random()*4|0); for (let k=0;k<n;k++){ const a=Math.random()*6.28;
+      G.fern.push({ x:x+Math.cos(a)*0.9, z:z+Math.sin(a)*0.9, sx:0.85*s, sy:1.5*s, sz:0.85*s,
+        ry:a, rz:0.5+Math.random()*0.25, col:T('muted').offsetHSL(0,0,(Math.random()-0.5)*0.06) }); } }
+    else if (kind==='bluebell'){ const n=4+(Math.random()*5|0); for (let k=0;k<n;k++) G.bell.push({
+      x:x+(Math.random()-0.5)*1.6, y:1.5+Math.random()*0.9, z:z+(Math.random()-0.5)*1.6, sx:0.42, sy:0.7, sz:0.42,
+      ry, rz:Math.PI+(Math.random()-0.5)*0.5, col:T('rule2') }); }
+    else if (kind==='rock'){ G.rock.push({ x, y:0.35*s, z, sx:1.7*s, sy:0.95*s, sz:1.45*s, ry,
+      col:T('rule').offsetHSL(0,0,(Math.random()-0.5)*0.05) }); }
+    else if (kind==='log'){ G.log.push({ x, y:0.85*s, z, sx:s*(1.3+Math.random()*0.7), sy:s, sz:s, ry,
+      col:T('text') }); }
+    else if (kind==='stump'){ G.stumpB.push({ x, z, sx:s, sy:s, sz:s, ry });
+      G.stumpT.push({ x, y:2.4*s, z, sx:s, sy:s, sz:s, rx:-Math.PI/2, ry }); }
+    else { G.mush.push({ x, y:0.35*s, z, sx:0.5*s, sy:0.55*s, sz:0.5*s, col:T('rule2') }); }
+  }
+  _inst(new THREE.ConeGeometry(0.5,1,3).translate(0,0.5,0), WHITE(), G.grass);          // grass blades
+  _inst(new THREE.ConeGeometry(0.55,1.4,4).translate(0,0.7,0), WHITE(), G.fern);          // fern fronds (low, splayed)
+  _inst(new THREE.ConeGeometry(0.7,1.1,5), WHITE(), G.bell);                             // bluebells
+  _inst(new THREE.IcosahedronGeometry(1,0), WHITE(), G.rock);                              // stones
+  _inst(new THREE.CylinderGeometry(0.85,0.92,4.5,7).rotateZ(Math.PI/2), WHITE(), G.log);   // fallen logs
+  _inst(new THREE.CylinderGeometry(1.25,1.65,2.4,8).translate(0,1.2,0), FLAT(TONES.text), G.stumpB);
+  const stumpTop = FLAT(TONES.muted); stumpTop.side = THREE.DoubleSide;
+  _inst(new THREE.CircleGeometry(1.25,8), stumpTop, G.stumpT);
+  _inst(new THREE.SphereGeometry(1,6,4), WHITE(), G.mush);
+}
+
+function svgToTexture(svg, size){
+  return new Promise(res=>{
+    let s = svg || ''; if (!s){ res(null); return; }
+    if (!/xmlns=/.test(s)) s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    try {
+      const url = URL.createObjectURL(new Blob([s], {type:'image/svg+xml;charset=utf-8'})), img = new Image();
+      img.onload = ()=>{ const c=document.createElement('canvas'); c.width=c.height=size;
+        c.getContext('2d').drawImage(img,0,0,size,size); URL.revokeObjectURL(url);
+        const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4; res(t); };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); res(null); };
+      img.src = url;
+    } catch(e){ res(null); }
+  });
+}
+// A built structure (forest_structures.js) is lit, textured and coloured in
+// browns and greys. Drawn on the page it has three tones and a cut-out: dark
+// surfaces → ink, mid → muted, light → the hairline; the builder's glowing
+// panes (lit windows, lamps) become paper cut from the page — or the one red,
+// on the Music Room; its pools of light on the ground are not drawn.
+const _hslTmp = {};
+function inkify(root, isWell){
+  const seen = new Map();
+  root.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    const m = o.material;
+    if (seen.has(m.uuid)){ const r = seen.get(m.uuid); if (r) o.material = r; else o.visible = false; return; }
+    let tone;
+    if (m.isMeshBasicMaterial){                                   // the builder's glow surfaces
+      if (m.transparent && m.opacity <= 0.2){ seen.set(m.uuid, null); o.visible = false; return; }
+      tone = (m.color.getHex() === 0xb9c2c8) ? 'rule' : (isWell ? 'red' : 'bg');
+    } else if ((m.metalness || 0) > 0){ tone = 'rule'; }         // water
+    else {
+      m.color.getHSL(_hslTmp, THREE.SRGBColorSpace);
+      tone = _hslTmp.l < 0.3 ? 'text' : (_hslTmp.l < 0.62 ? 'muted' : 'rule');
+    }
+    const nm = new THREE.MeshBasicMaterial({ color: T(tone), toneMapped: false,
+      transparent: !!m.transparent, opacity: m.opacity, side: m.side, depthWrite: m.depthWrite });
+    seen.set(m.uuid, nm); o.material = nm;
+  });
+}
+function buildPlaces(){
+  // synchronous scene-graph build (no await between clear and add) so two
+  // rebuilds can never overlap and leave a duplicate frozen label behind.
+  placeObjs.forEach(o=>{ if (o.label && o.label.element) o.label.element.remove(); scene.remove(o.group); });
+  placeObjs = [];
+  for (const p of places()){
+    const pos = window.placePosition(p, places()), w = pctToWorld(pos.x, pos.y);
+    const isWell = !!p.is_well;
+    const accent = new THREE.Color(p.colour_primary || (isWell?'#9ab094':'#9a7a4a'));
+    const group = new THREE.Group(); group.position.copy(w);
+    // the clearing: a hairline ring drawn on the page (it darkens to ink on hover)
+    const rr = isWell ? 26 : 18;
+    const disc = new THREE.Mesh(new THREE.RingGeometry(rr - 0.3, rr, 96),
+        new THREE.MeshBasicMaterial({color:T('rule2'), depthWrite:false, toneMapped:false, side:THREE.DoubleSide}));
+    disc.rotation.x = -Math.PI/2; disc.position.y = 0.1; group.add(disc);
+
+    // The place is a real 3D structure built from its data: illustration_kind
+    // picks the form (same pickKind as the 2D forest), the four illustration
+    // colour roles paint it (same theme-aware defaults + overrides), and the
+    // place's primary colour stays the clearing glow. Only the `custom`
+    // kind (user-uploaded image) remains a billboard card.
+    const kind  = (typeof window.placeIllustrationKind==='function') ? window.placeIllustrationKind(p) : 'default';
+    // the four colour roles arrive as plain greys that SAY their tone (the
+    // builder lifts and shades them; inkify() reads the result back into the
+    // page's tones: dark → ink, mid → muted, light → the hairline)
+    const roles = { light:'#ffffff', structure:'#101010', outline:'#808080', detail:'#d8d8d8' };
+    let node, token = null, h = 12;
+    if (kind === 'custom' || !window.ForestStructures){
+      const size = isWell ? 34 : 23;
+      token = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({
+          map:null, color:accent, transparent:true, depthWrite:false, toneMapped:false, side:THREE.DoubleSide }));
+      token.position.y = size*0.5 + 1.5;
+      node = token; h = size + 2;
+      svgToTexture((typeof window.renderPlaceIllustration==='function') ? window.renderPlaceIllustration(p, {size:240}) : '', 256)
+        .then(tex=>{ if (tex){ token.material.map = tex; token.material.color.set(0xffffff); token.material.needsUpdate = true; } });
+    } else {
+      node = window.ForestStructures.build(THREE, p, kind, roles);
+      inkify(node, isWell);
+      const scl = isWell ? 2.2 : 1.45;
+      node.scale.setScalar(scl);
+      h = (node.userData.h || 10) * scl;
+    }
+    group.userData.pid = p.id;
+    group.add(node);
+
+    const el = document.createElement('div'); el.className='p3d-label';
+    el.innerHTML = `<div class="p3d-name">${window.escHtml(p.name)}</div>`+
+      `<div class="p3d-meta">${(p.track_count||0).toLocaleString()} ${p.track_count===1?'track':'tracks'}</div>`+
+      (isWell?'':`<button class="p3d-cog" title="Edit place">⚙</button>`);
+    const cog = el.querySelector('.p3d-cog');
+    if (cog) cog.addEventListener('click', e=>{ e.stopPropagation(); if (window.openEditPlaceFromForest) window.openEditPlaceFromForest(p.id); });
+    const label = new CSS2DObject(el); label.position.set(0, h + (isWell ? 9 : 6), 0); group.add(label);
+    scene.add(group);
+    placeObjs.push({ id:p.id, group, node, token, label, disc, isWell, hoverT:0,
+                     baseScale: node.scale.x,
+                     smoke: node.userData && node.userData.smoke || null,
+                     water: node.userData && node.userData.water || null });
+  }
+}
+
+// ---- interaction: hovering a place highlights it (so you know it's clickable);
+// dragging a place MOVES it (rearrange); a clean click enters it; dragging empty
+// space orbits the camera. ----
+let drag = null, downXY = null, hoveredPlace = null;
+function pickToken(ev){
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX-r.left)/r.width)*2-1; pointer.y = -((ev.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(pointer, camera);
+  // structures are whole groups of meshes — raycast recursively and walk the
+  // hit back up to the group that carries the place id
+  const hits = raycaster.intersectObjects(placeObjs.map(o=>o.node), true);
+  for (const hit of hits){
+    let n = hit.object;
+    while (n && !(n.userData && n.userData.pid !== undefined)) n = n.parent;
+    if (n){ const o = placeObjs.find(po=>po.id===n.userData.pid); if (o) return o; }
+  }
+  return null;
+}
+function onDown(ev){
+  if (ev.button!==0) return;
+  downXY = [ev.clientX, ev.clientY];
+  const obj = pickToken(ev);
+  if (obj){ drag = { obj, moved:false }; if (!obj.isWell) controls.enabled = false; }
+  // no place under the cursor → controls stay enabled → the drag orbits the camera
+}
+function onMove(ev){
+  if (drag){
+    if (downXY && Math.hypot(ev.clientX-downXY[0], ev.clientY-downXY[1]) > 4) drag.moved = true;
+    if (drag.moved && !drag.obj.isWell){               // carry the place across the ground
+      const r = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((ev.clientX-r.left)/r.width)*2-1; pointer.y = -((ev.clientY-r.top)/r.height)*2+1;
+      raycaster.setFromCamera(pointer, camera);
+      const pt = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(groundPlane, pt)) drag.obj.group.position.set(pt.x, 0, pt.z);
+    }
+    return;
+  }
+  if (downXY) return;                                  // mid camera-drag → skip hover
+  const obj = pickToken(ev);
+  if (obj !== hoveredPlace){ hoveredPlace = obj; renderer.domElement.style.cursor = obj ? 'pointer' : ''; }
+}
+async function onUp(){
+  if (drag){
+    const obj = drag.obj;
+    if (drag.moved && !obj.isWell){
+      const pct = worldToPct(obj.group.position);
+      if (window.savePlacePosition) await window.savePlacePosition(obj.id, pct.x, pct.y);  // persist + redraw
+    } else if (!drag.moved){
+      const href = '/room/' + obj.id;                  // a click → enter the place's 3D room
+      if (window.rtGo) window.rtGo(href); else window.location.href = href;
+    }
+    controls.enabled = true; drag = null; downXY = null;
+    return;
+  }
+  downXY = null;
+}
+
+function zoomBy(dir){
+  const v = new THREE.Vector3().subVectors(camera.position, controls.target);
+  v.setLength(THREE.MathUtils.clamp(v.length()*(dir>0?0.82:1.22), controls.minDistance, controls.maxDistance));
+  camera.position.copy(controls.target).add(v);
+}
+function centerOnWell(){
+  const well = places().find(p=>p.is_well);
+  const pos = well ? window.placePosition(well, places()) : {x:50,y:50};
+  controls.target.copy(pctToWorld(pos.x, pos.y));
+}
+
+const _camDir = new THREE.Vector3(), _ringCol = T('rule2'), _inkCol = T('text');
+const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
+const keyMove = { ArrowUp:0, ArrowDown:0, ArrowLeft:0, ArrowRight:0 };
+const _fwd = new THREE.Vector3(), _right = new THREE.Vector3(), _mv = new THREE.Vector3(), _UP = new THREE.Vector3(0,1,0);
+function animate(){
+  requestAnimationFrame(animate);
+  // arrow-key glide across the wood at a fixed height (forward/back + strafe)
+  if (keyMove.ArrowUp||keyMove.ArrowDown||keyMove.ArrowLeft||keyMove.ArrowRight){
+    camera.getWorldDirection(_fwd); _fwd.y=0; if (_fwd.lengthSq()>1e-4) _fwd.normalize();
+    _right.crossVectors(_fwd, _UP).normalize();
+    _mv.set(0,0,0);
+    if (keyMove.ArrowUp)    _mv.add(_fwd);
+    if (keyMove.ArrowDown)  _mv.sub(_fwd);
+    if (keyMove.ArrowRight) _mv.add(_right);
+    if (keyMove.ArrowLeft)  _mv.sub(_right);
+    if (_mv.lengthSq()>0){ _mv.normalize().multiplyScalar(2.2); camera.position.add(_mv); controls.target.add(_mv); }
+  }
+  controls.update();
+  // ── containment: the POV stays inside the wood. Clamp where you can look
+  // (target) and where the camera can be (never past the edge, never under the
+  // floor) — so you never see the world end and the illusion holds.
+  const T = WORLD*0.5;                                  // pan limited to the place area (±130)
+  controls.target.x = clamp(controls.target.x, -T, T);
+  controls.target.z = clamp(controls.target.z, -T, T);
+  controls.target.y = clamp(controls.target.y, 0, 26);
+  const C = WORLD*0.74;                                 // camera stays well inside the tree field
+  camera.position.x = clamp(camera.position.x, -C, C);
+  camera.position.z = clamp(camera.position.z, -C, C);
+  camera.position.y = clamp(camera.position.y, 10, WORLD*0.85);
+  // hovered place grows & its clearing glows; structures are real buildings
+  // (they never billboard — only a `custom` image card still faces the camera);
+  // chimney smoke drifts and water surfaces shimmer.
+  const tNow = performance.now() / 1000;
+  for (const o of placeObjs){
+    if (o.token){
+      _camDir.set(camera.position.x - o.group.position.x, 0, camera.position.z - o.group.position.z);
+      o.token.rotation.y = Math.atan2(_camDir.x, _camDir.z);
+    }
+    const tgt = (o === hoveredPlace) ? 1 : 0;
+    o.hoverT += (tgt - o.hoverT) * 0.18;                  // smooth
+    const s = o.baseScale * (1 + o.hoverT*0.12);
+    o.node.scale.setScalar(s);
+    if (o.disc) o.disc.material.color.copy(_ringCol).lerp(_inkCol, o.hoverT);
+    if (o.smoke) for (const sm of o.smoke){
+      const cyc = (tNow*0.55 + sm.ph) % 5;
+      sm.m.position.set(sm.base.x + Math.sin(tNow*0.7 + sm.ph)*sm.amp*0.5,
+                        sm.base.y + cyc*1.1,
+                        sm.base.z + Math.cos(tNow*0.5 + sm.ph)*sm.amp*0.3);
+      sm.m.material.opacity = 0.26 * Math.max(0, 1 - cyc/5);
+    }
+    if (o.water) for (const wv of o.water){
+      if (!wv.m.material.transparent) continue;
+      if (wv.base === undefined) wv.base = wv.m.material.opacity;
+      wv.m.material.opacity = wv.base + Math.sin(tNow*1.7 + wv.ph)*0.07;
+    }
+  }
+  // clouds drift on the wind (slow, wall-clock driven) + always face you
+  for (const c of clouds){
+    if (!c.mesh.visible) continue;
+    c.az = c.baseAz + tNow * c.speed * 0.05;
+    c.mesh.position.copy(cloudPos(c));
+    c.mesh.lookAt(camera.position);
+  }
+  stepRain(tNow);
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+window.forest3D = {
+  rebuild(){
+    WORLD = worldFor(places().length);               // forest grows as places are added
+    scene.fog.near = WORLD*0.35; scene.fog.far = WORLD*1.55;
+    buildScenery(); buildPlaces(); applyTimeOfDay();
+  },
+  centerOnWell, zoomBy,
+};
+
+init();
+if (typeof window.loadPlaces==='function') window.loadPlaces();   // engine ready → real load
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+
+<script>window.MR_TIP = { key:'forest', title:'The Forest', steps:[
+  { title:'This is your map',
+    body:'Every musical place you make lives out here in the wood. The cabin in the middle is the Music Room \u2014 every record you own is inside. Click a place to walk in.' },
+  { title:'Make places',
+    body:'A venue, a mood, a night you\u2019re building for. Press \u201c+ make a new place\u201d and it appears in the wood \u2014 drag it wherever feels right. Inside any room, right-click a record to add it to one.' },
+  { title:'Nothing ever moves',
+    body:'A record can belong to many places at once. Adding it somewhere never moves or copies a file \u2014 places are how YOU see the collection, not folders.',
+    link:'/help#places', linkText:'places, properly' },
+  { sel:'.nav', title:'The top bar goes everywhere',
+    body:'Sets, Explore, Listen, Tools, Help \u2014 and the Music Room wordmark always brings you home.' },
+]};</script>
+<script src="/static/js/mr_tips.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+</body>
+</html>

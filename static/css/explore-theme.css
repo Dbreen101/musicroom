@@ -1,0 +1,46 @@
+/* ── Explore-desk dark theme ───────────────────────────────────────────────
+   Load AFTER style.css to bring a page into the /explore3d aesthetic — a warm
+   near-black surface, cream ink, gold as the one accent — for continuity across
+   the app. The fonts already match the desk (Inter / EB Garamond / JetBrains
+   Mono), so this is purely a palette re-point + a few surface overrides. (David) */
+:root{
+  --bg-floor:#111010;
+  --bg:#161513;
+  --surface:#1c1b19;
+  --surface2:#232220;
+  --border:rgba(242,239,232,.18);
+  --border2:rgba(242,239,232,.32);
+  --text:#f2efe8;
+  --muted:#9b968a;
+  --muted2:#6e6a61;
+  --accent:#f2efe8;
+  --well:#f2efe8;
+  --accent-dim:rgba(242,239,232,.08);
+  --gold:#f2efe8;
+}
+/* the forest-floor texture → a flat warm-dark surface */
+/* (the surfaces below read their colour from tokens so a theme can re-skin
+   them — themes.py defines --sheet / --nav-bg / --pill-ink per theme) */
+body::before{ background:var(--bg) !important; }
+/* the parchment "leaf" that text-heavy pages lay content on → a panel */
+.floor-sheet{ background:var(--sheet, rgba(26,22,16,.92)) !important; border-color:var(--border) !important;
+  box-shadow:0 14px 40px var(--shadow, rgba(0,0,0,.5)) !important; }
+
+/* the top panel — the nav */
+.nav{ background:var(--nav-bg, rgba(16,14,10,.92)) !important; border-bottom:1px solid var(--border) !important; }
+.nav__logo{ color:var(--gold) !important; }
+.nav__logo::first-letter{ color:var(--gold) !important; text-shadow:none !important; }
+.nav__links a{ color:var(--muted); }
+.nav__links a:hover, .nav__links a.active{ color:var(--pill-ink, #1d160d) !important; background:var(--gold);
+  border-radius:100px; padding:2px 11px; }
+
+/* index / menu cards (Tools, and other index pages that use this pattern) */
+.index-card{ background:var(--surface) !important; border-color:var(--border) !important;
+  box-shadow:0 6px 20px var(--shadow, rgba(0,0,0,.4)) !important; }
+.index-card:hover{ background:var(--surface2) !important; border-color:var(--gold) !important;
+  box-shadow:0 10px 26px var(--shadow, rgba(0,0,0,.5)) !important; }
+
+/* book-of-kells display first-letters were oxblood-on-parchment; on dark, gold reads.
+   (--oxblood stays the danger colour; only these decorative drop-letters change.) */
+.help-section h2::first-letter, .help-hero h1::first-letter, .celtic-title::first-letter,
+.index-title::first-letter, .index-card h2::first-letter{ color:var(--gold) !important; }

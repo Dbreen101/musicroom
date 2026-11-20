@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+    <style>
+        /* the master page (gr_master.py on the rooms server answers it, only for the master, only on the server's own Mac) */
+        .ms-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--border); margin: 6px 0 18px; }
+        .ms-tabs button { appearance: none; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted);
+            font-family: var(--f-mono, monospace); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+        .ms-tabs button.on { color: var(--text); border-bottom-color: var(--text); }
+        .ms-tabs b { font-weight: 400; margin-left: 6px; padding: 0 5px; background: var(--red); color: var(--bg); }
+        .ms-row { display: grid; grid-template-columns: 1fr auto; gap: 8px 18px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .ms-row__t { font-family: var(--f-display, Georgia, serif); font-size: 1.2rem; line-height: 1.2; }
+        .ms-row__s { font-family: var(--f-mono, monospace); font-size: .62rem; letter-spacing: .04em; color: var(--muted); line-height: 1.7; }
+        .ms-row__n { margin-top: 6px; font-size: .86rem; line-height: 1.55; }
+        .ms-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+        .ms-why { width: 220px; }
+        .ms-acts select, .ms-acts input { padding: 6px 8px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+            font-family: var(--f-mono, monospace); font-size: .66rem; }
+        .ms-btn { appearance: none; padding: 6px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
+            font-family: var(--f-mono, monospace); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+        .ms-btn:hover { border-color: var(--text); }
+        .ms-btn--go { background: var(--text); border-color: var(--text); color: var(--bg); }
+        .ms-btn--red { border-color: var(--red); color: var(--red); }
+        .ms-tag { display: inline-block; margin-right: 6px; padding: 1px 5px; border: 1px solid var(--border2); font-size: .56rem; letter-spacing: .1em; text-transform: uppercase; }
+        .ms-tag--red { border-color: var(--red); color: var(--red); }
+        .ms-none { padding: 18px 0; font-size: .86rem; color: var(--muted); }
+        .ms-filter { display: flex; gap: 6px; margin-bottom: 8px; }
+        .ms-cover { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--border); margin-right: 12px; float: left; }
+        .ms-form { display: grid; gap: 10px; max-width: 560px; }
+        .ms-form label { font-family: var(--f-mono, monospace); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+        .ms-form input { padding: 9px 10px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text); font-size: .9rem; }
+        .ms-said { min-height: 1.4em; font-family: var(--f-mono, monospace); font-size: .66rem; color: var(--muted); }
+        audio { height: 32px; vertical-align: middle; }
+    </style>
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+<main class="gr-main">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">Master</div>
+        <h1 class="gr-h1">The Music Room</h1>
+        <p class="gr-lede" id="ms-lede">Accounts, records waiting to go out, reports, feedback, and the version everyone should be on.</p>
+    </header>
+    <nav class="ms-tabs" id="ms-tabs">
+        <button data-tab="accounts">Accounts<b id="n-requests" hidden></b></button>
+        <button data-tab="records">Records<b id="n-pending" hidden></b></button>
+        <button data-tab="reports">Reports<b id="n-reports" hidden></b></button>
+        <button data-tab="feedback">Feedback<b id="n-feedback" hidden></b></button>
+        <button data-tab="version">Version</button>
+    </nav>
+    <div class="ms-said" id="ms-said" role="status"></div>
+    <section id="ms-body"></section>
+</main>
+<script>
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const when = s => s ? String(s).replace('T', ' ').slice(0, 16) : '';
+const KINDS = ['listener', 'artist', 'label', 'shop', 'venue', 'business'];
+let TAB = (location.hash || '#accounts').slice(1), STATUS = {};
+const body = document.getElementById('ms-body'), said = document.getElementById('ms-said');
+async function api(path, data) {
+    try {
+        const r = await fetch('/api/gr/master/' + path, data ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) } : undefined);
+        const d = await r.json().catch(() => ({}));
+        return { ok: r.ok, d };
+    } catch (_) { return { ok: false, d: { error: 'The app can’t be reached.' } }; }
+}
+function badge(id, n) { const b = document.getElementById(id); b.hidden = !n; b.textContent = n || ''; }
+async function overview() {
+    const r = await api('overview');
+    if (!r.ok) {
+        document.getElementById('ms-tabs').hidden = true;
+        body.innerHTML = `<p class="ms-none">${esc(r.d.error || 'The master page can’t be opened.')}</p>
+            <p class="ms-none">This page is for the master account, on the Mac the rooms server runs on.</p>`;
+        return false;
+    }
+    badge('n-requests', r.d.requests); badge('n-pending', r.d.pending); badge('n-reports', r.d.reports); badge('n-feedback', r.d.feedback);
+    document.getElementById('ms-lede').textContent = `Signed in as ${r.d.me.name}. ${r.d.accounts} accounts.`;
+    return true;
+}
+function show(tab) {
+    TAB = tab; history.replaceState(null, '', '#' + tab); said.textContent = '';
+    document.querySelectorAll('#ms-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    ({ accounts, records, reports, feedback, version }[tab] || accounts)();
+}
+document.getElementById('ms-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.tab); });
+
+// ── accounts: requests first, then everyone ──
+async function accounts() {
+    const r = await api('accounts');
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    body.innerHTML = r.d.accounts.map(a => `
+      <div class="ms-row" data-id="${a.id}">
+        <div>
+          <div class="ms-row__t">${esc(a.name)} ${a.is_master ? '<span class="ms-tag ms-tag--red">master</span>' : ''}${a.paused ? '<span class="ms-tag ms-tag--red">paused</span>' : ''}${a.hidden ? '<span class="ms-tag ms-tag--red">room taken down</span>' : ''}</div>
+          <div class="ms-row__s">@${esc(a.handle)} · ${esc(a.kind)}${a.is_public ? ' · public room' : ''} · joined ${when(a.created_at)} · last seen ${when(a.last_seen) || '—'}
+            · ${a.devices} device${a.devices === 1 ? '' : 's'} · ${a.records} record${a.records === 1 ? '' : 's'}${a.pending ? ` (${a.pending} waiting)` : ''} · ${a.borrows} borrowed · ${a.bought} bought</div>
+          ${a.kind_requested ? `<div class="ms-row__n">Asks to be <b>${esc(a.kind_requested)}</b>.</div>` : ''}
+          ${a.paused && a.paused_note ? `<div class="ms-row__n">Paused: ${esc(a.paused_note)}</div>` : ''}
+          ${a.hidden && a.hidden_note ? `<div class="ms-row__n">Room taken down: ${esc(a.hidden_note)}</div>` : ''}
+        </div>
+        <div class="ms-acts">
+          ${a.kind_requested ? `<button class="ms-btn ms-btn--go" data-do="approve">Make ${esc(a.kind_requested)}</button><button class="ms-btn" data-do="refuse">Keep as ${esc(a.kind)}</button>` : ''}
+          <select data-do="kind" aria-label="Kind of account">${KINDS.map(k => `<option ${k === a.kind ? 'selected' : ''}>${k}</option>`).join('')}</select>
+          ${a.hidden ? `<button class="ms-btn" data-do="unhide">Put the room back</button>` : ''}
+          ${a.is_master ? '' : (a.paused ? `<button class="ms-btn" data-do="unpause">Unpause</button>` : `${WHY}<button class="ms-btn ms-btn--red" data-do="pause">Pause</button>`)}
+        </div>
+      </div>`).join('') || '<p class="ms-none">No accounts yet.</p>';
+}
+body.addEventListener('change', async e => {
+    const sel = e.target.closest('select[data-do="kind"]'); if (!sel) return;
+    const id = sel.closest('[data-id]').dataset.id;
+    const r = await api('accounts/' + id, { kind: sel.value });
+    said.textContent = r.ok ? 'Done: ' + r.d.did.join(', ') : r.d.error; overview(); accounts();
+});
+body.addEventListener('click', async e => {
+    const b = e.target.closest('[data-do]'); if (!b || b.tagName === 'SELECT') return;
+    const row = b.closest('[data-id]'), id = row && row.dataset.id, d = b.dataset.do;
+    let r;
+    if (TAB === 'accounts') {
+        const send = { approve: { request: 'approve' }, refuse: { request: 'refuse' }, unpause: { paused: false }, unhide: { hidden: false } }[d];
+        if (d === 'pause') r = await api('accounts/' + id, { paused: true, note: why(row) });
+        else if (send) r = await api('accounts/' + id, send);
+        if (r) { said.textContent = r.ok ? 'Done: ' + r.d.did.join(', ') : r.d.error; overview(); accounts(); }
+    } else if (TAB === 'records') {
+        if (d === 'live') r = await api('records/' + id, { status: 'live' });
+        else if (d === 'refuse' || d === 'hide') r = await api('records/' + id, { status: d === 'refuse' ? 'refused' : 'hidden', note: why(row) });
+        else if (d === 'show') { STATUS.records = b.dataset.s; return records(); }
+        if (r) { said.textContent = r.ok ? 'Done.' : r.d.error; overview(); records(); }
+    } else if (TAB === 'reports') {
+        if (d === 'hide' || d === 'none') r = await api('reports/' + id, { action: d, note: d === 'hide' ? why(row) : '' });
+        else if (d === 'show') { STATUS.reports = b.dataset.s; return reports(); }
+        if (r) { said.textContent = r.ok ? (r.d.action === 'hidden' ? 'Taken down.' : 'Left as it is.') : r.d.error; overview(); reports(); }
+    } else if (TAB === 'feedback') {
+        if (d === 'done' || d === 'open') r = await api('feedback/' + id, { status: d });
+        else if (d === 'show') { STATUS.feedback = b.dataset.s; return feedback(); }
+        if (r) { overview(); feedback(); }
+    }
+});
+const why = row => { const i = row && row.querySelector('.ms-why'); return i ? i.value.trim() : ''; };
+const WHY = `<input class="ms-why" placeholder="why (they will see this)" aria-label="Why — they will see this">`;
+function filters(tab, list) {
+    const cur = STATUS[tab] || list[0][0];
+    return `<div class="ms-filter">${list.map(([k, l]) => `<button class="ms-btn ${k === cur ? 'ms-btn--go' : ''}" data-do="show" data-s="${k}">${l}</button>`).join('')}</div>`;
+}
+
+// ── records: waiting first; play, then approve / refuse / take down ──
+async function records() {
+    const st = STATUS.records || 'pending';
+    const r = await api('records?status=' + st);
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    body.innerHTML = filters('records', [['pending', 'Waiting'], ['live', 'Out'], ['refused', 'Refused'], ['hidden', 'Taken down']]) + (r.d.records.map(t => `
+      <div class="ms-row" data-id="${t.id}">
+        <div>
+          ${t.has_art ? `<img class="ms-cover" src="/api/gr/master/records/${t.id}/art" alt="">` : ''}
+          <div class="ms-row__t">${esc(t.title || 'Untitled')}</div>
+          <div class="ms-row__s">${esc(t.artist || '')}${t.album ? ' · ' + esc(t.album) : ''}${t.label ? ' · ' + esc(t.label) : ''}${t.year ? ' · ' + t.year : ''}${t.genre ? ' · ' + esc(t.genre) : ''}
+            <br>by @${esc(t.owner ? t.owner.handle : '—')} (${esc(t.owner ? t.owner.kind : '')}) · ${esc(t.format || '')} · €${((t.price_cents || 0) / 100).toFixed(2)} · added ${when(t.added_at)}</div>
+          <div class="ms-row__n" style="clear:both">They said: “${esc(t.rights_note || '—')}”</div>
+          ${t.review_note ? `<div class="ms-row__n">Your note: ${esc(t.review_note)}</div>` : ''}
+          <div style="margin-top:8px"><audio controls preload="none" src="/api/gr/master/records/${t.id}/audio"></audio></div>
+        </div>
+        <div class="ms-acts">
+          ${t.status !== 'live' ? `<button class="ms-btn ms-btn--go" data-do="live">Approve — put it out</button>` : ''}
+          ${t.status === 'pending' || t.status === 'live' ? WHY : ''}
+          ${t.status === 'pending' ? `<button class="ms-btn ms-btn--red" data-do="refuse">Refuse</button>` : ''}
+          ${t.status === 'live' ? `<button class="ms-btn ms-btn--red" data-do="hide">Take it down</button>` : ''}
+        </div>
+      </div>`).join('') || `<p class="ms-none">${st === 'pending' ? 'Nothing waiting.' : 'None.'}</p>`);
+}
+
+// ── reports ──
+async function reports() {
+    const st = STATUS.reports || 'open';
+    const r = await api('reports?status=' + st);
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const link = x => x.what === 'room' ? `<a href="/rooms/${encodeURIComponent(x.ref)}" target="_blank">open the room</a>` : '';
+    body.innerHTML = filters('reports', [['open', 'Open'], ['done', 'Settled']]) + (r.d.reports.map(x => `
+      <div class="ms-row" data-id="${x.id}">
+        <div>
+          <div class="ms-row__t"><span class="ms-tag">${esc(x.what === 'grupa' ? 'grúpa' : x.what)}</span>${esc(x.title || x.ref)}</div>
+          <div class="ms-row__s">whose: @${esc(x.owner.handle || '—')} · reported by @${esc(x.by.handle || '—')} · ${when(x.at)} ${link(x)}</div>
+          <div class="ms-row__n"><b>${esc(x.reason_label)}</b>${x.note ? ' — ' + esc(x.note) : ''}</div>
+          ${x.status === 'done' ? `<div class="ms-row__s">${x.action === 'hidden' ? 'Taken down' : 'Left as it was'}${x.resolved_note ? ': ' + esc(x.resolved_note) : ''} · ${when(x.resolved_at)}</div>` : ''}
+        </div>
+        <div class="ms-acts">${x.status === 'open' ? `${WHY}<button class="ms-btn ms-btn--red" data-do="hide">Take it down</button><button class="ms-btn" data-do="none">Leave it</button>` : ''}</div>
+      </div>`).join('') || `<p class="ms-none">${st === 'open' ? 'No reports waiting.' : 'None.'}</p>`);
+}
+
+// ── feedback and bug reports ──
+async function feedback() {
+    const st = STATUS.feedback || 'open';
+    const r = await api('feedback?status=' + st);
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    body.innerHTML = filters('feedback', [['open', 'Open'], ['done', 'Done'], ['all', 'All']]) + (r.d.feedback.map(f => `
+      <div class="ms-row" data-id="${f.id}">
+        <div>
+          <div class="ms-row__s"><span class="ms-tag ${f.kind === 'bug' ? 'ms-tag--red' : ''}">${esc(f.kind)}</span>@${esc(f.by.handle || '—')} · ${when(f.at)} · ${esc(f.page)}</div>
+          <div class="ms-row__n">${esc(f.note)}</div>
+        </div>
+        <div class="ms-acts">${f.status === 'open' ? `<button class="ms-btn" data-do="done">Done</button>` : `<button class="ms-btn" data-do="open">Open again</button>`}</div>
+      </div>`).join('') || '<p class="ms-none">Nothing here.</p>');
+}
+
+// ── the version everyone should be on ──
+async function version() {
+    const r = await api('overview');
+    const v = (r.d && r.d.version) || {};
+    body.innerHTML = `
+      <p class="gr-lede" style="max-width:640px">Name the release everyone should be on, and where to get it (its page on GitHub).
+        Everyone’s app compares it with its own and says when a new one is ready. To step back, name an older release here.
+        This app is version <code>{{ app_version or '—' }}</code>.</p>
+      <form class="ms-form" id="ms-ver">
+        <label for="v-version">Version</label><input id="v-version" value="${esc(v.version || '')}" placeholder="2026.11.20">
+        <label for="v-url">Where to get it</label><input id="v-url" value="${esc(v.url || '')}" placeholder="https://github.com/…/releases/tag/…">
+        <label for="v-note">A line about it</label><input id="v-note" value="${esc(v.note || '')}" placeholder="What changed, in a few words">
+        <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
+      </form>
+      ${v.at ? `<p class="ms-row__s">Last set ${when(v.at)}.</p>` : ''}`;
+    document.getElementById('ms-ver').addEventListener('submit', async e => {
+        e.preventDefault();
+        const out = await api('version', { version: document.getElementById('v-version').value, url: document.getElementById('v-url').value, note: document.getElementById('v-note').value });
+        said.textContent = out.ok ? 'Saved. Apps will see it within ten minutes.' : out.d.error;
+    });
+}
+overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version'].includes(TAB) ? TAB : 'accounts'); });
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

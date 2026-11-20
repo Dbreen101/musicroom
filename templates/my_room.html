@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Public Room — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <script src="/static/js/room_transition.js"></script>
+    <style>
+        /* The designer: controls on the left, the room itself on the right,
+           always live. Every change saves itself; the live design is the one
+           others see; drafts stay private until you make them live. */
+        .ds { display: grid; grid-template-columns: 420px minmax(0, 1fr); min-height: calc(100vh - 56px); }
+        .ds-side { border-right: 1px solid var(--gr-line); display: flex; flex-direction: column; min-height: 0; }
+        .ds-tabs { display: flex; gap: 2px; padding: 10px 12px 0; border-bottom: 1px solid var(--gr-line); overflow-x: auto; }
+        .ds-tabs button { appearance: none; border: none; background: none; color: var(--gr-muted); font-family: var(--gr-sans); font-size: var(--gr-t5); padding: 10px 8px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }   /* (seven tabs now: they fit the side without scrolling) */
+        .ds-tabs button.on { color: var(--gr-ink); border-bottom-color: var(--gr-accent); }
+        .ds-panel { display: none; padding: var(--gr-s3); overflow-y: auto; flex: 1; }
+        .ds-panel.on { display: block; }
+        .ds-top { display: flex; align-items: center; gap: 10px; padding: 12px var(--gr-s3); border-bottom: 1px solid var(--gr-line); }
+        .ds-top select { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: rgba(255,255,255,.04); color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t5); }
+        .ds-status { font-size: var(--gr-t6); color: var(--gr-faint); font-family: var(--gr-mono); letter-spacing: .06em; min-width: 54px; text-align: right; }
+        .ds-live { font-family: var(--gr-mono); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gr-accent-ink); background: var(--gr-accent); border-radius: 3px; padding: 2px 6px; }
+        .ds-main { position: relative; background: #000; }
+        .ds-frame { width: 100%; height: calc(100vh - 56px); border: none; display: block; }
+        .ds-main__bar { position: absolute; top: 12px; right: 14px; display: flex; gap: 8px; }
+        .f { margin-bottom: var(--gr-s3); }
+        .f label { display: block; font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .12em; text-transform: uppercase; color: var(--gr-muted); margin-bottom: 6px; }
+        .f input[type=text], .f input[type=number], .f textarea, .f select { width: 100%; padding: 9px 11px; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: rgba(255,255,255,.04); color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t4); outline: none; }
+        .f input:focus, .f textarea:focus, .f select:focus { border-color: rgba(230,201,122,.5); }
+        .f textarea { min-height: 84px; resize: vertical; }
+        .f textarea.code { font-family: var(--gr-mono); font-size: .76rem; min-height: 160px; }
+        .f input[type=color] { width: 44px; height: 32px; border: 1px solid var(--gr-line); border-radius: 6px; background: none; padding: 2px; vertical-align: middle; }
+        .f .row { display: flex; gap: 8px; align-items: center; }
+        .f .row > * { flex: 1; }
+        .toggle { display: flex; align-items: center; gap: 10px; font-size: var(--gr-t4); cursor: pointer; }
+        .toggle input { width: auto; }
+        .hint { font-size: var(--gr-t6); color: var(--gr-faint); line-height: 1.5; margin-top: 6px; }
+        .sec-h { font-family: var(--gr-serif); font-style: italic; font-size: var(--gr-t3); margin: 0 0 var(--gr-s2); }
+        /* the blocks list */
+        .blk { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--gr-line); border-radius: var(--gr-r); margin-bottom: 6px; cursor: pointer; }
+        .blk.sel { border-color: var(--gr-accent); }
+        .blk.off { opacity: .45; }
+        .blk__t { flex: 1; font-size: var(--gr-t4); }
+        .blk__k { font-family: var(--gr-mono); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gr-accent); min-width: 54px; }
+        .blk button { appearance: none; border: none; background: none; color: var(--gr-faint); cursor: pointer; font-size: .9rem; padding: 2px 4px; }
+        .blk button:hover { color: var(--gr-ink); }
+        .add-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+        .add-menu button { appearance: none; text-align: left; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: none; color: var(--gr-ink); padding: 8px 10px; cursor: pointer; font-family: var(--gr-sans); font-size: var(--gr-t5); }
+        .add-menu button:hover { border-color: var(--gr-accent); }
+        .add-menu small { display: block; color: var(--gr-faint); font-size: .66rem; margin-top: 2px; line-height: 1.3; }
+        .inspector { margin-top: var(--gr-s3); padding-top: var(--gr-s3); border-top: 1px solid var(--gr-line); }
+        /* pickers */
+        .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .thumb { aspect-ratio: 1; border-radius: 6px; object-fit: cover; width: 100%; border: 2px solid transparent; cursor: pointer; background: #16120b; }
+        .thumb.on { border-color: var(--gr-accent); }
+        .reclist { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+        .reclist label { display: flex; gap: 8px; align-items: center; font-size: var(--gr-t5); cursor: pointer; }
+        .items { display: flex; flex-direction: column; gap: 8px; }
+        .item { border: 1px solid var(--gr-line); border-radius: var(--gr-r); padding: 8px; display: grid; gap: 6px; }
+        .item input { width: 100%; padding: 6px 8px; border: 1px solid var(--gr-line); border-radius: 6px; background: rgba(255,255,255,.03); color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t5); }
+        .item .item__bar { display: flex; gap: 6px; justify-content: flex-end; }
+        .item .item__bar button { appearance: none; border: none; background: none; color: var(--gr-faint); cursor: pointer; font-size: .8rem; }
+        /* records manager */
+        .rec { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--gr-line); font-size: var(--gr-t5); }
+        .rec img, .rec .cov { width: 44px; height: 44px; border-radius: 4px; object-fit: cover; background: #16120b; flex: none; }
+        .rec__m { flex: 1; min-width: 0; }
+        .rec__t { font-family: var(--gr-serif); font-size: var(--gr-t4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rec__s { color: var(--gr-muted); font-size: var(--gr-t6); }
+        .rec__st { margin-top: 3px; color: var(--red, #c9412f); font-size: var(--gr-t6); }
+        .tick { display: flex !important; align-items: flex-start; gap: 8px; text-transform: none !important; letter-spacing: 0 !important;
+            font-size: var(--gr-t6); line-height: 1.55; color: var(--gr-ink); cursor: pointer; }
+        .tick input { margin-top: 3px; }
+        .rec input { width: 64px; padding: 4px 6px; border: 1px solid var(--gr-line); border-radius: 6px; background: none; color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t5); }
+        .gr-btn--small { padding: 5px 11px; font-size: var(--gr-t6); }
+        .err { color: #d48080; font-size: var(--gr-t5); }
+        .empty { color: var(--gr-faint); font-size: var(--gr-t5); }
+        @media (max-width: 980px) { .ds { grid-template-columns: 1fr; } .ds-side { border-right: none; } .ds-frame { height: 70vh; } }
+    </style>
+    <link rel="stylesheet" href="/static/css/explore_globe.css">
+    <link rel="stylesheet" href="/static/css/record_shop.css">
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom" class="active">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/myroom" class="active">My Public Room</a></li>
+        <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div id="notjoined" class="empty" style="display:none; padding: var(--gr-s5);">Sign in first — under <a href="/settings#gr-settings">Settings → Account</a>.</div>
+
+<div class="ds" id="ds" style="display:none">
+  <aside class="ds-side">
+    <div class="ds-top">
+        <select id="design-pick" onchange="pickDesign(this.value)"></select>
+        <button class="gr-btn gr-btn--small" onclick="newDesign()" title="Start another design">+ new</button>
+        <span class="ds-status" id="status"></span>
+    </div>
+    <div class="ds-tabs">
+        <button class="on" data-tab="blocks" onclick="tab('blocks')">Blocks</button>
+        <button data-tab="theme" onclick="tab('theme')">Look</button>
+        <button data-tab="who" onclick="tab('who')">Who</button>
+        <button data-tab="images" onclick="tab('images')">Images</button>
+        <button data-tab="records" id="tab-records" onclick="tab('records')">Records</button>
+        <button data-tab="crates" id="tab-crates" onclick="tab('crates')" title="Crates of records for people shopping in Explore">Crates</button>
+        <button data-tab="code" onclick="tab('code')">Code</button>
+    </div>
+
+    <div class="ds-panel on" id="p-blocks">
+        <div class="f"><label>Design name (only you see it)</label><input type="text" id="d-name" oninput="CUR.name = this.value; dirty()"></div>
+        <div class="sec-h">The room, top to bottom</div>
+        <div id="blocks"></div>
+        <button class="gr-btn gr-btn--small" onclick="toggleAdd()">+ add a block</button>
+        <div class="add-menu" id="add-menu" style="display:none"></div>
+        <div class="inspector" id="inspector" style="display:none"></div>
+    </div>
+
+    <div class="ds-panel" id="p-theme">
+        <div class="sec-h">Colours</div>
+        <div class="f"><label>Background</label><div class="row"><input type="color" id="t-bg-c" oninput="themeSet('bg', this.value)"><input type="text" id="t-bg" placeholder="#12100c" oninput="themeSet('bg', this.value)"></div></div>
+        <div class="f"><label>Text</label><div class="row"><input type="color" id="t-ink-c" oninput="themeSet('ink', this.value)"><input type="text" id="t-ink" placeholder="#eee6d2" oninput="themeSet('ink', this.value)"></div></div>
+        <div class="f"><label>Accent</label><div class="row"><input type="color" id="t-accent-c" oninput="themeSet('accent', this.value)"><input type="text" id="t-accent" placeholder="#e6c97a" oninput="themeSet('accent', this.value)"></div></div>
+        <div class="sec-h">Type</div>
+        <div class="f"><label>Titles</label><input type="text" id="t-font-title" placeholder="'EB Garamond', serif" oninput="themeSet('font_title', this.value)"><div class="hint">Any font name on the reader's machine, or a web font your own CSS loads (Code tab).</div></div>
+        <div class="f"><label>Text</label><input type="text" id="t-font-body" placeholder="Inter, sans-serif" oninput="themeSet('font_body', this.value)"></div>
+    </div>
+
+    <div class="ds-panel" id="p-who">
+        <div class="f"><label>Name</label><input type="text" id="p-name"></div>
+        <div class="f"><label>Address (your room's handle)</label><input type="text" id="p-handle"><div class="hint" id="p-handle-hint"></div></div>
+        <div class="f"><label>About</label><textarea id="p-bio"></textarea></div>
+        <div class="f"><label>Links — one per line, as <code>Label | https://…</code></label><textarea id="p-links" style="min-height:60px"></textarea></div>
+        <div class="f"><label class="toggle"><input type="checkbox" id="p-public"> <span>Visible to everyone (listed in Explore)</span></label></div>
+        <!-- where the room is, for the Globe in Explore: the owner's own words + a spot they click. None = universal. -->
+        <div class="f" id="p-place-f" style="display:none">
+            <label for="p-place-name">Where is your room?</label>
+            <input type="text" id="p-place-name" maxlength="120" placeholder="the place, in your own words" autocomplete="off">
+            <div id="p-place-globe" style="margin-top:8px"></div>
+            <div class="hint" id="p-place-hint"></div>
+            <div style="margin-top:8px"><button type="button" class="gr-btn gr-btn--small" id="p-place-none" onclick="placeNone()">Nowhere in particular</button></div>
+        </div>
+        <div class="f hint" id="p-place-old" style="display:none">The rooms server here doesn't keep places yet, so no room can be put on the map in Explore until it has been restarted once.</div>
+        <div class="f"><button class="gr-btn gr-btn--primary gr-btn--small" onclick="saveProfile()">Save</button> <span class="err" id="p-err"></span></div>
+    </div>
+
+    <div class="ds-panel" id="p-images">
+        <div class="f"><label class="tick"><input type="checkbox" id="img-rights"> This picture is mine, or I have permission to show it.</label></div>
+        <div class="f"><label>Add an image</label><input type="file" id="img-file" accept="image/*" onchange="uploadImage(this)"><div class="hint">Resized to 1800px on the long side. Use it in any block from the block's own picker.</div></div>
+        <div class="thumbs" id="assets"></div>
+        <div class="empty" id="assets-empty" style="margin-top:8px">No images yet.</div>
+    </div>
+
+    <div class="ds-panel" id="p-records">
+        <div id="rec-cant" class="empty">Only artist, label and record-shop accounts sell and lend records. Yours is a listener's — show records through Picks instead.</div>
+        <div id="rec-can" style="display:none">
+            <div class="sec-h">Add a record</div>
+            <div class="f"><label>Audio (mp3 · flac · wav · ogg)</label><input type="file" id="r-audio" accept=".mp3,.flac,.wav,.ogg,.aiff,.aif,audio/*"></div>
+            <div class="f"><div class="row"><div><label>Title</label><input type="text" id="r-title" placeholder="from the file's tags if blank"></div><div><label>Artist</label><input type="text" id="r-artist" placeholder="you, if blank"></div></div></div>
+            <div class="f"><div class="row"><div><label>Album</label><input type="text" id="r-album"></div><div><label>Price €</label><input type="number" id="r-price" step="0.10" min="0" value="2.50"></div></div></div>
+            <div class="f"><div class="row"><div><label>Genre</label><input type="text" id="r-genre" placeholder="from the file's tags if blank"></div><div><label>Year</label><input type="number" id="r-year" min="1900" max="2100" step="1" placeholder="e.g. 1994"></div></div></div>
+            <div class="f"><label>Label</label><input type="text" id="r-label" placeholder="from the file's tags if blank"></div>
+            <div class="hint">Genre, year and label are how people shopping can ask for a crate. Two genres go in as “House; Techno”.</div>
+            <div class="f"><label>Cover (optional)</label><input type="file" id="r-cover" accept="image/*"></div>
+            <div class="f"><label>Outside link (Bandcamp etc., optional)</label><input type="text" id="r-url" placeholder="https://"></div>
+            <div class="f"><label class="tick"><input type="checkbox" id="r-rights"> <span id="r-rights-text">I made this record or hold the rights to sell it, and anything in it that isn't mine (samples, artwork, words) is cleared for this.</span></label></div>
+            <div class="hint">A new record waits until the Music Room has looked at it; so does one whose name, cover or link you change. Then it goes out.</div>
+            <div class="f"><button class="gr-btn gr-btn--primary gr-btn--small" id="r-go" onclick="uploadRecord()">Upload</button> <span class="err" id="r-err"></span></div>
+            <div class="hint">During the trial these are fake sales — people get the file, no money moves. Your file goes to the trial server and is only ever handed out locked (borrow) or plain (buy).</div>
+            <div class="sec-h" style="margin-top: var(--gr-s4)">Your records</div>
+            <div id="records"></div>
+        </div>
+    </div>
+
+    <div class="ds-panel" id="p-crates"><div id="crates-host"></div></div>
+
+    <div class="ds-panel" id="p-code">
+        <div class="f"><label>Your own CSS, over the standard room</label><textarea class="code" id="d-css" placeholder=".rb-name{ letter-spacing:.08em }  .rb-records__grid{ grid-template-columns:repeat(2,1fr) }" oninput="CUR.css = this.value; dirty()"></textarea><div class="hint">Every block has a class: .rb-hero .rb-text .rb-image .rb-gallery .rb-records .rb-picks .rb-places .rb-linklist. Records are .pr-rec. Theme tokens: --pr-bg --pr-ink --pr-accent --pr-font-title --pr-font-body.</div></div>
+        <div class="f"><label>Or a whole page of your own HTML (replaces the blocks; no scripts)</label><textarea class="code" id="d-html" placeholder="<!--records--> goes where your records should appear" oninput="CUR.html = this.value; dirty()"></textarea></div>
+    </div>
+  </aside>
+
+  <main class="ds-main">
+    <iframe class="ds-frame" id="frame" title="your room, as others will see it"></iframe>
+    <div class="ds-main__bar">
+        <button class="gr-btn gr-btn--small" id="live-btn" onclick="makeLive()">Make this the live one</button>
+        <button class="gr-btn gr-btn--small" onclick="deleteDesign()" id="del-btn">delete</button>
+        <a class="gr-btn gr-btn--small" id="open-btn" href="#" target="_blank">open ↗</a>
+    </div>
+  </main>
+</div>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/room_blocks.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/page_tones.js"></script>
+<script src="/static/js/explore_globe.js"></script>
+<script>window.MR_MAP_LOOK = {{ (map_look() if map_look is defined else {})|tojson }};</script>
+<script src="/static/js/explore_map.js"></script>
+<script src="/static/js/crate_maker.js"></script>
+<script>
+const esc = RoomBlocks.esc;
+const $ = id => document.getElementById(id);
+let ME = null, CUR = null, ASSETS = [], RECORDS = null, SEL = null, saveTimer = null, saving = false;
+let MY_GRUPAI = [];                 // the grúpaí I have made public (they show in the room; the Grúpaí block says where)
+
+function tab(t){
+    document.querySelectorAll('.ds-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    document.querySelectorAll('.ds-panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
+    if (t === 'records') loadRecords();
+    if (t === 'who') placeMount();
+    if (t === 'crates') { if (!window._crates) window._crates = CrateMaker.mount($('crates-host')); else window._crates.refresh(); }
+}
+function status(s){ $('status').textContent = s; }
+
+// ── load everything ──
+async function load(){
+    const r = await fetch('/api/gr/my/room');
+    const d = await r.json();
+    if (!r.ok) { $('notjoined').style.display = ''; $('ds').style.display = 'none'; $('notjoined').textContent = d.error || 'Sign in first — under Settings → Account.'; return; }
+    ME = d; $('ds').style.display = ''; $('notjoined').style.display = 'none';
+    $('p-name').value = d.name || ''; $('p-handle').value = d.handle || ''; $('p-bio').value = d.bio || '';
+    $('p-links').value = (d.links || []).map(l => `${l.label || ''} | ${l.url || ''}`).join('\n');
+    $('p-public').checked = !!d.is_public;
+    $('p-handle-hint').textContent = d.handle ? `Your room: /rooms/${d.handle}` : '';
+    placeFill();
+    $('tab-records').style.display = ['artist', 'label', 'shop'].includes(d.kind) ? '' : '';
+    ASSETS = await (await fetch('/api/gr/my/assets')).json().then(x => x.assets || []).catch(() => []);
+    renderAssets();
+    MY_GRUPAI = d.handle ? await fetch('/api/gr/grupai?handle=' + encodeURIComponent(d.handle)).then(x => x.ok ? x.json() : {}).then(x => x.grupai || []).catch(() => []) : [];
+    fillDesignPicker();
+    if (!d.designs.length) { await createDesign('first look'); return; }
+    pickDesign(CUR ? CUR.id : d.designs[0].id);
+}
+function fillDesignPicker(){
+    $('design-pick').innerHTML = (ME.designs || []).map(d => `<option value="${d.id}">${esc(d.name)}${d.is_live ? ' · live' : ''}</option>`).join('');
+}
+async function createDesign(name){
+    const seed = { name, design: { theme: {}, blocks: RoomBlocks.defaultBlocks({}, { tracks: [] }) } };
+    const r = await fetch('/api/gr/my/room/designs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(seed) });
+    const d = await r.json();
+    if (!r.ok) { status('error'); return; }
+    const me = await (await fetch('/api/gr/my/room')).json(); ME = me; fillDesignPicker();
+    pickDesign(d.id);
+}
+function newDesign(){ const n = prompt('A name for the new design (only you see it)', 'draft'); if (n) createDesign(n); }
+function pickDesign(id){
+    const d = (ME.designs || []).find(x => x.id === +id); if (!d) return;
+    CUR = { id: d.id, name: d.name, is_live: d.is_live, design: d.design || {}, css: d.css || '', html: d.html || '' };
+    if (!Array.isArray(CUR.design.blocks) || !CUR.design.blocks.length) CUR.design.blocks = RoomBlocks.defaultBlocks(CUR.design, { tracks: [] });
+    // A grúpa made public shows in the room by itself, at the end. The first time
+    // this design is opened after that, the Grúpaí block joins its stack — so it
+    // can be moved to where its owner wants it, or switched off.
+    let grupaiAdded = false;
+    if (MY_GRUPAI.length && !CUR.design.blocks.some(b => b.type === 'grupai')) { CUR.design.blocks.push(RoomBlocks.newBlock('grupai')); grupaiAdded = true; }
+    CUR.design.theme = Object.assign({}, { bg: CUR.design.bg, ink: CUR.design.ink, accent: CUR.design.accent, font_title: CUR.design.font_title, font_body: CUR.design.font_body }, CUR.design.theme || {});
+    $('design-pick').value = String(d.id);
+    $('d-name').value = CUR.name; $('d-css').value = CUR.css; $('d-html').value = CUR.html;
+    ['bg', 'ink', 'accent'].forEach(k => { $('t-' + k).value = CUR.design.theme[k] || ''; if (/^#[0-9a-f]{6}$/i.test(CUR.design.theme[k] || '')) $('t-' + k + '-c').value = CUR.design.theme[k]; });
+    $('t-font-title').value = CUR.design.theme.font_title || ''; $('t-font-body').value = CUR.design.theme.font_body || '';
+    $('live-btn').style.display = d.is_live ? 'none' : ''; $('del-btn').style.display = d.is_live ? 'none' : '';
+    $('open-btn').href = `/rooms/${encodeURIComponent(ME.handle)}?design=${d.id}`;
+    SEL = null; renderBlocks(); renderInspector(); refreshPreview();
+    if (grupaiAdded) dirty();
+}
+
+// ── saving: every change saves itself, then the preview reloads ──
+function dirty(){ status('…'); clearTimeout(saveTimer); saveTimer = setTimeout(save, 700); }
+async function save(){
+    if (!CUR || saving) return;
+    saving = true;
+    const payload = { id: CUR.id, name: CUR.name || 'Untitled', design: CUR.design, css: CUR.css || null, html: CUR.html || null };
+    const r = await fetch('/api/gr/my/room/designs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    saving = false;
+    if (!r.ok) { status('not saved'); return; }
+    status('saved');
+    const me = await (await fetch('/api/gr/my/room')).json(); ME = me; fillDesignPicker(); $('design-pick').value = String(CUR.id);
+    refreshPreview();
+}
+function refreshPreview(){ if (ME && ME.handle) $('frame').src = `/rooms/${encodeURIComponent(ME.handle)}?design=${CUR.id}&t=${Date.now()}`; }
+async function makeLive(){
+    clearTimeout(saveTimer); await save();
+    const r = await fetch(`/api/gr/my/room/designs/${CUR.id}/live`, { method: 'POST' });
+    if (!r.ok) { status('error'); return; }
+    status('live'); const me = await (await fetch('/api/gr/my/room')).json(); ME = me; fillDesignPicker(); pickDesign(CUR.id);
+}
+async function deleteDesign(){
+    if (!confirm('Delete this design?')) return;
+    const r = await fetch(`/api/gr/my/room/designs/${CUR.id}`, { method: 'DELETE' });
+    if (!r.ok) { const d = await r.json(); alert(d.error || 'not deleted'); return; }
+    CUR = null; load();
+}
+
+// ── theme ──
+function themeSet(k, v){ CUR.design.theme[k] = v; if (/^#[0-9a-f]{6}$/i.test(v) && $('t-' + k + '-c')) $('t-' + k + '-c').value = v; if ($('t-' + k) && $('t-' + k).value !== v) $('t-' + k).value = v; dirty(); }
+
+// ── blocks ──
+function renderBlocks(){
+    const box = $('blocks');
+    const blocks = CUR.design.blocks;
+    box.innerHTML = blocks.map((b, i) => {
+        const def = RoomBlocks.BLOCKS[b.type] || { label: b.type };
+        const title = (b.heading || b.tagline || b.caption || '').toString().slice(0, 40);
+        return `<div class="blk ${SEL === b.id ? 'sel' : ''} ${b.on === false ? 'off' : ''}" onclick="selectBlock('${b.id}')">
+            <span class="blk__k">${esc(def.label)}</span><span class="blk__t">${esc(title)}</span>
+            <button title="move up" onclick="event.stopPropagation(); moveBlock(${i}, -1)">↑</button>
+            <button title="move down" onclick="event.stopPropagation(); moveBlock(${i}, 1)">↓</button>
+            <button title="${b.on === false ? 'show' : 'hide'}" onclick="event.stopPropagation(); toggleBlock(${i})">${b.on === false ? '◌' : '●'}</button>
+            <button title="remove" onclick="event.stopPropagation(); removeBlock(${i})">✕</button></div>`;
+    }).join('') || '<div class="empty">Nothing yet — add a block.</div>';
+    $('add-menu').innerHTML = RoomBlocks.order.filter(t => !(window.MR_GR && t === 'places')).map(t => {   // no forest, no places in the trial: that block isn't offered (one already in a room still shows)
+        const d = RoomBlocks.BLOCKS[t]; return `<button onclick="addBlock('${t}')">${esc(d.label)}<small>${esc(d.hint || '')}</small></button>`; }).join('');
+}
+function toggleAdd(){ const m = $('add-menu'); m.style.display = m.style.display === 'none' ? '' : 'none'; }
+function addBlock(t){ const b = RoomBlocks.newBlock(t); CUR.design.blocks.push(b); SEL = b.id; $('add-menu').style.display = 'none'; renderBlocks(); renderInspector(); dirty(); }
+function moveBlock(i, d){ const a = CUR.design.blocks; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; renderBlocks(); dirty(); }
+function toggleBlock(i){ const b = CUR.design.blocks[i]; b.on = b.on === false; renderBlocks(); dirty(); }
+function removeBlock(i){ const b = CUR.design.blocks[i]; if (!confirm('Remove this block?')) return; CUR.design.blocks.splice(i, 1); if (SEL === b.id) SEL = null; renderBlocks(); renderInspector(); dirty(); }
+function selectBlock(id){ SEL = id; renderBlocks(); renderInspector(); $('inspector').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+function selBlock(){ return CUR.design.blocks.find(b => b.id === SEL); }
+
+// a form for the selected block, straight from its schema
+function renderInspector(){
+    const box = $('inspector'); const b = selBlock();
+    if (!b) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const def = RoomBlocks.BLOCKS[b.type]; box.style.display = '';
+    box.innerHTML = `<div class="sec-h">${esc(def.label)}</div>` + (def.schema || []).map(f => fieldHtml(b, f)).join('');
+    box.querySelectorAll('[data-k]').forEach(el => {
+        const k = el.dataset.k, f = def.schema.find(x => x.key === k);
+        if (f.type === 'toggle') el.addEventListener('change', () => { b[k] = el.checked; dirty(); });
+        else el.addEventListener('input', () => { b[k] = f.type === 'number' ? +el.value : el.value; renderBlocks(); dirty(); });
+    });
+    box.querySelectorAll('[data-pick-img]').forEach(img => img.addEventListener('click', () => {
+        const k = img.dataset.pickImg, id = +img.dataset.id, f = def.schema.find(x => x.key === k);
+        if (f.type === 'images') { b[k] = b[k] || []; const at = b[k].indexOf(id); at >= 0 ? b[k].splice(at, 1) : b[k].push(id); }
+        else b[k] = (b[k] === id) ? '' : id;
+        renderInspector(); dirty();
+    }));
+    box.querySelectorAll('[data-pick-rec]').forEach(cb => cb.addEventListener('change', () => {
+        const k = cb.dataset.pickRec, id = +cb.value; b[k] = b[k] || []; const at = b[k].indexOf(id);
+        if (cb.checked && at < 0) b[k].push(id); if (!cb.checked && at >= 0) b[k].splice(at, 1); dirty();
+    }));
+}
+function fieldHtml(b, f){
+    const v = b[f.key];
+    const lab = `<label>${esc(f.label)}</label>`;
+    switch (f.type) {
+        case 'text': case 'number': return `<div class="f">${lab}<input type="${f.type}" data-k="${f.key}" value="${esc(v ?? '')}"></div>`;
+        case 'textarea': return `<div class="f">${lab}<textarea data-k="${f.key}" class="${f.code ? 'code' : ''}">${esc(v ?? '')}</textarea></div>`;
+        case 'select': return `<div class="f">${lab}<select data-k="${f.key}">${f.options.map(([val, l]) => `<option value="${esc(val)}" ${v === val ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+        case 'toggle': return `<div class="f"><label class="toggle"><input type="checkbox" data-k="${f.key}" ${v !== false && (v || f.default) ? 'checked' : ''}> <span>${esc(f.label)}</span></label></div>`;
+        case 'color': return `<div class="f">${lab}<input type="text" data-k="${f.key}" value="${esc(v ?? '')}"></div>`;
+        case 'image': case 'images': {
+            const chosen = f.type === 'images' ? new Set((v || []).map(Number)) : new Set(v ? [+v] : []);
+            const thumbs = ASSETS.map(a => `<img class="thumb ${chosen.has(a.id) ? 'on' : ''}" data-pick-img="${f.key}" data-id="${a.id}" src="/api/gr/asset/${a.id}" alt="">`).join('');
+            return `<div class="f">${lab}<div class="thumbs">${thumbs}</div><div class="hint">${ASSETS.length ? (f.type === 'images' ? 'Click to add or remove.' : 'Click one; click again to clear.') : 'Add images on the Images tab first.'}</div></div>`;
+        }
+        case 'records': {
+            const recs = (RECORDS && RECORDS.records) || [];
+            if (!recs.length) { loadRecords().then(() => { if (selBlock() === b) renderInspector(); }); return `<div class="f">${lab}<div class="hint">Loading your records…</div></div>`; }
+            const chosen = new Set((v || []).map(Number));
+            return `<div class="f">${lab}<div class="reclist">${recs.map(r => `<label><input type="checkbox" data-pick-rec="${f.key}" value="${r.id}" ${chosen.has(r.id) ? 'checked' : ''}> ${esc(r.title)} <small style="color:var(--gr-faint)">${esc(r.artist || '')}</small></label>`).join('')}</div><div class="hint">Only matters when "Which" is set to the ones you pick.</div></div>`;
+        }
+        case 'places': return `<div class="f">${lab}<button class="gr-btn gr-btn--small" onclick="snapshotPlaces()">use my places as they are now</button><div class="hint">${(v || []).length ? (v || []).map(p => esc(p.name)).join(' · ') : 'Nothing yet.'}</div></div>`;
+        case 'items': return `<div class="f">${lab}<div class="items" id="items-${f.key}">${(v || []).map((it, i) => itemHtml(f, it, i)).join('')}</div>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap"><button class="gr-btn gr-btn--small" onclick="itemAdd('${f.key}')">+ add</button>${f.from_showcase ? `<button class="gr-btn gr-btn--small" onclick="itemsFromShowcase('${f.key}')">+ from my showcase</button>` : ''}</div></div>`;
+    }
+    return '';
+}
+function itemHtml(f, it, i){
+    return `<div class="item">${f.fields.map(([k, l]) => `<input placeholder="${esc(l)}" value="${esc(it[k] || '')}" oninput="itemSet('${f.key}', ${i}, '${k}', this.value)">`).join('')}
+        <div class="item__bar"><button onclick="itemMove('${f.key}', ${i}, -1)">↑</button><button onclick="itemMove('${f.key}', ${i}, 1)">↓</button><button onclick="itemDel('${f.key}', ${i})">✕</button></div></div>`;
+}
+function itemSet(k, i, sub, v){ const b = selBlock(); b[k][i][sub] = v; dirty(); }
+function itemAdd(k){ const b = selBlock(); b[k] = b[k] || []; b[k].push({}); renderInspector(); dirty(); }
+function itemDel(k, i){ const b = selBlock(); b[k].splice(i, 1); renderInspector(); dirty(); }
+function itemMove(k, i, d){ const b = selBlock(); const a = b[k]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; renderInspector(); dirty(); }
+async function itemsFromShowcase(k){
+    const d = await (await fetch('/api/showcase')).json(); const b = selBlock(); b[k] = b[k] || [];
+    let n = 0; for (const it of (d.items || [])) { if (b[k].some(p => p.title === it.title && p.subtitle === it.subtitle)) continue; b[k].push({ title: it.title, subtitle: it.subtitle, url: it.url || '' }); n++; }
+    renderInspector(); dirty(); status(n ? `+${n}` : 'none new');
+}
+async function snapshotPlaces(){
+    const d = await (await fetch('/api/gr/my/places')).json(); const b = selBlock();
+    b.items = (d.places || []).map(p => ({ name: p.name, colour: p.colour_primary, n: p.n, kind: p.illustration_kind }));
+    renderInspector(); dirty();
+}
+
+// ── where the room is (the Globe in Explore) ──
+// A name in the owner's own words, and a spot they click on a small globe.
+// Nothing is looked up or corrected. No spot = "universal": the room goes
+// round the globe with everything else that has no place. The rooms server
+// keeps it (gr_accounts.place_name / lat / lon); a server from before places
+// answers without the key, and then there is nothing here to set.
+let PLACE = null, placePicker = null;
+const placeKept = () => !!ME && Object.prototype.hasOwnProperty.call(ME, 'place');
+function placeFill(){
+    $('p-place-f').style.display = placeKept() ? '' : 'none';
+    $('p-place-old').style.display = placeKept() ? 'none' : '';
+    if (!placeKept()) return;
+    PLACE = ME.place && isFinite(ME.place.lat) && isFinite(ME.place.lon) ? { lat: +ME.place.lat, lon: +ME.place.lon } : null;
+    $('p-place-name').value = (ME.place && ME.place.name) || '';
+    if (placePicker) placePicker.set(PLACE);
+    placeSay(PLACE ? 'Your room is on the map. Click another spot to move it.' : '');
+}
+function placeSay(text){
+    $('p-place-hint').textContent = text || (PLACE ? '' : 'No place set, so your room is not on the map in Explore. The map covers Ireland and Britain: drag it, go closer, then click the spot to put your room there.');
+    $('p-place-none').style.display = PLACE ? '' : 'none';
+}
+function placeMount(){                                   // the small map is drawn the first time Who is opened
+    const Geo = window.ExploreMap || window.ExploreGlobe;       // (the map of Ireland and Britain; the globe if the map isn't there)
+    if (placePicker || !placeKept() || !Geo) return;
+    placePicker = Geo.picker($('p-place-globe'), { value: PLACE, lowPower: {{ 'true' if is_low_power else 'false' }},
+        onPick: (lat, lon) => { PLACE = { lat, lon }; placeSay('Spot picked. Save to keep it.'); } });
+}
+function placeNone(){ PLACE = null; $('p-place-name').value = ''; if (placePicker) placePicker.set(null); placeSay('No place. Save to keep it that way.'); }
+function placeToSend(){                                  // → what the profile save carries: a place, null, or nothing at all
+    if (!placeKept()) return {};
+    const name = $('p-place-name').value.trim();
+    if (PLACE) return { place: { name, lat: PLACE.lat, lon: PLACE.lon } };
+    return { place: name ? { name } : null };            // a name with no spot: the server says so in plain words
+}
+
+// ── who ──
+async function saveProfile(){
+    const links = $('p-links').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const [label, url] = l.split('|').map(x => x.trim()); return url ? { label, url } : { label: '', url: label }; });
+    const r = await fetch('/api/gr/my/room/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ name: $('p-name').value, handle: $('p-handle').value, bio: $('p-bio').value, links, is_public: $('p-public').checked }, placeToSend())) });
+    const d = await r.json();
+    if (!r.ok) { $('p-err').textContent = d.error || 'not saved'; return; }
+    $('p-err').textContent = ''; status('saved'); const keep = CUR && CUR.id; await load(); if (keep) pickDesign(keep);
+}
+
+// ── images ──
+function renderAssets(){
+    $('assets').innerHTML = ASSETS.map(a => `<img class="thumb" src="/api/gr/asset/${a.id}" title="${esc(a.label || '')} — click to delete" onclick="deleteAsset(${a.id})" alt="">`).join('');
+    $('assets-empty').style.display = ASSETS.length ? 'none' : '';
+}
+async function uploadImage(input){
+    const f = input.files[0]; if (!f) return;
+    if (!$('img-rights').checked) { input.value = ''; alert('Tick the box first: the picture is yours, or you have permission to show it.'); return; }
+    status('uploading…');
+    const fd = new FormData(); fd.append('image', f); fd.append('label', f.name); fd.append('rights', '1');
+    const r = await fetch('/api/gr/my/assets', { method: 'POST', body: fd });
+    const d = await r.json(); input.value = '';
+    if (!r.ok) { status('failed'); alert(d.error || 'upload failed'); return; }
+    ASSETS = await (await fetch('/api/gr/my/assets')).json().then(x => x.assets || []); renderAssets(); renderInspector(); status('added');
+}
+async function deleteAsset(id){
+    if (!confirm('Delete this image? Blocks using it will go blank.')) return;
+    await fetch(`/api/gr/my/assets/${id}`, { method: 'DELETE' });
+    ASSETS = ASSETS.filter(a => a.id !== id); renderAssets(); renderInspector(); dirty();
+}
+
+// ── records (artists, labels, shops) ──
+const REC_STATUS = { pending: 'Waiting for the Music Room to look at it', refused: 'Not put out', hidden: 'Taken down' };
+async function loadRecords(){
+    const r = await fetch('/api/gr/my/records'); RECORDS = await r.json();
+    if (!r.ok) { $('records').innerHTML = `<div class="err">${esc(RECORDS.error || '')}</div>`; return RECORDS; }
+    $('rec-can').style.display = RECORDS.can_sell ? '' : 'none'; $('rec-cant').style.display = RECORDS.can_sell ? 'none' : '';
+    const recs = RECORDS.records || [];
+    $('records').innerHTML = recs.length ? recs.map(x => `<div class="rec">
+        ${x.has_art ? `<img src="/api/gr/art/${x.id}?v=${x.art_v}" alt="">` : '<div class="cov"></div>'}
+        <div class="rec__m"><div class="rec__t">${esc(x.title)}</div><div class="rec__s">${esc(x.artist || '')} · ${esc(x.format)} · ${x.borrows} borrowed · ${x.purchases} bought</div>
+          ${x.status && x.status !== 'live' ? `<div class="rec__st">${REC_STATUS[x.status] || esc(x.status)}${x.review_note ? ': ' + esc(x.review_note) : ''}</div>` : ''}</div>
+        <span>€</span><input type="number" step="0.10" min="0" value="${((x.price_cents || 0) / 100).toFixed(2)}" onchange="setPrice(${x.id}, this.value)">
+        <button class="gr-btn gr-btn--small" onclick="deleteRecord(${x.id})" title="Remove (only if nobody has it)">✕</button></div>
+        <div class="rec rec--printed" title="What is printed on it: how people shopping can ask for a crate">
+          <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="genre" aria-label="Genre" value="${esc(x.genre || '')}" onchange="setPrinted(${x.id}, 'genre', this.value)">
+          <input type="number" style="flex:0 0 64px" placeholder="year" aria-label="Year" min="1900" max="2100" value="${x.year || ''}" onchange="setPrinted(${x.id}, 'year', this.value)">
+          <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="label" aria-label="Label" value="${esc(x.label || '')}" onchange="setPrinted(${x.id}, 'label', this.value)"></div>`).join('')
+      : '<div class="empty">No records yet.</div>';
+    return RECORDS;
+}
+async function uploadRecord(){
+    const a = $('r-audio').files[0]; if (!a) { $('r-err').textContent = 'choose an audio file'; return; }
+    if (!$('r-rights').checked) { $('r-err').textContent = 'tick the box to say you hold the rights'; return; }
+    $('r-err').textContent = ''; $('r-go').disabled = true; $('r-go').textContent = 'uploading…';
+    const fd = new FormData(); fd.append('audio', a);
+    const c = $('r-cover').files[0]; if (c) fd.append('cover', c);
+    fd.append('title', $('r-title').value); fd.append('artist', $('r-artist').value); fd.append('album', $('r-album').value);
+    fd.append('price_cents', String(Math.round((parseFloat($('r-price').value) || 0) * 100))); fd.append('buy_url', $('r-url').value);
+    fd.append('genre', $('r-genre').value); fd.append('year', $('r-year').value); fd.append('label', $('r-label').value);
+    fd.append('rights', '1'); fd.append('rights_note', $('r-rights-text').textContent);
+    const r = await fetch('/api/gr/my/records', { method: 'POST', body: fd });
+    const d = await r.json(); $('r-go').disabled = false; $('r-go').textContent = 'Upload';
+    if (!r.ok) { $('r-err').textContent = d.error || 'upload failed'; return; }
+    ['r-audio', 'r-cover', 'r-title', 'r-album', 'r-url', 'r-genre', 'r-year', 'r-label'].forEach(id => $(id).value = '');
+    $('r-rights').checked = false;
+    await loadRecords(); refreshPreview(); status('added');
+}
+async function setPrice(id, v){ await fetch(`/api/gr/my/records/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price_cents: Math.round((parseFloat(v) || 0) * 100) }) }); refreshPreview(); status('saved'); }
+async function setPrinted(id, key, v){ await fetch(`/api/gr/my/records/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: v }) }); status('saved'); }
+async function deleteRecord(id){
+    if (!confirm('Remove this record from your room?')) return;
+    const r = await fetch(`/api/gr/my/records/${id}`, { method: 'DELETE' }); const d = await r.json();
+    if (!r.ok) { alert(d.error || 'not removed'); return; }
+    loadRecords(); refreshPreview();
+}
+
+load();
+</script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

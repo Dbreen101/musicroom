@@ -1,0 +1,20 @@
+/* Self-hosted, SIL OFL 1.1 licensed display faces for the per-cover record
+   typography pool + the Settings font picker. Each family ships VERBATIM
+   (unmodified) with its OFL.txt alongside in static/fonts/<slug>/, so it is
+   free to use, bundle, redistribute and ship inside a sold app. No CDN — these
+   load locally so the room works fully offline (pywebview/WebKit).
+   Added 2026-06-18. To drop a face: delete its @font-face here + its entry in
+   room3d.html RECORD_FONTS + the settings.html picker. */
+
+@font-face{ font-family:"Fraunces"; font-style:normal; font-weight:400; src:url("/static/fonts/fraunces/fraunces.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Bricolage Grotesque"; font-style:normal; font-weight:400; src:url("/static/fonts/bricolage/bricolage.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Young Serif"; font-style:normal; font-weight:400; src:url("/static/fonts/youngserif/youngserif.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Instrument Serif"; font-style:normal; font-weight:400; src:url("/static/fonts/instrumentserif/instrumentserif.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Gloock"; font-style:normal; font-weight:400; src:url("/static/fonts/gloock/gloock.ttf") format("truetype"); font-display:swap; }
+@font-face{ font-family:"Bagnard"; font-style:normal; font-weight:400; src:url("/static/fonts/bagnard/bagnard.otf") format("opentype"); font-display:swap; }
+@font-face{ font-family:"Basteleur"; font-style:normal; font-weight:400; src:url("/static/fonts/basteleur/basteleur.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Nyght Serif"; font-style:normal; font-weight:400; src:url("/static/fonts/nyghtserif/nyghtserif.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Apfel Grotezk"; font-style:normal; font-weight:400; src:url("/static/fonts/apfelgrotezk/apfelgrotezk.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"Le Murmure"; font-style:normal; font-weight:400; src:url("/static/fonts/lemurmure/lemurmure.woff2") format("woff2"); font-display:swap; }
+@font-face{ font-family:"League Gothic"; font-style:normal; font-weight:400; src:url("/static/fonts/leaguegothic/leaguegothic.ttf") format("truetype"); font-display:swap; }
+@font-face{ font-family:"Sorts Mill Goudy"; font-style:normal; font-weight:400; src:url("/static/fonts/sortsmillgoudy/sortsmillgoudy.ttf") format("truetype"); font-display:swap; }

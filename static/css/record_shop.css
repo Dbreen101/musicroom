@@ -1,0 +1,206 @@
+/* Record shopping — crates, the counter, blind (static/js/record_shop.js).
+   The working document: hairline rows, serif names, mono labels, one ink fill
+   (the thing to do next), red only for a refusal or something new.
+   Everything is under .rs and reads the theme's own colours, so it stands
+   wherever it is put; .rs-view is how Explore gives it the page. */
+
+.rs, .rs * { box-sizing: border-box; border-radius: 0; }
+.rs { display: block; max-width: 1180px; margin: 0 auto; color: var(--text); text-align: left;
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, Menlo, monospace); }
+.rs [hidden] { display: none !important; }
+
+/* in Explore: under the top bar and Explore's own row, down to where the deck
+   begins (--snt-clear: the deck says how far up it reaches; nothing when it has
+   been dragged away). The shop scrolls inside that, so no record, no key and no
+   line of it is ever under the deck; a hairline marks where the page stops. */
+.rs-view { position: fixed; left: 0; right: 0; bottom: var(--snt-clear, 0px); top: calc(var(--nav-h, 0px) + var(--ex-top-h, 58px)); z-index: 10;
+  display: none; overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--border);
+  padding: 20px clamp(18px, 4vw, 56px) 64px; }
+body.view-shop .rs-view { display: block; }
+
+/* ── the three ways in, and the wishlist's room ── */
+.rs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px 18px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--text); margin-bottom: 28px; }
+.rs-tabs { display: flex; flex-wrap: wrap; }
+.rs-tabs button { appearance: none; -webkit-appearance: none; background: none; border: 0; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; padding: 11px 16px 10px 0; margin-right: 12px; }
+.rs-tabs button:hover { color: var(--text); }
+.rs-tabs button.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--text); }
+.rs-dot { font-style: normal; margin-left: 8px; color: var(--red, #c9412f); font-variant-numeric: tabular-nums; }
+.rs-wish { appearance: none; -webkit-appearance: none; background: none; border: 0; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; padding: 11px 0 10px; font-variant-numeric: tabular-nums; }
+.rs-wish:hover { color: var(--text); }
+.rs-wish b { font-weight: 400; color: var(--text); }
+
+/* ── words ── */
+.rs-kicker { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.rs-kicker span { color: var(--text); font-variant-numeric: tabular-nums; }
+.rs-gap { margin-top: 40px; }
+.rs-h { margin: 8px 0 10px; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-weight: 400; color: var(--text);
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem); line-height: 1.05; letter-spacing: -.01em; }
+.rs-p { margin: 0 0 20px; max-width: 58ch; font-size: .8rem; line-height: 1.6; color: var(--muted); }
+.rs-quiet { margin: 14px 0 0; font-size: .74rem; line-height: 1.5; color: var(--muted); }
+.rs-msg { min-height: 1.2em; margin-top: 12px; font-size: .76rem; line-height: 1.5; color: var(--red, #c9412f); }
+.rs-sec { margin-bottom: 46px; min-width: 0; }
+.rs-new { font-style: normal; color: var(--red, #c9412f); margin-left: 10px; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; }
+
+/* ── buttons: a hairline box, mono caps; one ink fill ── */
+.rs-btn { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; justify-content: center; flex: none; white-space: nowrap; cursor: pointer;
+  background: none; color: var(--text); border: 1px solid var(--border2, var(--border)); text-decoration: none;
+  font: inherit; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; line-height: 1.2; padding: 10px 14px;
+  transition: background .2s, color .2s, border-color .2s; }
+.rs-btn:hover:not([disabled]) { border-color: var(--text); }
+.rs-btn--primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+.rs-btn--primary:hover:not([disabled]) { background: var(--gold-soft, var(--text)); border-color: var(--gold-soft, var(--text)); }
+.rs-btn--small { padding: 6px 10px; font-size: .62rem; }
+.rs-btn.on { border-color: var(--text); box-shadow: inset 3px 0 0 var(--text); }
+.rs-btn[disabled] { opacity: .4; cursor: default; }
+.rs-link { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px; }
+.rs-link:hover { color: var(--text); }
+.rs-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: 18px; }
+
+/* ── inputs are lines on the page ── */
+.rs .rs-input { display: block; width: 100%; min-width: 0; appearance: none; -webkit-appearance: none; outline: none; resize: none;
+  background: none !important; color: var(--text); border: 0 !important; border-bottom: 1px solid var(--text) !important; box-shadow: none !important;
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, Menlo, monospace) !important; font-size: .9rem; line-height: 1.5; padding: 10px 0 !important; }
+.rs .rs-input::placeholder { color: var(--muted); opacity: 1; }
+
+/* ── asking for a crate: rows of what the shelves hold ── */
+.rs-ask { max-width: 880px; border-top: 1px solid var(--border); }
+.rs-askrow { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 14px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.rs-k { padding-top: 8px; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.rs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-chip { appearance: none; -webkit-appearance: none; cursor: pointer; background: none; color: var(--text); border: 1px solid var(--border2, var(--border));
+  font: inherit; font-size: .7rem; letter-spacing: .03em; line-height: 1.2; padding: 7px 10px; }
+.rs-chip:hover { border-color: var(--text); }
+.rs-chip.on { box-shadow: inset 0 -3px 0 var(--text); border-color: var(--text); }
+.rs-asked { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.3rem; line-height: 1.2; color: var(--text); }
+
+/* today's crates */
+.rs-pulls { max-width: 880px; border-top: 1px solid var(--border); margin-top: 14px; }
+.rs-pull { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: center; width: 100%;
+  padding: 14px 0; background: none; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; color: inherit; font: inherit; text-align: left; }
+.rs-pull__t { display: block; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.35rem; line-height: 1.15; overflow-wrap: anywhere; }
+.rs-pull__s { display: block; margin-top: 4px; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.rs-pull__go { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; padding: 7px 11px; border: 1px solid var(--border2, var(--border)); white-space: nowrap; }
+.rs-pull:hover .rs-pull__go { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* ── inside a crate ── */
+.rs-crate__top { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; align-items: end; padding-bottom: 14px; }
+.rs-crate__name { margin-top: 12px; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: clamp(1.6rem, 2.6vw, 2.2rem); line-height: 1.05; overflow-wrap: anywhere; }
+.rs-crate__by { margin-top: 7px; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); line-height: 1.6; }
+.rs-crate__note { margin-top: 8px; max-width: 62ch; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-style: italic; font-size: 1.1rem; line-height: 1.35; }
+
+.rs-sift { display: grid; grid-template-columns: var(--rs-sleeve, clamp(170px, calc(100vh - 384px - var(--snt-clear, 0px)), 380px)) minmax(0, 1fr); column-gap: clamp(26px, 4.5vw, 64px); row-gap: 28px; align-items: start; margin-top: 30px; }
+.rs-left { min-width: 0; }
+/* the record at the front, and the edges of the ones still behind it.
+   (its column is as wide as there is room above the deck, so the sleeve is seen whole) */
+.rs-stack { position: relative; margin: 14px 14px 0 0; }
+.rs-stack::before, .rs-stack::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--border2, var(--border)); background: var(--bg); }
+.rs-stack::before { transform: translate(14px, -14px); }
+.rs-stack::after { transform: translate(7px, -7px); }
+.rs-stack[data-behind="0"]::before, .rs-stack[data-behind="0"]::after, .rs-stack[data-behind="1"]::before { display: none; }
+.rs-sleeve { position: relative; z-index: 1; display: flex; align-items: flex-end; width: 100%; aspect-ratio: 1 / 1; overflow: hidden;
+  border: 1px solid var(--text); background: var(--surface2, var(--bg)); }
+.rs-sleeve img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.rs-sleeve__none { padding: 0 9% 7%; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: clamp(3rem, 9vw, 6rem); line-height: .9; color: var(--text); }
+.rs-sleeve--blind { align-items: center; justify-content: center; }
+.rs-sleeve--blind span { font-size: .6rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); text-align: center; line-height: 2; }
+.rs-step { display: grid; grid-template-columns: 46px minmax(92px, auto) 46px; align-items: center; }
+.rs-step button { appearance: none; -webkit-appearance: none; height: 40px; padding: 0; cursor: pointer; background: none; color: var(--text);
+  border: 1px solid var(--border2, var(--border)); font: inherit; font-size: 1.05rem; line-height: 1; }
+.rs-step button:hover:not([disabled]) { background: var(--text); color: var(--bg); border-color: var(--text); }
+.rs-step button[disabled] { opacity: .3; cursor: default; }
+.rs-step span { text-align: center; font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* one mark per record: where you are, where you have been, what you set aside */
+.rs-ticks { display: flex; gap: 2px; border-top: 1px solid var(--text); padding-top: 3px; }
+.rs-ticks button { appearance: none; -webkit-appearance: none; position: relative; flex: 1 1 0; min-width: 0; height: 16px; padding: 0; cursor: pointer;
+  background: none; border: 0; border-bottom: 2px solid var(--border2, var(--border)); }
+.rs-ticks button.seen { border-bottom-color: var(--muted); }
+.rs-ticks button.on { border-bottom-color: var(--text); border-bottom-width: 4px; }
+.rs-ticks button.b::after, .rs-ticks button.w::after { content: ""; position: absolute; left: 50%; top: 2px; width: 6px; height: 6px; margin-left: -3px; }
+.rs-ticks button.w::after { border: 1px solid var(--text); }
+.rs-ticks button.b::after { background: var(--text); border: 1px solid var(--text); }
+.rs-legend { margin-top: 8px; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; gap: 4px 14px; flex-wrap: wrap; }
+.rs-legend__r { margin-left: auto; }
+.rs-legend i { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border: 1px solid var(--text); vertical-align: 1px; }
+.rs-legend i.b { background: var(--text); }
+
+/* the back of the record */
+.rs-right { min-width: 0; }
+.rs-title { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 1.02; letter-spacing: -.012em; overflow-wrap: anywhere; }
+.rs-artist { margin-top: 10px; font-size: .76rem; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
+.rs-facts { margin: 26px 0 0; border-top: 1px solid var(--border); }
+.rs-facts > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .76rem; line-height: 1.4; }
+.rs-facts dt { padding-top: 2px; font-size: .58rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.rs-facts dd { margin: 0; overflow-wrap: anywhere; }
+.rs-said { margin-top: 18px; padding-left: 14px; border-left: 1px solid var(--text); }
+.rs-said p { margin: 0; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-style: italic; font-size: 1.15rem; line-height: 1.35; overflow-wrap: anywhere; }
+.rs-said span { display: block; margin-top: 6px; font-size: .58rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+
+/* listening */
+.rs-listen { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; column-gap: 14px; align-items: center; margin-top: 22px; }
+.rs-play { min-width: 92px; }
+.rs-seek { position: relative; height: 26px; cursor: pointer; }
+.rs-seek::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--border2, var(--border)); }
+.rs-seek i { position: absolute; left: 0; top: 50%; width: 0; height: 3px; margin-top: -1px; background: var(--text); }
+.rs-time { font-size: .64rem; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rs-listenmsg { min-height: 0; font-size: .7rem; line-height: 1.45; color: var(--red, #c9412f); }
+.rs-listenmsg:not(:empty) { margin-top: 8px; }
+.rs-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.rs-state { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+/* the end of a crate */
+.rs-end { max-width: 620px; padding: 34px 0 0; }
+
+/* ── the counter ── */
+.rs-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: clamp(28px, 5vw, 72px); align-items: start; }
+.rs-qs { border-top: 1px solid var(--border); margin-top: 14px; }
+.rs-q { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.rs-q__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.3rem; line-height: 1.25; overflow-wrap: anywhere; }
+.rs-q__s { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 6px; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.rs-ans { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 16px; margin-top: 14px; }
+.rs-thumb { position: relative; width: 76px; height: 76px; overflow: hidden; border: 1px solid var(--text); background: var(--surface2, var(--bg)); display: flex; align-items: flex-end; }
+.rs-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.rs-thumb span { padding: 0 8% 4%; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 2rem; line-height: 1; }
+.rs-ans__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.25rem; line-height: 1.15; overflow-wrap: anywhere; }
+.rs-ans__a { margin-top: 4px; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
+.rs-ans .rs-said { margin-top: 12px; }
+.rs-ans .rs-listen { margin-top: 14px; }
+.rs-asker { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+.rs-question { margin: 8px 0 20px; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: clamp(1.5rem, 2.4vw, 2rem); line-height: 1.15; overflow-wrap: anywhere; }
+.rs-found { border-top: 1px solid var(--border); margin-top: 10px; max-height: 300px; overflow-y: auto; overscroll-behavior: contain; }
+.rs-found:empty { border-top: 0; margin-top: 0; }
+.rs-rec { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; align-items: center; width: 100%;
+  padding: 8px 0; background: none; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; color: inherit; font: inherit; text-align: left; }
+.rs-rec:hover { background: var(--accent-dim, rgba(0,0,0,.04)); }
+.rs-rec .rs-thumb { width: 40px; height: 40px; border-color: var(--border2, var(--border)); }
+.rs-rec .rs-thumb span { font-size: 1.1rem; }
+.rs-rec b { display: block; font-weight: 400; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.05rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-rec i { display: block; font-style: normal; margin-top: 2px; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-picked { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 16px; align-items: center; margin-top: 4px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+/* ── blind ── */
+.rs-blind { display: grid; grid-template-columns: var(--rs-sleeve, clamp(170px, calc(100vh - 384px - var(--snt-clear, 0px)), 380px)) minmax(0, 1fr); column-gap: clamp(26px, 4.5vw, 64px); row-gap: 28px; align-items: start; }
+.rs-blind .rs-stack { margin: 0; }
+.rs-blind .rs-stack::before, .rs-blind .rs-stack::after { display: none; }
+.rs-turn img { animation: rs-turn .7s ease both; }
+@keyframes rs-turn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rs-turn img { animation: none; } }
+
+/* ── a seller's crates (My Public Room) ── */
+.rs-maker .rs-mk { display: grid; grid-template-columns: 22px 44px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.rs-maker .rs-mk .rs-thumb { width: 44px; height: 44px; border-color: var(--border2, var(--border)); }
+.rs-maker .rs-mk .rs-thumb span { font-size: 1.2rem; }
+.rs-grip { cursor: grab; color: var(--muted); font-size: .9rem; line-height: 1; user-select: none; text-align: center; }
+.rs-mk.drag { opacity: .4; }
+.rs-mk.over { box-shadow: inset 0 2px 0 var(--text); }
+
+/* ── narrow windows: one column ── */
+@media (max-width: 860px) {
+  .rs-sift, .rs-two, .rs-blind { grid-template-columns: minmax(0, 1fr); }
+  .rs-left { max-width: var(--rs-sleeve, 380px); }
+  .rs-crate__top { grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
+  .rs-step { justify-self: start; }
+}

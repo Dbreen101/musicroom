@@ -1,0 +1,705 @@
+{# -- Import — scan a folder and add new tracks #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <script src="/static/js/path_picker.js"></script>
+    <style>
+        body { margin: 0; background: var(--bg); min-height: 100vh; color: var(--text); }
+        .import-choose {
+            background: rgba(168,130,44,0.14); border: 1px solid rgba(168,130,44,0.45);
+            color: var(--gold); border-radius: 100px; padding: 8px 14px; cursor: pointer;
+            font-family: var(--font-main); font-size: 0.84rem; white-space: nowrap;
+        }
+        .import-choose:hover { background: rgba(168,130,44,0.26); }
+        .import-progress { margin: 12px 0 6px; }
+        .import-progress__bar {
+            height: 10px; border-radius: 6px; overflow: hidden; position: relative;
+            background: rgba(120,90,40,0.18);
+        }
+        .import-progress__fill {
+            height: 100%; border-radius: 6px; background: var(--accent);
+            width: 0%; transition: width 0.4s ease;
+        }
+        .import-progress__fill.indeterminate {
+            position: absolute; left: -40%; width: 40%;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            animation: import-indet 1.2s ease-in-out infinite; transition: none;
+        }
+        @keyframes import-indet { 0% { left: -40%; } 100% { left: 100%; } }
+        .import-progress__label {
+            margin-top: 7px; font-size: 0.82rem; color: var(--muted);
+            font-family: var(--font-mono); letter-spacing: 0.02em;
+        }
+        .import-scene {
+            min-height: calc(100vh - 53px);
+            background: transparent;
+            padding: 60px 24px 100px;
+        }
+        .import-wrap { max-width: 820px; margin: 0 auto; }
+        .import-title {
+            font-family: var(--font-celtic);
+            font-size: 2.2rem;
+            color: var(--text);
+            text-align: center;
+            margin: 0 0 8px;
+            letter-spacing: 0.06em;
+        }
+        .import-title::first-letter {
+            font-size: 1.55em;
+            color: var(--gold);
+        }
+        .import-subtitle {
+            text-align: center;
+            color: var(--muted);
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 0.92rem;
+            margin: 0 0 36px;
+        }
+        .import-card {
+            background: rgba(26,22,16,0.92);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+            backdrop-filter: blur(6px);
+        }
+        .import-row {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .import-input {
+            flex: 1; min-width: 260px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 9px 12px;
+            font-family: var(--font-main);
+            font-size: 0.92rem;
+            outline: none;
+        }
+        .import-input:focus { border-color: var(--accent); }
+        .import-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.86rem; color: var(--muted);
+            white-space: nowrap; cursor: pointer;
+        }
+        .import-toggle input { accent-color: var(--accent); }
+        .import-after {
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            margin: 4px 0 12px; font-size: 0.86rem; color: var(--muted);
+        }
+        .import-after__label {
+            font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--gold);
+        }
+        .import-after label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); }
+        .import-after input { accent-color: var(--accent); }
+        .import-btn {
+            background: rgba(245,230,176,0.14);
+            border: 1px solid rgba(245,230,176,0.5);
+            color: var(--gold);
+            padding: 9px 18px;
+            border-radius: 100px;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .import-btn:hover { background: rgba(245,230,176,0.24); }
+        .import-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .import-btn--ghost {
+            background: transparent;
+            border-color: rgba(156,59,44,0.5);
+            color: var(--danger);
+        }
+        .import-btn--ghost:hover { background: rgba(156,59,44,0.12); }
+        .import-hint {
+            font-size: 0.82rem;
+            color: var(--muted2);
+            line-height: 1.55;
+            margin: 8px 0 0;
+        }
+        .import-status {
+            margin-top: 14px;
+            font-size: 0.88rem;
+            color: var(--accent);
+        }
+        .import-status.error { color: var(--danger); }
+        .import-log {
+            margin-top: 14px;
+            max-height: 360px;
+            overflow-y: auto;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            color: var(--muted);
+            white-space: pre-wrap;
+            line-height: 1.5;
+            display: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon active" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools" class="active">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="import-scene">
+    <div class="import-wrap">
+        <h1 class="import-title">Import</h1>
+        <p class="import-subtitle">Scan a folder anywhere on your laptop or a mounted drive.</p>
+
+        <div id="undo-import-bar" style="display:none; margin:0 0 16px; padding:11px 16px;
+             background:rgba(166,130,44,0.12); border:1px solid var(--gold,#a8822c);
+             border-radius:9px; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+            <span id="undo-import-text" style="color:var(--text);"></span>
+            <button type="button" id="undo-import-btn" onclick="undoLastImport()"
+                style="font:inherit; padding:7px 14px; border-radius:7px; border:1px solid var(--gold,#a8822c);
+                       background:var(--surface); color:var(--text); cursor:pointer;">Undo last import</button>
+        </div>
+        <script>
+        async function refreshUndoBar(){
+            try{
+                const s = await fetch('/api/import/undo-status').then(r=>r.json());
+                const bar = document.getElementById('undo-import-bar');
+                if(s.available){
+                    document.getElementById('undo-import-text').textContent =
+                        'Last import added ' + s.count_new + ' track' + (s.count_new!==1?'s':'')
+                        + (s.count_relinked ? ' and relinked ' + s.count_relinked : '') + '. Changed your mind?';
+                    bar.style.display = 'flex';
+                } else { bar.style.display = 'none'; }
+            }catch(e){}
+        }
+        async function undoLastImport(){
+            const btn = document.getElementById('undo-import-btn');
+            btn.disabled = true; btn.textContent = 'Undoing…';
+            const r = await fetch('/api/import/undo',{method:'POST'}).then(r=>r.json()).catch(()=>({ok:false}));
+            document.getElementById('undo-import-text').textContent = r.ok
+                ? ('✓ Undone — retired ' + r.retired_tracks + ' track' + (r.retired_tracks!==1?'s':'') + ' (recoverable in Removed).')
+                : ('⚠ ' + (r.error || 'failed'));
+            btn.style.display = 'none';
+        }
+        refreshUndoBar();
+        </script>
+
+        <div class="import-card">
+            <div class="import-row">
+                <input type="text" class="import-input" id="import-path-input"
+                       placeholder="Choose a folder, or paste a path">
+                <button type="button" class="import-choose" onclick="mrChooseInto('import-path-input','folder')">📁 Choose folder…</button>
+            </div>
+
+            <!-- Which file formats to bring in -->
+            <div class="import-after">
+                <span class="import-after__label">File formats:</span>
+                <label><input type="checkbox" name="fmt" value="mp3" checked> MP3</label>
+                <label><input type="checkbox" name="fmt" value="flac" checked> FLAC</label>
+                <label><input type="checkbox" name="fmt" value="wav" checked> WAV</label>
+                <label><input type="checkbox" name="fmt" value="m4a" checked> M4A</label>
+            </div>
+
+            <!-- How deeply to analyse each imported track -->
+            <div class="import-after">
+                <span class="import-after__label">Analyse:</span>
+                <label><input type="radio" name="depth" value="none" checked onchange="onDepthChange()"> don't analyse <span style="color:var(--muted2);">(fastest — metadata only)</span></label>
+                <label><input type="radio" name="depth" value="file" onchange="onDepthChange()"> file analysis <span style="color:var(--muted2);">(BPM, key, loudness, fingerprint)</span></label>
+                <label><input type="radio" name="depth" value="full" onchange="onDepthChange()"> full analysis <span style="color:var(--muted2);">(everything)</span></label>
+            </div>
+            <p class="import-hint" id="depth-full-note" style="display:none;">
+                Full analysis runs every enrichment Music Room has: cover art, streaming presence + ISRC, record label, and artist + label origin/decade — all from free music databases (Deezer, iTunes, MusicBrainz, Wikidata, optionally Discogs). It runs after the import finishes; MusicBrainz allows about one lookup per second, so a big batch takes a while. Stop any time — everything done so far is saved.
+            </p>
+
+            <!-- After importing: leave / copy / move into the library -->
+            <div class="import-after">
+                <span class="import-after__label">When imported:</span>
+                <label><input type="radio" name="after" value="none" checked onchange="onAfterChange()"> leave files where they are</label>
+                <label><input type="radio" name="after" value="copy" onchange="onAfterChange()"> copy into my library</label>
+                <label><input type="radio" name="after" value="move" onchange="onAfterChange()"> move into my library <span style="color:var(--muted2);">(frees the source)</span></label>
+            </div>
+            <div class="import-row" id="library-dest-row" style="display:none;">
+                <input type="text" class="import-input" id="library-dest-input"
+                       placeholder="your Music Room Library folder">
+                <button type="button" class="import-choose" onclick="mrChooseInto('library-dest-input','folder')">📁 Change…</button>
+                <span class="import-hint" style="margin:0; white-space:nowrap;">↳ your Music Room Library — only change to send elsewhere</span>
+            </div>
+
+            <!-- What to do with genuine duplicates (byte-identical to a file already present) -->
+            <div class="import-after">
+                <span class="import-after__label">When a duplicate file is found:</span>
+                <label><input type="radio" name="duppol" value="skip" checked> leave it, don't import <span style="color:var(--muted2);">(default)</span></label>
+                <label><input type="radio" name="duppol" value="delete"> delete the duplicate <span style="color:var(--muted2);">(→ Trash, recoverable)</span></label>
+                <label><input type="radio" name="duppol" value="import"> keep both — import as another version</label>
+            </div>
+            <p class="import-hint" style="margin-top:-4px;">
+                A duplicate = byte-identical to a file already in your library <em>that's still on disk</em>.
+                If the library's file is <strong>missing</strong>, the track is always <strong>relinked</strong> to the
+                found copy (pure recovery — never deleted), whatever you pick here.
+            </p>
+
+            <!-- Optional: also add the imported tracks to chosen places -->
+            <div class="import-after" id="import-places-block" style="display:none; flex-direction:column; align-items:flex-start; gap:6px;">
+                <span class="import-after__label">Also add to places <span style="color:var(--muted2); font-weight:400;">(optional — everything goes to the Music Room regardless)</span></span>
+                <div id="import-places" style="display:flex; flex-wrap:wrap; gap:6px 16px;"></div>
+            </div>
+
+            <div class="import-row">
+                <button class="import-btn" id="import-start-btn" onclick="startImport()">Import</button>
+                <button class="import-btn import-btn--ghost" id="import-stop-btn" onclick="stopImport()" style="display:none;">Stop</button>
+            </div>
+            <p class="import-hint">
+                Existing files are skipped automatically, and so are byte-identical duplicates and Ableton project folders.
+                <strong>Copy</strong>/<strong>move</strong> then files the
+                just-imported tracks into <code>Library/A/Artist/Album/…</code> — move frees them from the source, copy leaves the originals.
+            </p>
+            <div class="import-status" id="import-status" style="display:none;"></div>
+            <div class="import-progress" id="import-progress" style="display:none;">
+                <div class="import-progress__bar"><div class="import-progress__fill" id="import-progress-fill"></div></div>
+                <div class="import-progress__label" id="import-progress-label"></div>
+            </div>
+            <pre class="import-log" id="import-log"></pre>
+        </div>
+
+        <!-- My own productions — link your DAW projects + their bounces/versions -->
+        <div class="import-card" id="studio-card" style="margin-top:24px;">
+            <h2 style="font-family:var(--font-celtic); font-size:1.35rem; margin:0 0 6px;">My productions</h2>
+            <p class="import-hint" style="margin-top:0;">
+                Import your own tracks and their bounces/versions, each linked to the Ableton
+                session it came from — so you can listen, compare and take notes like any record,
+                then jump straight back into the right session to make the next version.
+                <strong>Your files are never moved or changed — the Music Room only links to them.</strong>
+            </p>
+            <details style="margin:2px 0 14px;">
+                <summary style="cursor:pointer; color:var(--accent); font-size:0.86rem;">How to save your projects (it's just the normal Ableton way)</summary>
+                <p class="import-hint" style="margin:8px 0 6px;">
+                    Group an album in a folder; each track is its own subfolder. Inside, every
+                    Ableton session and its <strong>identically-named</strong> bounce
+                    (<code>Track 1 v2.als</code> + <code>Track 1 v2.wav</code>) is one version —
+                    bounce a new session under a new name to add a new version.
+                </p>
+                <pre class="import-log" style="display:block; max-height:none; white-space:pre; margin-top:4px;">Album 1/                     ← the album — point Music Room here
+  Track 1/                   ← one folder per track
+    Track 1.als              ← a session …
+    Track 1.wav              ← … its bounce (same name = one version)
+    Track 1 v2.als           ← a new session = a new version …
+    Track 1 v2.wav           ← … bounced under the same name
+  Track 2/
+    Track 2.als
+    Track 2.wav</pre>
+                <p class="import-hint" style="margin:6px 0 0;">
+                    Point at an album (its track folders become the album's tracks) or a single
+                    track folder. Ableton's <code>Samples</code>, <code>Backup</code> and
+                    <code>Project/Folder Info</code> are skipped automatically; the un-stamped
+                    <code>.als</code> is your current version.
+                </p>
+            </details>
+            <div class="import-row">
+                <input type="text" class="import-input" id="studio-path-input"
+                       placeholder="Choose your productions folder, or paste a path">
+                <button type="button" class="import-choose" onclick="mrChooseInto('studio-path-input','folder')">📁 Choose folder…</button>
+            </div>
+            <div class="import-after" style="margin-top:6px;">
+                <span class="import-after__label">How:</span>
+                <label><input type="radio" name="studio-mode" value="link" checked onchange="studioModeChange()"> link where they are <span style="color:var(--muted2);">(nothing moved — safest)</span></label>
+                <label><input type="radio" name="studio-mode" value="copy" onchange="studioModeChange()"> copy into a tidy library</label>
+                <label><input type="radio" name="studio-mode" value="move" onchange="studioModeChange()"> move into a tidy library <span style="color:var(--muted2);">(frees the source)</span></label>
+            </div>
+            <div class="import-row" id="studio-dest-row" style="display:none;">
+                <input type="text" class="import-input" id="studio-dest-input"
+                       placeholder="where to tidy them — leave blank for your Music Room Productions folder">
+                <button type="button" class="import-choose" onclick="mrChooseInto('studio-dest-input','folder')">📁 Change…</button>
+            </div>
+            <div class="import-row">
+                <button class="import-btn import-btn--ghost" onclick="studioScan()">Scan</button>
+                <button class="import-btn" id="studio-import-btn" onclick="studioImport()">Import (link in place)</button>
+            </div>
+            <div class="import-status" id="studio-status" style="display:none;"></div>
+            <div id="studio-preview"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function _se(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showStudio(msg){ const s=document.getElementById('studio-status'); if(!s) return; s.style.display='block'; s.innerHTML=msg; }
+async function studioScan(){
+    const path=document.getElementById('studio-path-input').value.trim();
+    const preview=document.getElementById('studio-preview');
+    preview.innerHTML='';
+    if(!path){ showStudio('Choose your productions folder first.'); return; }
+    showStudio('Scanning…');
+    try{
+        const r=await fetch('/api/studio/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}).then(r=>r.json());
+        if(r.error){ showStudio('⚠ '+_se(r.error)); return; }
+        if(!r.total){ showStudio('No project folders found here. Each track should be a folder with its .als and its bounces (see the layout above).'); return; }
+        const tot=r.projects.reduce((a,p)=>a+p.n_bounces,0);
+        showStudio(`Found ${r.total} track${r.total!==1?'s':''} · ${tot} version${tot!==1?'s':''}. Nothing imported yet — press Import to link them.`);
+        preview.innerHTML=r.projects.map(p=>`
+            <div style="border:1px solid var(--border); border-radius:var(--radius); padding:7px 12px; margin-top:8px;">
+                <strong>${_se(p.name)}</strong>
+                <span style="color:var(--muted2); font-size:0.8rem;"> — ${p.n_bounces} version${p.n_bounces!==1?'s':''}${p.n_sessions?`, ${p.n_sessions} session${p.n_sessions!==1?'s':''}`:', no session found'}</span>
+            </div>`).join('');
+    }catch(e){ showStudio('⚠ Could not scan that folder.'); }
+}
+function studioMode(){ const r=document.querySelector('input[name="studio-mode"]:checked'); return r?r.value:'link'; }
+function studioModeChange(){
+    const mode=studioMode();
+    document.getElementById('studio-dest-row').style.display = (mode==='link') ? 'none' : '';
+    document.getElementById('studio-import-btn').textContent =
+        mode==='copy' ? 'Tidy + import (copy)' : mode==='move' ? 'Tidy + import (move)' : 'Import (link in place)';
+}
+async function studioImport(){
+    const path=document.getElementById('studio-path-input').value.trim();
+    if(!path){ showStudio('Choose your productions folder first.'); return; }
+    const mode=studioMode();
+    const btn=document.getElementById('studio-import-btn'); const old=btn.textContent;
+    btn.disabled=true; btn.textContent=(mode==='link'?'Importing…':'Tidying…');
+    try{
+        let r;
+        if(mode==='link'){
+            showStudio('Linking your productions — no files are moved…');
+            r=await fetch('/api/studio/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}).then(r=>r.json());
+        }else{
+            const dest=document.getElementById('studio-dest-input').value.trim();
+            showStudio(mode==='move'?'Moving your projects into a tidy library, then importing…':'Copying your projects into a tidy library (originals untouched), then importing…');
+            r=await fetch('/api/studio/organise',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:path,dest,mode})}).then(r=>r.json());
+        }
+        if(r.error){ showStudio('⚠ '+_se(r.error)); }
+        else if(!r.tracks_created){ showStudio('Nothing new to import — these productions are already in your library.'); }
+        else{
+            const tidied = (mode!=='link') ? ` ${mode==='move'?'Moved':'Copied'} into ${_se(r.dest||'your library')}.` : " Your files weren't touched.";
+            showStudio(`✓ Imported ${r.tracks_created} track${r.tracks_created!==1?'s':''} (${r.files_created} version${r.files_created!==1?'s':''}) into the Music Room, marked as your own work.${tidied}`);
+        }
+    }catch(e){ showStudio('⚠ Import failed.'); }
+    btn.disabled=false; btn.textContent=old;
+    document.getElementById('studio-preview').innerHTML='';
+}
+</script>
+
+<script>
+let _importPollTimer = null;
+let _importLogOffset = 0;
+let _pendingOrganise = null;   // {mode, dest, only_under} to run after import
+let _organisePollTimer = null;
+let _pendingPlaces = null;     // place ids to add the imported tracks to, after import
+
+async function init() {
+    try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        document.getElementById('import-path-input').value =
+            d.last_import_path || d.music_library_path || '';
+        if (d.library_dest) document.getElementById('library-dest-input').value = d.library_dest;
+        // Restore the last "after import" choice (sticky but changeable).
+        const after = d.import_after_action || 'none';
+        const radio = document.querySelector(`input[name="after"][value="${after}"]`);
+        if (radio) radio.checked = true;
+        onAfterChange();
+    } catch (e) {}
+    loadImportPlaces();
+    refreshImportStatus();
+}
+
+async function loadImportPlaces() {
+    try {
+        const places = await fetch('/api/places').then(r => r.json());
+        // Everything always goes to The Well — so offer only the OTHER places.
+        const others = (places || []).filter(p => !p.is_well);
+        const box = document.getElementById('import-places');
+        if (!others.length) return;   // no places yet → keep the section hidden
+        box.innerHTML = others.map(p =>
+            `<label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="checkbox" class="import-place-cb" value="${p.id}"> ${escImp(p.name)}
+                <span style="color:var(--muted2); font-size:0.85rem;">${p.track_count || 0}</span>
+            </label>`
+        ).join('');
+        document.getElementById('import-places-block').style.display = '';
+    } catch (e) {}
+}
+function escImp(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function selectedAfter() {
+    const r = document.querySelector('input[name="after"]:checked');
+    return r ? r.value : 'none';
+}
+function onAfterChange() {
+    const show = selectedAfter() !== 'none';
+    document.getElementById('library-dest-row').style.display = show ? '' : 'none';
+}
+
+function saveSetting(obj) {
+    return fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj)});
+}
+
+// Reveal the "what full analysis does" note only when Full is picked.
+function onDepthChange() {
+    const v = document.querySelector('input[name="depth"]:checked')?.value || 'none';
+    const note = document.getElementById('depth-full-note');
+    if (note) note.style.display = (v === 'full') ? '' : 'none';
+}
+
+async function startImport() {
+    const path    = document.getElementById('import-path-input').value.trim();
+    const depth   = document.querySelector('input[name="depth"]:checked')?.value || 'none';
+    const analyse = depth !== 'none';   // file + full both run audio analysis
+    const enrich  = depth === 'full';   // full also fetches artwork + metadata + culture
+    const after   = selectedAfter();
+    const dest    = document.getElementById('library-dest-input').value.trim();
+    const dupPolicy = document.querySelector('input[name="duppol"]:checked')?.value || 'skip';
+    const formats = Array.from(document.querySelectorAll('input[name="fmt"]:checked')).map(cb => cb.value);
+    if (!path) { setImportStatus('Pick a folder to import from.', true); return; }
+    if (!formats.length) { setImportStatus('Pick at least one file format to import.', true); return; }
+    if (after !== 'none' && !dest) { setImportStatus('Tell me where your library lives (the destination folder).', true); return; }
+
+    // Remember choices so next time is one click.
+    saveSetting({ import_after_action: after, ...(dest ? {library_dest: dest} : {}) });
+
+    // Queue the organise step to run automatically once the import finishes,
+    // scoped to just the files we're importing now.
+    _pendingOrganise = (after === 'none') ? null : { mode: after, dest, only_under: path };
+
+    // Optional: places to add the newly-imported tracks to (The Well is always implied).
+    _pendingPlaces = Array.from(document.querySelectorAll('.import-place-cb:checked'))
+        .map(cb => parseInt(cb.value)).filter(Boolean);
+    if (!_pendingPlaces.length) _pendingPlaces = null;
+
+    setImportStatus('Starting…', false);
+    document.getElementById('import-start-btn').disabled = true;
+
+    const res = await fetch('/api/import/start', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({path, analyse, enrich, dup_policy: dupPolicy, formats}),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+        setImportStatus(data.error || 'Could not start import', true);
+        document.getElementById('import-start-btn').disabled = false;
+        _pendingOrganise = null;
+        return;
+    }
+
+    _importLogOffset = 0;
+    document.getElementById('import-log').textContent = '';
+    document.getElementById('import-log').style.display = '';
+    startImportPolling();
+}
+
+async function stopImport() {
+    document.getElementById('import-stop-btn').disabled = true;
+    _pendingOrganise = null;                       // cancel the queued tidy-up
+    await fetch('/api/analysis/stop', {method: 'POST'});
+    await fetch('/api/organise/stop', {method: 'POST'});
+    setImportStatus('Stopping…', false);
+}
+
+function startImportPolling() {
+    if (_importPollTimer) clearInterval(_importPollTimer);
+    refreshImportStatus();
+    _importPollTimer = setInterval(refreshImportStatus, 1500);
+}
+
+async function refreshImportStatus() {
+    try {
+        const r = await fetch(`/api/analysis/status?offset=${_importLogOffset}`);
+        const d = await r.json();
+        const running = !!d.running;
+
+        if (Array.isArray(d.log) && d.log.length) {
+            const logEl = document.getElementById('import-log');
+            const text = d.log.map(l => l.text).join('\n');
+            logEl.textContent = (logEl.textContent ? logEl.textContent + '\n' : '') + text;
+            logEl.scrollTop = logEl.scrollHeight;
+            logEl.style.display = '';
+            _importLogOffset = d.log_total || _importLogOffset;
+        }
+
+        const sess = d.session || {};
+        const job  = sess.job || (running ? 'analysis' : null);
+        if (running) {
+            // Resume live updates if we arrived mid-job (e.g. a page reload
+            // while an import/analyse is already running on the server).
+            if (!_importPollTimer) _importPollTimer = setInterval(refreshImportStatus, 1500);
+            document.getElementById('import-start-btn').style.display = 'none';
+            document.getElementById('import-stop-btn').style.display = '';
+            document.getElementById('import-stop-btn').disabled = false;
+            document.getElementById('import-log').style.display = '';
+
+            if (job === 'import') {
+                // The importer prints "[i/total]" per file — a real bar once
+                // the first line lands; a moving bar before that.
+                const n = d.session_done || 0;
+                const totalFiles = sess.total_files || 0;
+                const modeLabel = sess.enrich ? ' + full analysis' : (sess.analyse ? ' + analysing' : '');
+                setImportStatus(`Importing${modeLabel} from ${sess.path || ''}…`, false);
+                const suffix = `${sess.analyse ? ' · analysing each (~5–15s)' : ''}${sess.enrich ? ' · artwork + metadata after' : ''}…`;
+                if (totalFiles) {
+                    const pct = Math.round(100 * n / totalFiles);
+                    setProgress({ show: true, indeterminate: false, pct,
+                        label: `File ${n} of ${totalFiles} · ${pct}%${suffix}` });
+                } else {
+                    setProgress({ show: true, indeterminate: true,
+                        label: `Brought in ${n} track${n === 1 ? '' : 's'} so far${suffix}` });
+                }
+            } else {
+                // Analyse: real percentage against the library.
+                const total = d.total || 0, done = d.done || 0;
+                const pct = total ? Math.round(100 * done / total) : 0;
+                setImportStatus('Analysing your library…', false);
+                setProgress({ show: true, indeterminate: !total, pct,
+                    label: total ? `Analysed ${done} of ${total} · ${pct}%${d.failed ? ' · ' + d.failed + ' failed' : ''}`
+                                 : 'Analysing…' });
+            }
+        } else {
+            if (_importPollTimer) { clearInterval(_importPollTimer); _importPollTimer = null; }
+            // The import journal now holds this run's new tracks — add them to any
+            // chosen places (independent of the move/organise step).
+            if (_pendingPlaces && _pendingPlaces.length) {
+                const places = _pendingPlaces; _pendingPlaces = null;
+                addImportedToPlaces(places);
+            }
+            if (_pendingOrganise) {
+                const pend = _pendingOrganise; _pendingOrganise = null;
+                startOrganise(pend);
+            } else {
+                document.getElementById('import-start-btn').style.display = '';
+                document.getElementById('import-start-btn').disabled = false;
+                document.getElementById('import-stop-btn').style.display = 'none';
+                setProgress({ show: false });
+                if (d.session_done) {
+                    setImportStatus(`Finished — ${d.session_done} track${d.session_done === 1 ? '' : 's'} processed this run.`, false);
+                }
+            }
+        }
+    } catch (e) { /* silent */ }
+}
+
+async function addImportedToPlaces(placeIds) {
+    try {
+        const r = await fetch('/api/import/add-to-places', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ place_ids: placeIds }),
+        }).then(r => r.json());
+        if (r && r.ok && r.added) {
+            const log = document.getElementById('import-log');
+            log.textContent += `\nAdded ${r.added} new track${r.added === 1 ? '' : 's'} to ${r.places} place${r.places === 1 ? '' : 's'}.`;
+        }
+    } catch (e) {}
+}
+
+async function startOrganise(job) {
+    const verb = job.mode === 'copy' ? 'Copying' : 'Moving';
+    setImportStatus(`${verb} the imported files into your library…`, false);
+    document.getElementById('import-stop-btn').style.display = '';
+    document.getElementById('import-stop-btn').disabled = false;
+    const r = await fetch('/api/organise/start', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(job),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+        setImportStatus(d.error || 'Could not tidy the files.', true);
+        document.getElementById('import-start-btn').style.display = '';
+        document.getElementById('import-start-btn').disabled = false;
+        document.getElementById('import-stop-btn').style.display = 'none';
+        return;
+    }
+    if (_organisePollTimer) clearInterval(_organisePollTimer);
+    _organisePollTimer = setInterval(async () => {
+        let s; try { s = await fetch('/api/organise/status').then(r => r.json()); } catch(e){ return; }
+        const verbing = s.mode === 'copy' ? 'Copied' : 'Moved';
+        if (s.running) {
+            const total = s.total || 0, done = s.done || 0;
+            const pct = total ? Math.round(100 * done / total) : 0;
+            setImportStatus(`${s.mode === 'copy' ? 'Copying' : 'Moving'} into your library…`, false);
+            setProgress({ show: true, indeterminate: !total, pct,
+                label: total ? `${verbing} ${done} of ${total} · ${pct}%` : 'Preparing…' });
+        } else {
+            clearInterval(_organisePollTimer); _organisePollTimer = null;
+            setProgress({ show: false });
+            setImportStatus(s.error ? ('Tidy-up error: ' + s.error)
+                : `Done — imported, then ${verbing.toLowerCase()} ${s.done||0} file${s.done===1?'':'s'} into your library.`, !!s.error);
+            document.getElementById('import-start-btn').style.display = '';
+            document.getElementById('import-start-btn').disabled = false;
+            document.getElementById('import-stop-btn').style.display = 'none';
+        }
+    }, 1000);
+}
+
+function setImportStatus(text, isError) {
+    const el = document.getElementById('import-status');
+    el.style.display = '';
+    el.classList.toggle('error', !!isError);
+    el.textContent = text;
+}
+
+// opts: { show, indeterminate, pct, label }
+function setProgress(opts) {
+    const wrap = document.getElementById('import-progress');
+    const fill = document.getElementById('import-progress-fill');
+    const lab  = document.getElementById('import-progress-label');
+    if (!wrap || !fill || !lab) return;
+    if (!opts || !opts.show) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    if (opts.indeterminate) {
+        fill.classList.add('indeterminate');
+        fill.style.width = '';
+    } else {
+        fill.classList.remove('indeterminate');
+        fill.style.width = (opts.pct != null ? opts.pct : 0) + '%';
+    }
+    lab.textContent = opts.label || '';
+}
+
+init();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script>window.MR_TIP = { key:'import', title:'Import', steps:[
+  { sel:'#import-path-input', title:'Point it at your music',
+    body:'Choose the folder where your music lives \u2014 a whole drive is fine. Import READS your files; it never changes them. Anything it\u2019s seen before is recognised and skipped, so re-importing is always safe.' },
+  { title:'Where the files end up is your choice',
+    body:'<b>Leave files where they are</b> changes nothing on disk. <b>Copy</b> or <b>move into my library</b> files them tidily into your Music Room Library folder, alphabetised by artist. Nothing is ever overwritten, and nothing is ever hard-deleted.' },
+  { title:'While it runs',
+    body:'The bar shows real progress, file by file. Analysis (BPM, key, sound character) happens here too \u2014 it\u2019s the one heavy job in the app, so the laptop working hard during a big first import is normal. If anything went wrong, <b>Undo last import</b> puts it back.',
+    link:'/help#import', linkText:'import in the guide' },
+]};</script>
+<script src="/static/js/mr_tips.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

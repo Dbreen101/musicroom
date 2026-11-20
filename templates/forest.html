@@ -1,0 +1,1607 @@
+{# -- The Forest -- #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Room — The Forest</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <script src="/static/js/forest_trees.js"></script>
+    <script src="/static/js/place_illustration.js"></script>
+    <style>
+        body { margin: 0; background: #0e1410; overflow: hidden; color: var(--text); }
+
+        :root {
+            --sky-top:        #1a2228;
+            --sky-mid-high:   #18221d;
+            --sky-mid:        #131c17;
+            --sky-mid-low:    #101713;
+            --sky-floor:      #100c08;
+            --horizon-warm:   rgba(140,90,55,0.10);
+            --horizon-warm-2: rgba(95,60,35,0.05);
+            --moon-glow:      rgba(180,195,200,0.08);
+            --moon-pos:       22% -8%;
+            /* Time-of-day tints for ground / mist / lake. Set by JS in
+               applyTimePalette() so they shift with the sun. */
+            --haze-tint:      rgba(60,75,72,0.18);
+            --mist-tint:      rgba(120,140,135,0.18);
+            --mist-tint-2:    rgba(100,118,110,0.13);
+            --floor-light:    rgba(45,55,38,0.30);
+            --floor-deep:     rgba(22,18,14,0.50);
+            --floor-bottom:   rgba(14,10,8,0.78);
+            --lake-deep:      #13191e;
+            --lake-shore:     #1c1d14;
+            --ground-tint:    #2a2a1c;
+            --shore-tint:     #3a3528;
+            --world-w:        1800px;
+            --world-h:        1120px;
+            --pan-x:          0px;
+            --pan-y:          0px;
+            --zoom:           1;
+        }
+
+        .forest-scene {
+            position: fixed;
+            inset: 53px 0 0 0;
+            overflow: hidden;
+            cursor: grab;
+            background:
+                radial-gradient(ellipse 70% 30% at 50% 95%,
+                    var(--horizon-warm)   0%,
+                    var(--horizon-warm-2) 40%,
+                    transparent           70%),
+                radial-gradient(ellipse 70% 50% at var(--moon-pos),
+                    var(--moon-glow) 0%,
+                    transparent      60%),
+                linear-gradient(180deg,
+                    var(--sky-top)        0%,
+                    var(--sky-mid-high)  18%,
+                    var(--sky-mid)       38%,
+                    var(--sky-mid-low)   60%,
+                    var(--sky-floor)     80%,
+                    #100c08            100%);
+            transition: background 4s ease;
+        }
+        .forest-scene.dragging { cursor: grabbing; }
+
+        /* Static ambient layers — fixed to viewport, tinted by time of day */
+        .horizon-haze {
+            position: absolute; left: -10%; right: -10%;
+            top: 32%; height: 22%;
+            background:
+                linear-gradient(180deg,
+                    transparent 0%,
+                    var(--haze-tint) 45%,
+                    transparent 100%);
+            filter: blur(10px);
+            pointer-events: none;
+            transition: background 4s ease;
+        }
+        .ground-mist {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 36%;
+            background:
+                radial-gradient(ellipse 55% 100% at 25% 100%,
+                    var(--mist-tint) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 80% at 72% 100%,
+                    var(--mist-tint-2) 0%, transparent 65%),
+                radial-gradient(ellipse 90% 50% at 50% 105%,
+                    var(--mist-tint-2) 0%, transparent 70%);
+            filter: blur(16px);
+            pointer-events: none;
+            animation: mist-drift 26s ease-in-out infinite;
+            transition: background 4s ease;
+        }
+        @keyframes mist-drift {
+            0%,100% { transform: translateX(0); opacity: 0.85; }
+            50%     { transform: translateX(28px); opacity: 1; }
+        }
+        .forest-floor {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
+            background:
+                radial-gradient(ellipse at 18% 80%, var(--floor-light) 0%, transparent 45%),
+                radial-gradient(ellipse at 78% 88%, var(--floor-light) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 105%, var(--floor-deep) 0%, transparent 60%),
+                linear-gradient(180deg,
+                    transparent 0%,
+                    var(--floor-deep) 55%,
+                    var(--floor-bottom) 100%);
+            pointer-events: none;
+            transition: background 4s ease;
+        }
+
+        /* World — wider-than-tall rectangle that holds trees & places.
+           The visible "forest" is an ellipse inside this rectangle; everything
+           outside the ellipse is rendered as water so the forest reads as
+           an island. The rectangle is always larger than the viewport at
+           minimum zoom so the user never sees the world's edge. */
+        .world {
+            position: absolute;
+            left: 50%; top: 50%;
+            width:  var(--world-w);
+            height: var(--world-h);
+            transform: translate(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y))) scale(var(--zoom));
+            transform-origin: center center;
+            will-change: transform;
+            /* Irish-forest-floor — the baked peat/moss/leaf-litter texture
+               tiled and blended with the palette ground tint so it shifts
+               through the day. Screen-relative depth (near dark + far mist)
+               is handled by .forest-floor / .ground-mist / .horizon-haze and
+               by the SVG's own atmospheric haze, so no world-space vignette
+               here (that would freeze a dark band into world coordinates). */
+            background:
+                var(--ground-tint, #2a2820)
+                    url('/static/textures/forest_floor.jpg?v=5');
+            /* cover (not a fixed tile) → the texture is scaled to fill the
+               whole world as one image, so there are NO repeat seams / grid
+               lines (the tile edges were most visible across the Well's open
+               clearing). */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-blend-mode: soft-light;
+            transition: transform 0.15s ease, background-color 4s ease;
+        }
+        .world.dragging { transition: none; }
+
+        /* Trees overlay — entire square. overflow visible so a tree on the
+           top row isn't hard-clipped at y=0 (the world always exceeds the
+           viewport at min zoom, so this never shows an edge). */
+        .world-trees {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        .world-trees svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+        /* The wood is drawn as ONE static SVG so the browser caches it as a
+           single composited bitmap — pan/zoom stay smooth at thousands of
+           trees. (Animating sub-elements inside a big SVG forces a full-layer
+           repaint every frame, which was the source of the jank.) Detail is
+           re-randomised on each load / place-move instead of animated. */
+
+        /* Distant birds — static silhouettes high in the sky. */
+        .sky-birds { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
+        .sky-bird  { position: absolute; color: rgba(28,30,26,0.42); }
+
+        /* Place nodes anchor inside the world */
+        .world-places { position: absolute; inset: 0; pointer-events: none; }
+        .world-places .place-node { pointer-events: auto; }
+
+        .fireflies { position: absolute; inset: 0; pointer-events: none; }
+        .firefly {
+            position: absolute;
+            width: 1.6px; height: 1.6px;
+            border-radius: 50%;
+            background: rgba(255,225,160,0.55);
+            box-shadow: 0 0 3px rgba(255,215,140,0.45), 0 0 8px rgba(220,170,90,0.20);
+            opacity: 0;
+            animation: drift 24s linear infinite;
+        }
+        @keyframes drift {
+            0%   { transform: translate(0,0); opacity: 0; }
+            15%  { opacity: 0.55; }
+            55%  { opacity: 0.28; }
+            85%  { opacity: 0.42; }
+            100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+        }
+
+        /* Place nodes */
+        .place-node {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: filter 0.3s ease;
+            text-decoration: none !important;
+            color: rgba(228,222,196,0.92);
+        }
+        .place-node:hover { filter: brightness(1.08); }
+        .place-node.is-dragging { transition: none !important; z-index: 10; filter: brightness(1.18); }
+        .place-node:hover, .place-node:focus, .place-node:active { text-decoration: none !important; }
+
+        /* A sunlit forest-floor opening: warm dappled light in the centre,
+           a mossy lit ring, fading into the dense dark wood at the edge so
+           the clearing reads as carved out of the trees. */
+        .clearing-floor {
+            position: absolute;
+            top: 60%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 230px; height: 96px;
+            border-radius: 50%;
+            background:
+                radial-gradient(ellipse at 50% 42%,
+                    rgba(196,180,120,0.30) 0%,
+                    rgba(120,134,80,0.30)  26%,
+                    rgba(58,70,44,0.30)    52%,
+                    rgba(30,36,24,0.14)    74%,
+                    transparent            90%);
+            filter: blur(3px);
+            pointer-events: none;
+        }
+        /* Soft contact shadow directly under the illustration's base. */
+        .clearing-floor::after {
+            content: ''; position: absolute;
+            left: 50%; top: 50%;
+            width: 56%; height: 34%;
+            transform: translate(-46%, -10%);
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 50% 50%,
+                rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.18) 50%, transparent 78%);
+            filter: blur(2px);
+        }
+        .well-node .clearing-floor {
+            width: 380px; height: 156px; top: 60%;
+            background:
+                radial-gradient(ellipse at 50% 42%,
+                    rgba(210,196,140,0.32) 0%,
+                    rgba(130,146,90,0.32)  26%,
+                    rgba(60,74,48,0.32)    52%,
+                    rgba(30,36,24,0.14)    74%,
+                    transparent            90%);
+        }
+
+        .place-illustration {
+            position: relative; z-index: 2;
+            filter:
+                drop-shadow(2px 7px 6px rgba(0,0,0,0.55))
+                drop-shadow(0 2px 3px rgba(0,0,0,0.5))
+                drop-shadow(0 0 14px color-mix(in srgb, var(--place-accent) 30%, transparent));
+        }
+
+        /* Art wrapper — keeps the clearing glow + cog glued to the
+           illustration so the name / track-count can sit ABOVE the
+           illustration (not over the trees below) without shifting them. */
+        .place-art {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Caption (name + track count) floats ABOVE the illustration, OUT of
+           flow, so the node centres the ILLUSTRATION on the place point — i.e.
+           in the middle of its carved clearing. (When the caption was in flow
+           it shifted the illustration down, below the clearing.) */
+        .place-caption {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 6;
+            width: max-content;
+            max-width: 260px;
+            pointer-events: none;            /* only the plates below are clickable */
+        }
+
+        /* Name — a dark "carved sign" plate so the text is legible over ANY
+           tree / floor colour. */
+        .place-label {
+            position: relative;
+            z-index: 6;
+            pointer-events: auto;
+            margin: 0;
+            padding: 4px 13px;
+            width: fit-content; max-width: 260px;
+            text-align: center;
+            font-family: var(--font-celtic);
+            font-weight: 400;
+            font-size: 1.26rem;
+            color: #f7eed2;
+            background: rgba(15,11,7,0.78);
+            border: 1px solid rgba(196,168,112,0.42);
+            border-radius: 9px;
+            box-shadow: 0 3px 11px rgba(0,0,0,0.55);
+            text-shadow: 0 1px 2px rgba(0,0,0,1);
+            line-height: 1.2;
+            letter-spacing: 0.03em;
+            text-decoration: none !important;
+        }
+        .place-label::first-letter {
+            font-size: 1.45em;
+            color: #ffeebc;
+            padding-right: 0.04em;
+        }
+        .place-meta {
+            position: relative;
+            z-index: 6;
+            pointer-events: auto;
+            margin: 0;
+            padding: 2px 10px;
+            width: fit-content;
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 0.84rem;
+            color: #f2e8cc;
+            background: rgba(15,11,7,0.8);
+            border: 1px solid rgba(196,168,112,0.28);
+            border-radius: 7px;
+            box-shadow: 0 2px 7px rgba(0,0,0,0.5);
+            text-shadow: 0 1px 2px rgba(0,0,0,1);
+            letter-spacing: 0.02em;
+        }
+        .well-node .place-label {
+            font-size: 2rem;
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+        }
+        .well-node .place-label::first-letter {
+            font-size: 1.4em;
+        }
+
+        /* The Well */
+        .well-node { z-index: 5; }
+        .well-clearing {
+            position: relative;
+            width: 240px; height: 240px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .well-clearing svg {
+            position: relative; z-index: 2;
+            filter:
+                drop-shadow(0 6px 14px rgba(0,0,0,0.75))
+                drop-shadow(0 0 18px rgba(140,180,160,0.20));
+        }
+        .well-water-glow {
+            position: absolute;
+            top: 32%; left: 50%;
+            transform: translateX(-50%);
+            width: 100px; height: 28px;
+            border-radius: 50%;
+            background: radial-gradient(circle,
+                rgba(220,235,225,0.55) 0%,
+                rgba(170,195,180,0.22) 50%,
+                transparent 80%);
+            filter: blur(4px);
+            animation: well-shimmer 6s ease-in-out infinite;
+        }
+        @keyframes well-shimmer {
+            0%,100% { opacity: 0.65; transform: translateX(-50%) scale(1); }
+            50%     { opacity: 0.95; transform: translateX(-50%) scale(1.06); }
+        }
+
+        /* Hover edit cog on places */
+        .place-edit-cog {
+            position: absolute;
+            top: -8px; right: -10px;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            background: rgba(20,28,22,0.85);
+            border: 1px solid rgba(180,160,110,0.5);
+            color: rgba(220,200,160,0.85);
+            display: flex;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 0.78rem;
+            opacity: 0;
+            transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+            z-index: 4;
+        }
+        .place-node:hover .place-edit-cog { opacity: 1; }
+        .place-edit-cog:hover {
+            color: rgba(245,232,200,1);
+            border-color: rgba(220,200,160,0.9);
+        }
+
+        /* Forest controls — bottom corners */
+        .add-place-btn, .recenter-btn, .zoom-btn {
+            background: rgba(28,22,16,0.78);
+            border: 1px solid rgba(130,115,85,0.35);
+            color: rgba(215,200,170,0.78);
+            backdrop-filter: blur(8px);
+            transition: all 0.25s ease;
+            z-index: 10;
+            cursor: pointer;
+            font-family: var(--font-main);
+        }
+        .add-place-btn {
+            position: absolute;
+            bottom: 26px; right: 32px;
+            padding: 9px 18px;
+            border-radius: 100px;
+            font-size: 0.82rem;
+            letter-spacing: 0.01em;
+        }
+        .recenter-btn {
+            position: absolute;
+            bottom: 26px; left: 32px;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .zoom-controls {
+            position: absolute;
+            bottom: 26px; left: 80px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
+        }
+        .zoom-btn {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .add-place-btn:hover, .recenter-btn:hover, .zoom-btn:hover {
+            color: rgba(245,232,200,1);
+            border-color: rgba(200,175,130,0.65);
+            background: rgba(45,35,24,0.85);
+        }
+        /* prominent entry to the 3D forest — top-right, above everything */
+        .forest3d-pill {
+            position: fixed; top: 64px; right: 18px; z-index: 50;
+            padding: 8px 16px; border-radius: 100px;
+            background: rgba(28,22,16,0.82); backdrop-filter: blur(8px);
+            border: 1px solid rgba(245,230,176,0.45); color: #f5e6b0;
+            font-family: var(--font-celtic, 'Uncial Antiqua'), serif; font-size: 0.92rem;
+            text-decoration: none; letter-spacing: 0.3px; transition: all 0.2s ease;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        .forest3d-pill:hover {
+            background: #f5e6b0; color: #1d160d; border-color: #f5e6b0; transform: translateY(-1px);
+        }
+
+        .forest-empty {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-family: var(--font-serif);
+            font-style: italic;
+            color: rgba(190,180,150,0.6);
+            z-index: 4;
+        }
+
+        .modal { max-width: 560px; }
+    </style>
+<script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d" class="active">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="forest-scene" id="forest-scene">
+    <div class="horizon-haze"></div>
+    <div class="ground-mist"></div>
+    <div class="forest-floor"></div>
+
+    <div class="world" id="world">
+        <div class="world-trees" id="world-trees"></div>
+        <div class="world-places" id="world-places"></div>
+    </div>
+
+    <div class="fireflies" id="fireflies"></div>
+    <div class="sky-birds" id="sky-birds"></div>
+
+    <button class="add-place-btn" onclick="openPlaceModal()">+ make a new place</button>
+    <a class="forest3d-pill" href="/forest3d" title="Enter the forest in 3D">◇ Enter in 3D</a>
+    <button class="recenter-btn" onclick="centerOnWell()" title="Centre on The Well">⊙</button>
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomBy(-0.18)" title="Zoom out">−</button>
+        <button class="zoom-btn" onclick="zoomBy(+0.18)" title="Zoom in">+</button>
+    </div>
+</div>
+
+<!-- Create / Edit Place Modal -->
+<div class="modal-overlay" id="place-modal">
+    <div class="modal">
+        <h2 id="place-modal-title">New Place</h2>
+        <div class="form-field"><label>Name</label>
+            <input type="text" id="p-name" placeholder="e.g. The After Midnight Club"></div>
+        <div class="form-field"><label>Description</label>
+            <textarea id="p-desc" rows="2" placeholder="What is this place? What does it feel like?"></textarea></div>
+        <div class="form-row">
+            <div class="form-field"><label>Inside / Outside</label>
+                <select id="p-inout">
+                    <option value="">—</option>
+                    <option value="inside">Inside</option>
+                    <option value="outside">Outside</option>
+                    <option value="both">Both</option>
+                </select></div>
+            <div class="form-field"><label>Size</label>
+                <select id="p-size">
+                    <option value="">—</option>
+                    <option value="headphones">Headphones</option>
+                    <option value="intimate">Intimate</option>
+                    <option value="small venue">Small Venue</option>
+                    <option value="large venue">Large Venue</option>
+                    <option value="open air">Open Air</option>
+                </select></div>
+        </div>
+        <div class="form-row">
+            <div class="form-field"><label>Time Start</label>
+                <input type="text" id="p-time-start" placeholder="22:00"></div>
+            <div class="form-field"><label>Time End</label>
+                <input type="text" id="p-time-end" placeholder="06:00"></div>
+        </div>
+        <div class="form-field"><label>Moods</label>
+            <input type="text" id="p-moods" placeholder="hypnotic, dark, euphoric"></div>
+        <div class="form-field"><label>Crowd notes</label>
+            <input type="text" id="p-crowd" placeholder="Who is here? What do they want?"></div>
+        <div class="form-row">
+            <div class="form-field"><label>Primary colour <span style="color:var(--muted2);font-size:0.72rem;">glow + page accent</span></label>
+                <div class="colour-picker-row">
+                    <input type="color" id="p-colour-primary" value="#9a7a4a"
+                           oninput="document.getElementById('p-colour-primary-hex').value=this.value; updatePlacePreview();">
+                    <input type="text"  id="p-colour-primary-hex" value="#9a7a4a"
+                           oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))document.getElementById('p-colour-primary').value=this.value; updatePlacePreview();"
+                           style="font-family: var(--font-mono); font-size: 0.82rem;"></div></div>
+            <div class="form-field"><label>Ground colour <span style="color:var(--muted2);font-size:0.72rem;">mood</span></label>
+                <div class="colour-picker-row">
+                    <input type="color" id="p-theme-bg" value="#2a2418"
+                           oninput="document.getElementById('p-theme-bg-hex').value=this.value; updatePlacePreview();">
+                    <input type="text"  id="p-theme-bg-hex" value="" placeholder="(default)"
+                           oninput="if(/^#[0-9a-f]{6}$/i.test(this.value))document.getElementById('p-theme-bg').value=this.value; updatePlacePreview();"
+                           style="font-family: var(--font-mono); font-size: 0.82rem;"></div></div>
+        </div>
+        <!-- secondary colour is no longer surfaced here; kept as a hidden field
+             so its stored value round-trips unchanged on edit/save -->
+        <input type="hidden" id="p-colour-secondary-hex" value="#3a2a18">
+
+        <div class="form-field">
+            <label>Illustration</label>
+            <select id="p-illustration" onchange="updatePlacePreview()"
+                    style="width:100%; background:var(--bg); border:1px solid var(--border);
+                           color:var(--text); padding:7px 10px; font-family:var(--font-main);
+                           font-size:0.88rem; border-radius:var(--radius);"></select>
+        </div>
+
+        <!-- Illustration colours — four roles, each with a smart auto default.
+             STRUCTURE is the main body of the building/object: set it (e.g. a
+             pink) for a pink club. Leave a field blank to auto-derive. -->
+        <div class="form-field">
+            <label style="display:flex; justify-content:space-between; align-items:baseline;">
+                <span>Illustration colours</span>
+                <button type="button" onclick="resetIllustrationColours()"
+                        style="background:none; border:none; color:var(--muted); font-size:0.74rem;
+                               font-family:var(--font-main); cursor:pointer; font-style:italic;">
+                    reset to auto
+                </button>
+            </label>
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+                <div id="p-ill-preview" style="flex-shrink:0; width:96px; height:96px;
+                     background:rgba(20,16,10,0.35); border-radius:10px; padding:6px;
+                     display:flex; align-items:center; justify-content:center;"></div>
+                <div style="flex:1; min-width:230px; display:grid; grid-template-columns:auto 1fr; gap:6px 10px; align-items:center;">
+                    <span style="font-size:0.78rem; color:var(--muted);">Light</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-light" oninput="illColourPicked('light', this.value)">
+                        <input type="text"  id="p-ill-light-hex" placeholder="(auto)"
+                               oninput="illHexTyped('light', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Structure</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-structure" oninput="illColourPicked('structure', this.value)">
+                        <input type="text"  id="p-ill-structure-hex" placeholder="(auto)"
+                               oninput="illHexTyped('structure', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Outline</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-outline" oninput="illColourPicked('outline', this.value)">
+                        <input type="text"  id="p-ill-outline-hex" placeholder="(auto)"
+                               oninput="illHexTyped('outline', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                    <span style="font-size:0.78rem; color:var(--muted);">Detail</span>
+                    <div class="colour-picker-row">
+                        <input type="color" id="p-ill-detail" oninput="illColourPicked('detail', this.value)">
+                        <input type="text"  id="p-ill-detail-hex" placeholder="(auto)"
+                               oninput="illHexTyped('detail', this.value)"
+                               style="font-family:var(--font-mono); font-size:0.78rem;">
+                    </div>
+                </div>
+            </div>
+            <div style="font-size:0.74rem; color:var(--muted2); margin-top:6px; font-style:italic;">
+                Blank = derive from the mood. <strong>Structure</strong> is the body — set it for, say, a pink club.
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--ghost btn--small" id="p-delete-btn"
+                    onclick="deletePlaceFromForest()"
+                    style="margin-right:auto; color:var(--danger); border-color:var(--danger); display:none;">
+                Delete place
+            </button>
+            <button class="btn btn--ghost" onclick="closePlaceModal()">Cancel</button>
+            <button class="btn btn--primary" id="p-save-btn" onclick="savePlace()">Create</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// =============================================================
+// FOREST MODEL
+//
+// World coordinate system:
+//   The world is a fixed square (.world). It's centred so that
+//   the Well sits at the centre of the layer (50%, 50%).
+//   Place positions are stored as % of the layer (50,50 = Well).
+//   Trees are positioned the same way.
+//   Pan + zoom are applied to .world as CSS transforms.
+//
+// World size grows with the number of places — your first place
+// can't be miles away, but a 20-place forest can sprawl.
+// =============================================================
+
+// World is a wide rectangle. The visible "forest" is an ellipse inscribed
+// inside it (with organic edge noise). Outside the ellipse is water.
+const WORLD_ASPECT = 0.62;   // height = width * 0.62 → wider than tall
+
+function worldSize(placeCount) {
+    const w = 1400 + placeCount * 150;
+    return { w, h: Math.round(w * WORLD_ASPECT) };
+}
+// kept for back-compat callers
+function worldSizePx(placeCount) { return worldSize(placeCount).w; }
+
+// Minimum gap between places, in % of world width. Used by the place
+// collision-avoidance loop in constrainPosition.
+function clearingRadiusPct() { return 7; }
+
+let _state = {
+    places: [],
+    panX: 0, panY: 0, zoom: 1,
+    justDragged: false,
+};
+
+// -----------------------------------------------------------------
+// Place positions
+// -----------------------------------------------------------------
+const WELL_PCT = { x: 50, y: 50 };
+
+function hashFloat(seed, salt) {
+    let h = (seed * 9301 + 49297 + salt * 233280) % 233280;
+    return h / 233280;
+}
+
+function placePosition(p, allPlaces) {
+    if (p.is_well) return { x: WELL_PCT.x, y: WELL_PCT.y };
+
+    if (typeof p.x_pct === 'number' && typeof p.y_pct === 'number') {
+        return { x: p.x_pct, y: p.y_pct };
+    }
+
+    // Deterministic auto-arrangement around the Well — scattered across the
+    // whole rectangular world (with an inset margin so places don't sit on
+    // the very edge).
+    const others = allPlaces.filter(pp => !pp.is_well);
+    const idx    = others.findIndex(pp => pp.id === p.id);
+    const total  = others.length;
+
+    const baseAngle = (idx / Math.max(1, total)) * Math.PI * 2 - Math.PI / 2;
+    const jitterAng = (hashFloat(p.id, 7) - 0.5) * 0.45;
+    const angle     = baseAngle + jitterAng;
+
+    const rRadial = 0.55 + hashFloat(p.id, 13) * 0.30;
+    // Scale by the rectangle's half-width / half-height with a 6% safety inset.
+    return {
+        x: WELL_PCT.x + Math.cos(angle) * (50 - 6) * 0.70 * rRadial,
+        y: WELL_PCT.y + Math.sin(angle) * (50 - 6) * 0.70 * rRadial,
+    };
+}
+
+// Clamp a point into the rectangular world (with a small safety margin).
+function clampToWorld(p, padPct = 5) {
+    return {
+        x: Math.max(padPct, Math.min(100 - padPct, p.x)),
+        y: Math.max(padPct, Math.min(100 - padPct, p.y)),
+    };
+}
+
+// Constrain to the rectangular world + avoid collision with other places
+function constrainPosition(pos, place, allPlaces) {
+    const others = allPlaces.filter(pp => pp.id !== place.id);
+    const RC     = clearingRadiusPct();
+
+    pos = clampToWorld(pos, 5);
+
+    for (let iter = 0; iter < 6; iter++) {
+        let collided = false;
+        for (const o of others) {
+            const op = placePosition(o, allPlaces);
+            const ddx = pos.x - op.x;
+            const ddy = pos.y - op.y;
+            const dd  = Math.sqrt(ddx*ddx + ddy*ddy);
+            const minD = RC * 2;
+            if (dd < minD && dd > 0.0001) {
+                const push = (minD - dd) / dd;
+                pos = { x: pos.x + ddx * push, y: pos.y + ddy * push };
+                collided = true;
+            }
+        }
+        if (!collided) break;
+    }
+
+    return clampToWorld(pos, 5);
+}
+
+// =============================================================
+// TREES + EDGE
+// =============================================================
+
+// Time-of-day → light direction, shadow length/strength, haze + dapple
+// colours. Drives both the cast shadows and atmospheric perspective so the
+// wood reads correctly from dawn (long warm shadows) to night (faint, cool).
+function computeLight(alt) {
+    const night  = alt < -4;
+    const day    = Math.max(0, Math.min(1, (alt + 6) / 36));
+    const lowSun = 1 - Math.max(0, Math.min(1, alt / 28));   // 1 at horizon
+    return {
+        dx: 0.5, dy: 0.34,                                   // shadow falls down-right
+        len:   night ? 0.55 : (0.78 + lowSun * 1.7),
+        alpha: night ? 0.12 : (0.15 + day * 0.17),
+        mistHex:   night ? '#212c33' : (alt < 6 ? '#5b5560' : '#bcc6c0'),
+        dappleHex: night ? '#9fb6c8' : (alt < 6 ? '#ffcaa0' : '#fff6dd'),
+        night, day,
+    };
+}
+function currentLight() {
+    const lat = parseFloat(localStorage.getItem('forest_lat')) || DEFAULT_LAT;
+    const lon = parseFloat(localStorage.getItem('forest_lon')) || DEFAULT_LON;
+    return computeLight(sunAltitude(new Date(), lat, lon));
+}
+
+// Per-session forest seed. Changes on every page load and every place-move
+// (reseeded at the top of loadPlaces), so the wood "grows differently" each
+// time — exactly as if you'd walked into a new part of the forest — while
+// staying perfectly still between redraws (the 5-min light tick re-lights the
+// SAME arrangement, it doesn't reshuffle). Initialised from the clock so the
+// very first draw is already varied.
+let _forestSeed = (Date.now() >>> 0) || 1;
+function reseedForest() {
+    _forestSeed = (((Math.random() * 4294967296) >>> 0) ^ (Date.now() >>> 0)) >>> 0;
+}
+
+// A small, fast PRNG seeded by (candidate index ⊕ forest seed). Within one
+// draw it's deterministic, so a redraw with the same seed is byte-identical
+// (smooth, no flicker); a new seed reshuffles the whole wood.
+function rngFor(i) {
+    let s = (((i * 2654435761) >>> 0) ^ _forestSeed) >>> 0;
+    return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+function drawWorldTrees(places) {
+    const el = document.getElementById('world-trees');
+    if (!el) return;
+    const { w, h } = worldSize(places.length);
+    const light = currentLight();
+
+    // Clearings around every place (percent coords). Keeps tree/undergrowth
+    // BASES out of the opening; tree crowns may rise behind a place, which is
+    // correct — places render in a layer above all trees.
+    const clearings = places.map(p => {
+        const pos = placePosition(p, places);
+        return { x: pos.x, y: pos.y,
+                 r: p.is_well ? 10 : 6, rLbl: p.is_well ? 6.5 : 4.5 };
+    });
+    function inAnyClearing(px, py, pad) {
+        for (const c of clearings) {
+            const dx = px - c.x, dy = py - c.y;
+            if (dx*dx + dy*dy < (c.r + pad) ** 2) return true;
+            const ldy = dy - c.rLbl;
+            const rx2 = (c.r + pad) ** 2, ry2 = (c.rLbl + pad) ** 2;
+            if ((dx*dx) / rx2 + (ldy*ldy) / ry2 < 1) return true;
+        }
+        return false;
+    }
+    // Depth (0 far/top → 1 near/bottom) and haze from the vertical position.
+    const hazeAt = (py) => (py < 56 ? (1 - py / 56) * 0.82 : 0);
+
+    // Shared scene context (haze + species set per object before each draw).
+    const ctx = { light, mistHex: light.mistHex, dappleHex: light.dappleHex,
+                  night: light.night, haze: 0, species: null };
+
+    const objs = [];   // { y, shadow, body }
+
+    // ---- trees ----------------------------------------------------------
+    // Heavily populated. Count scales with area, clamped for performance.
+    // Far trees are cheap (2-blob LOD), so most of this count is near-free.
+    const TREES = Math.max(320, Math.min(1300, Math.floor((w * h) / 1150)));
+    for (let i = 0; i < TREES; i++) {
+        const r = rngFor(i * 2 + 1);
+        const px = r() * 100, py = r() * 100;
+        if (inAnyClearing(px, py, 2)) continue;
+        // Depth-biased thinning: a dense, misty wall of trees at the back
+        // (far/top), opening toward the front (near/bottom) so trunks,
+        // branches and forest floor read — still a heavy wood overall.
+        const keep = py < 58 ? 1 : (py < 78 ? 0.86 : 0.58);
+        if (r() > keep) continue;
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        // near trees much taller (perspective); far trees shorter
+        const hgt = (60 + (py / 100) * 150) * (0.8 + r() * 0.5);
+        ctx.haze = haze;
+        ctx.species = ForestTrees.pickSpecies(r);
+        objs.push(ForestTrees.tree(x, y, hgt, r, ctx));
+    }
+
+    // ---- undergrowth (ferns, rocks, logs, mushrooms, bluebells…) ---------
+    const UNDER = Math.floor(TREES * 0.3);
+    const UTYPES = [['fern',34],['grass',24],['rock',12],['mushrooms',9],
+                    ['bluebells',9],['log',7],['stump',5]];
+    const uTot = UTYPES.reduce((s, t) => s + t[1], 0);
+    for (let i = 0; i < UNDER; i++) {
+        const r = rngFor(i * 2 + 500002);
+        // weight toward the mid/near floor where the eye actually lands
+        const py = 34 + Math.pow(r(), 0.7) * 64;
+        const px = r() * 100;
+        if (inAnyClearing(px, py, 0.5)) continue;
+        let pick = r() * uTot, kind = 'fern';
+        for (const [k, wt] of UTYPES) { if ((pick -= wt) <= 0) { kind = k; break; } }
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        const s = (10 + (py / 100) * 26) * (0.7 + r() * 0.6);
+        ctx.haze = haze;
+        objs.push(ForestTrees[kind](x, y, s, r, ctx, haze));
+    }
+
+    // ---- critters (a sparse few — a delight to find, not a zoo) ----------
+    const CRIT = Math.max(5, Math.min(16, Math.floor((w * h) / 165000)));
+    for (let i = 0; i < CRIT; i++) {
+        const r = rngFor(i * 2 + 900007);
+        const py = 44 + r() * 54, px = r() * 100;
+        if (inAnyClearing(px, py, 1)) continue;
+        const haze = hazeAt(py);
+        const x = (px / 100) * w, y = (py / 100) * h;
+        const s = (13 + (py / 100) * 16) * (0.85 + r() * 0.4);
+        ctx.haze = haze;
+        objs.push(ForestTrees.critter(ForestTrees.pickCritter(r), x, y, s, r, ctx, haze));
+    }
+
+    // ---- compose: shadows on the floor first, then bodies far→near ------
+    objs.sort((a, b) => a.y - b.y);
+
+    // Daytime sun-dapple pools breaking through the canopy (cheap, behind all).
+    let dapple = '';
+    if (!light.night) {
+        const D = Math.max(0, Math.min(7, Math.floor((w * h) / 360000)));
+        for (let i = 0; i < D; i++) {
+            const r = rngFor(i * 2 + 700001);
+            const px = r() * 100, py = 30 + r() * 60;
+            if (inAnyClearing(px, py, 0)) continue;
+            const x = (px / 100) * w, y = (py / 100) * h, rr = 90 + r() * 150;
+            dapple += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rr.toFixed(0)}" ry="${(rr*0.5).toFixed(0)}" fill="url(#ft-dapple)"/>`;
+        }
+    }
+
+    // One flat, static string → the browser caches the whole wood as a single
+    // composited bitmap. Pan/zoom never repaints it; only a reseed redraws.
+    let shadows = '', bodies = '';
+    for (const o of objs) { shadows += o.shadow || ''; bodies += o.body; }
+
+    el.innerHTML =
+        `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">`
+        + ForestTrees.defs(ctx)
+        + dapple
+        + `<g>${shadows}</g>`
+        + bodies
+        + `</svg>`;
+}
+
+// (drawWorldEdge removed — perimeter ring of trees doubled the canopy node count
+//  for marginal visual gain. Single canopy layer + CSS shore gradient is enough.)
+// (canopy arches removed — they overlay the top of the screen and obscure place names)
+
+// =============================================================
+// FIREFLIES
+// =============================================================
+function spawnFireflies(n) {
+    const el = document.getElementById('fireflies');
+    if (!el) return;
+    el.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+        const f = document.createElement('div');
+        f.className = 'firefly';
+        f.style.left = (Math.random() * 100) + 'vw';
+        f.style.top  = (40 + Math.random() * 55) + 'vh';
+        f.style.setProperty('--dx', ((Math.random() - 0.5) * 120) + 'px');
+        f.style.setProperty('--dy', (-30 - Math.random() * 180) + 'px');
+        f.style.animationDelay    = (Math.random() * 24) + 's';
+        f.style.animationDuration = (18 + Math.random() * 12) + 's';
+        el.appendChild(f);
+    }
+}
+
+// =============================================================
+// PLACES
+// =============================================================
+function renderPlaces(places) {
+    const el = document.getElementById('world-places');
+    if (!el) return;
+    if (!places.length) {
+        el.innerHTML = '';
+        document.getElementById('world').insertAdjacentHTML(
+            'beforeend',
+            `<div class="forest-empty"><p>The forest is empty.</p><button class="btn btn--ghost" onclick="openPlaceModal()">Plant your first place</button></div>`
+        );
+        return;
+    }
+
+    el.innerHTML = places.map(p => {
+        const pos    = placePosition(p, places);
+        const accent = p.colour_primary || (p.is_well ? '#9ab094' : '#9a7a4a');
+        const count  = p.track_count || 0;
+
+        if (p.is_well) {
+            // The Well now uses the same customisable illustration pipeline
+            // as every other place (4 colour roles, edit-modal controls);
+            // we just wrap it in the existing well-clearing + water-glow
+            // CSS so the sacred-spring atmosphere on the forest map stays.
+            const wellSvg = (typeof renderPlaceIllustration === 'function')
+                ? renderPlaceIllustration(p, { size: 170 })
+                : '';
+            return `
+            <a href="/place/${p.id}" class="place-node well-node" data-pid="${p.id}"
+               style="left:${pos.x}%; top:${pos.y}%; --place-accent: ${accent}">
+                <div class="place-caption">
+                    <div class="place-label">${escHtml(p.name)}</div>
+                    <div class="place-meta">${count.toLocaleString()} ${count === 1 ? 'track' : 'tracks'}</div>
+                </div>
+                <div class="place-art">
+                    <div class="clearing-floor"></div>
+                    <div class="well-clearing">
+                        <div class="well-water-glow"></div>
+                        ${wellSvg}
+                    </div>
+                </div>
+            </a>`;
+        }
+
+        const illustration = (typeof renderPlaceIllustration === 'function')
+            ? renderPlaceIllustration(p, { size: 110 })
+            : '';
+
+        const metaBits = [];
+        if (count) metaBits.push(`${count} ${count === 1 ? 'track' : 'tracks'}`);
+        if (p.time_start && p.time_end) metaBits.push(`${p.time_start}–${p.time_end}`);
+
+        return `
+        <a href="/place/${p.id}" class="place-node" data-pid="${p.id}"
+           style="left:${pos.x}%; top:${pos.y}%; --place-accent: ${accent}">
+            <button class="place-edit-cog" onclick="event.preventDefault(); event.stopPropagation(); openEditPlaceFromForest(${p.id});" title="Edit place">⚙</button>
+            <div class="place-caption">
+                <div class="place-label">${escHtml(p.name)}</div>
+                ${metaBits.length ? `<div class="place-meta">${metaBits.join(' · ')}</div>` : ''}
+            </div>
+            <div class="place-art">
+                <div class="clearing-floor"></div>
+                ${illustration}
+            </div>
+        </a>`;
+    }).join('');
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+}
+
+// =============================================================
+// RENDER PIPELINE
+// =============================================================
+async function loadPlaces() {
+    const res = await fetch('/api/places');
+    const places = await res.json();
+    _state.places = places;
+    // Fresh forest on every load / place-move: new seed → the wood grows
+    // differently, and the static birds settle in new spots.
+    reseedForest();
+    applyWorldSize();
+    drawWorldTrees(places);
+    renderPlaces(places);
+    spawnSkyBirds(3);
+    // Snap zoom to the minimum allowed so the user starts inside the forest.
+    const minZ = minZoomForViewport();
+    if (_state.zoom < minZ) _state.zoom = minZ;
+    clampPan();
+    applyTransform();
+}
+
+function applyWorldSize() {
+    const { w, h } = worldSize(_state.places.length);
+    document.documentElement.style.setProperty('--world-w', w + 'px');
+    document.documentElement.style.setProperty('--world-h', h + 'px');
+}
+
+function applyTransform() {
+    const r = document.documentElement.style;
+    r.setProperty('--pan-x', _state.panX + 'px');
+    r.setProperty('--pan-y', _state.panY + 'px');
+    r.setProperty('--zoom',  _state.zoom);
+}
+
+// Minimum zoom: the user must never be able to see the world rectangle's
+// edge. So the scaled world width AND height must both exceed the viewport.
+function minZoomForViewport() {
+    const { w, h } = worldSize(_state.places.length);
+    const vw = window.innerWidth;
+    const vh = window.innerHeight - 53;
+    // Add 1% headroom so we don't ride the literal edge
+    return Math.max(vw / w, vh / h) * 1.01;
+}
+
+function clampPan() {
+    const { w: ww, h: hh } = worldSize(_state.places.length);
+    const sw = ww * _state.zoom;
+    const sh = hh * _state.zoom;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight - 53;
+    const maxX = Math.max(0, (sw - vw) / 2);
+    const maxY = Math.max(0, (sh - vh) / 2);
+    _state.panX = Math.max(-maxX, Math.min(maxX, _state.panX));
+    _state.panY = Math.max(-maxY, Math.min(maxY, _state.panY));
+}
+
+function centerOnWell() {
+    _state.panX = 0; _state.panY = 0;
+    applyTransform();
+}
+
+function zoomBy(delta, anchorX, anchorY) {
+    const oldZoom = _state.zoom;
+    const minZ = minZoomForViewport();
+    const newZoom = Math.max(minZ, Math.min(2.4, oldZoom + delta));
+    if (newZoom === oldZoom) return;
+    // Anchor: by default zoom from screen centre
+    if (anchorX == null) anchorX = window.innerWidth / 2;
+    if (anchorY == null) anchorY = (window.innerHeight - 53) / 2 + 53;
+    const scaleChange = newZoom / oldZoom;
+    // Adjust pan so the anchor point stays under the cursor
+    const cx = window.innerWidth / 2;
+    const cy = (window.innerHeight - 53) / 2;
+    const offX = anchorX - cx;
+    const offY = anchorY - 53 - cy;
+    _state.panX = (_state.panX - offX) * scaleChange + offX;
+    _state.panY = (_state.panY - offY) * scaleChange + offY;
+    _state.zoom = newZoom;
+    clampPan();
+    applyTransform();
+}
+
+// =============================================================
+// PAN + DRAG + ZOOM (wheel)
+// =============================================================
+let dragging = null;   // place drag
+let panning  = false;
+let panStart = null;
+
+const scene = document.getElementById('forest-scene');
+
+// Capture-phase click handler — suppresses click after a drag
+scene.addEventListener('click', (e) => {
+    if (_state.justDragged) {
+        e.preventDefault();
+        e.stopPropagation();
+        _state.justDragged = false;
+    }
+}, true);
+
+scene.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+
+    const cog = e.target.closest('.place-edit-cog');
+    if (cog) return; // let the cog handle its own click
+
+    const node = e.target.closest('.place-node');
+    if (node) {
+        const pid = parseInt(node.dataset.pid, 10);
+        const place = _state.places.find(p => p.id === pid);
+        if (!place || place.is_well) return;
+        const pos = placePosition(place, _state.places);
+        dragging = {
+            node, place,
+            startX: e.clientX, startY: e.clientY,
+            originX: pos.x, originY: pos.y,
+            moved: false,
+        };
+        node.classList.add('is-dragging');
+        document.getElementById('world').classList.add('dragging');
+        return;
+    }
+
+    // Pan the world
+    panning  = true;
+    panStart = { x: e.clientX - _state.panX, y: e.clientY - _state.panY };
+    document.getElementById('forest-scene').classList.add('dragging');
+    document.getElementById('world').classList.add('dragging');
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (dragging) {
+        const dx = e.clientX - dragging.startX;
+        const dy = e.clientY - dragging.startY;
+        if (Math.hypot(dx, dy) > 4) dragging.moved = true;
+
+        const { w: ww, h: hh } = worldSize(_state.places.length);
+        const sx = ww * _state.zoom;
+        const sy = hh * _state.zoom;
+        // Convert pixel delta to percent-of-world (per-axis since world is rectangular)
+        const ddx = (dx / sx) * 100;
+        const ddy = (dy / sy) * 100;
+
+        let nx = dragging.originX + ddx;
+        let ny = dragging.originY + ddy;
+        const cons = constrainPosition({ x: nx, y: ny }, dragging.place, _state.places);
+        dragging.node.style.left = cons.x + '%';
+        dragging.node.style.top  = cons.y + '%';
+        dragging._lastX = cons.x;
+        dragging._lastY = cons.y;
+        return;
+    }
+    if (panning) {
+        _state.panX = e.clientX - panStart.x;
+        _state.panY = e.clientY - panStart.y;
+        clampPan();
+        applyTransform();
+    }
+});
+
+window.addEventListener('mouseup', async () => {
+    if (dragging) {
+        const node = dragging.node;
+        const place = dragging.place;
+        node.classList.remove('is-dragging');
+        document.getElementById('world').classList.remove('dragging');
+        if (dragging.moved) {
+            _state.justDragged = true;
+            setTimeout(() => { _state.justDragged = false; }, 200);
+            const x = dragging._lastX, y = dragging._lastY;
+            if (typeof x === 'number' && typeof y === 'number') {
+                place.x_pct = x; place.y_pct = y;
+                try {
+                    await fetch(`/api/place/${place.id}/position`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify({ x_pct: x, y_pct: y }),
+                    });
+                    // Redraw the forest so trees respect the new clearing
+                    loadPlaces();
+                } catch (_) {}
+            }
+        }
+        dragging = null;
+        return;
+    }
+    if (panning) {
+        panning = false;
+        document.getElementById('forest-scene').classList.remove('dragging');
+        document.getElementById('world').classList.remove('dragging');
+    }
+});
+
+scene.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = -Math.sign(e.deltaY) * 0.12;
+    zoomBy(delta, e.clientX, e.clientY);
+}, { passive: false });
+
+// =============================================================
+// REFRESH WHEN COMING BACK TO THE TAB
+// =============================================================
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadPlaces();
+});
+
+// =============================================================
+// PLACE MODAL — create + edit
+// =============================================================
+let _editingPlaceId = null;
+
+function populateIllustrationSelect(selectId, current) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const kinds = (window.PLACE_ILLUSTRATION_KINDS || [{ key: 'auto', label: 'Auto (from data)' }]);
+    sel.innerHTML = kinds.map(k =>
+        `<option value="${k.key}">${k.label}</option>`
+    ).join('');
+    sel.value = current || 'auto';
+}
+
+function openPlaceModal(placeForEdit) {
+    _editingPlaceId = placeForEdit ? placeForEdit.id : null;
+    document.getElementById('place-modal-title').textContent = placeForEdit ? 'Edit place' : 'New Place';
+    document.getElementById('p-save-btn').textContent        = placeForEdit ? 'Save' : 'Create';
+    document.getElementById('p-delete-btn').style.display    = placeForEdit && !placeForEdit.is_well ? 'inline-block' : 'none';
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+    if (placeForEdit) {
+        set('p-name',             placeForEdit.name);
+        set('p-desc',             placeForEdit.description);
+        set('p-inout',            placeForEdit.inside_outside);
+        set('p-size',             placeForEdit.size);
+        set('p-time-start',       placeForEdit.time_start);
+        set('p-time-end',         placeForEdit.time_end);
+        set('p-moods',            placeForEdit.moods);
+        set('p-crowd',            placeForEdit.crowd_notes);
+        set('p-colour-primary',     placeForEdit.colour_primary   || '#9a7a4a');
+        set('p-colour-primary-hex', placeForEdit.colour_primary   || '#9a7a4a');
+        set('p-colour-secondary-hex', placeForEdit.colour_secondary || '#3a2a18');
+        set('p-theme-bg-hex',       placeForEdit.theme_bg || '');
+        if (placeForEdit.theme_bg) set('p-theme-bg', placeForEdit.theme_bg);
+        // Four illustration colour roles (hex field = source of truth; empty = auto)
+        ['light','structure','outline','detail'].forEach(role => {
+            set('p-ill-' + role + '-hex', placeForEdit['illustration_' + role] || '');
+        });
+        populateIllustrationSelect('p-illustration', placeForEdit.illustration_kind || 'auto');
+    } else {
+        ['p-name','p-desc','p-time-start','p-time-end','p-moods','p-crowd'].forEach(id => set(id, ''));
+        set('p-inout', ''); set('p-size', '');
+        set('p-colour-primary',     '#9a7a4a');
+        set('p-colour-primary-hex', '#9a7a4a');
+        set('p-colour-secondary-hex', '#3a2a18');
+        set('p-theme-bg-hex', '');
+        ['light','structure','outline','detail'].forEach(role => set('p-ill-' + role + '-hex', ''));
+        populateIllustrationSelect('p-illustration', 'auto');
+    }
+
+    document.getElementById('place-modal').classList.add('open');
+    setTimeout(updatePlacePreview, 0);   // first preview render
+    document.getElementById('p-name').focus();
+}
+
+// -------------------------------------------------------------
+// Live illustration preview + four-role colour controls
+// (mirrors the place-page edit modal so a place can be fully
+//  recoloured here — e.g. a pink club via the Structure role)
+// -------------------------------------------------------------
+function _previewPlaceFromModal() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    return {
+        is_well:                _editingPlaceId ? !!(_state.places.find(p => p.id === _editingPlaceId) || {}).is_well : false,
+        illustration_kind:      v('p-illustration'),
+        name:                   v('p-name'),
+        description:            v('p-desc'),
+        moods:                  v('p-moods'),
+        crowd_notes:            v('p-crowd'),
+        inside_outside:         v('p-inout'),
+        size:                   v('p-size'),
+        colour_primary:         v('p-colour-primary-hex'),
+        colour_secondary:       v('p-colour-secondary-hex'),
+        theme_bg:               v('p-theme-bg-hex'),
+        illustration_light:     v('p-ill-light-hex'),
+        illustration_structure: v('p-ill-structure-hex'),
+        illustration_outline:   v('p-ill-outline-hex'),
+        illustration_detail:    v('p-ill-detail-hex'),
+    };
+}
+
+function updatePlacePreview() {
+    const host = document.getElementById('p-ill-preview');
+    if (!host || !window.renderPlaceIllustration) return;
+    const place = _previewPlaceFromModal();
+    host.innerHTML = renderPlaceIllustration(place, { size: 84 });
+    // Reflect each auto-derived colour in any swatch whose hex is still blank.
+    const defaults = window.placeIllustrationDefaults?.(place) || {};
+    ['light','structure','outline','detail'].forEach(role => {
+        const hexEl = document.getElementById('p-ill-' + role + '-hex');
+        const sw    = document.getElementById('p-ill-' + role);
+        if (sw && (!hexEl || !hexEl.value.trim()) && defaults[role]) sw.value = defaults[role];
+    });
+}
+
+function illColourPicked(role, value) {
+    const hex = document.getElementById('p-ill-' + role + '-hex');
+    if (hex) hex.value = value;            // moving a swatch makes the role explicit
+    updatePlacePreview();
+}
+function illHexTyped(role, value) {
+    const v = (value || '').trim();
+    if (v && /^#[0-9a-f]{6}$/i.test(v)) {
+        const sw = document.getElementById('p-ill-' + role);
+        if (sw) sw.value = v;
+    }
+    updatePlacePreview();
+}
+function resetIllustrationColours() {
+    ['light','structure','outline','detail'].forEach(role => {
+        const hex = document.getElementById('p-ill-' + role + '-hex');
+        if (hex) hex.value = '';
+    });
+    updatePlacePreview();
+}
+
+function openEditPlaceFromForest(pid) {
+    const place = _state.places.find(p => p.id === pid);
+    if (place) openPlaceModal(place);
+}
+
+function closePlaceModal() {
+    document.getElementById('place-modal').classList.remove('open');
+    _editingPlaceId = null;
+}
+
+['primary','secondary'].forEach(which => {
+    const picker = document.getElementById(`p-colour-${which}`);
+    const hex    = document.getElementById(`p-colour-${which}-hex`);
+    if (picker && hex) {
+        picker.addEventListener('input', () => { hex.value = picker.value; });
+        hex.addEventListener('input',    () => { picker.value = hex.value;  });
+    }
+});
+
+async function savePlace() {
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const body = {
+        name:              v('p-name').trim(),
+        description:       v('p-desc').trim(),
+        inside_outside:    v('p-inout'),
+        size:              v('p-size'),
+        time_start:        v('p-time-start').trim(),
+        time_end:          v('p-time-end').trim(),
+        moods:             v('p-moods').trim(),
+        crowd_notes:       v('p-crowd').trim(),
+        colour_primary:    v('p-colour-primary-hex').trim(),
+        colour_secondary:  v('p-colour-secondary-hex').trim(),
+        illustration_kind: v('p-illustration'),
+        theme_bg:                v('p-theme-bg-hex').trim(),
+        illustration_light:      v('p-ill-light-hex').trim(),
+        illustration_structure:  v('p-ill-structure-hex').trim(),
+        illustration_outline:    v('p-ill-outline-hex').trim(),
+        illustration_detail:     v('p-ill-detail-hex').trim(),
+    };
+    if (!body.name) { document.getElementById('p-name').focus(); return; }
+
+    const isEdit = !!_editingPlaceId;
+    const url    = isEdit ? `/api/place/${_editingPlaceId}` : '/api/places';
+    const method = isEdit ? 'PATCH' : 'POST';
+    const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (res.ok) { closePlaceModal(); loadPlaces(); }
+    else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Could not save place');
+    }
+}
+
+async function deletePlaceFromForest() {
+    if (!_editingPlaceId) return;
+    const place = _state.places.find(p => p.id === _editingPlaceId);
+    if (!place || place.is_well) return;
+    if (!confirm(`Delete "${place.name}"? Tracks stay in your library — they're just no longer associated with this place.`)) return;
+    const res = await fetch(`/api/place/${_editingPlaceId}`, { method: 'DELETE' });
+    if (res.ok) { closePlaceModal(); loadPlaces(); }
+}
+
+// (Place modal — backdrop click intentionally does NOT close so partially
+//  filled form data isn't lost. Use × or Cancel. ESC still closes.)
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePlaceModal();
+});
+
+// =============================================================
+// TIME-OF-DAY LIGHTING
+// =============================================================
+const DEFAULT_LAT = 53.3498;   // Dublin
+const DEFAULT_LON = -6.2603;
+
+function sunAltitude(date, lat, lon) {
+    const rad = Math.PI / 180;
+    const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+    const dayOfYear = (date.getTime() - start) / 86400000;
+    const decl = 23.45 * Math.sin(((360 / 365) * (dayOfYear - 81)) * rad);
+    const utcH = date.getUTCHours() + date.getUTCMinutes()/60 + date.getUTCSeconds()/3600;
+    const solarTime = utcH + lon / 15;
+    const hourAngle = (solarTime - 12) * 15;
+    const sinAlt = Math.sin(lat * rad) * Math.sin(decl * rad)
+                 + Math.cos(lat * rad) * Math.cos(decl * rad) * Math.cos(hourAngle * rad);
+    return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / rad;
+}
+
+const PALETTES = [
+    // Deep night
+    { alt: -90,
+        sky_top: '#0c1316', sky_mid_high: '#0c1410', sky_mid: '#0b1310',
+        sky_mid_low: '#091210', sky_floor: '#0a0805',
+        horizon_warm: 'rgba(80,55,32,0.05)', horizon_warm_2: 'rgba(60,40,22,0.03)',
+        moon_glow: 'rgba(190,205,210,0.10)', moon_pos: '22% -8%',
+        ground_tint: '#15140e' },
+    // Twilight
+    { alt: -12,
+        sky_top: '#141d24', sky_mid_high: '#131c1c', sky_mid: '#101814',
+        sky_mid_low: '#0c1411', sky_floor: '#0c0a07',
+        horizon_warm: 'rgba(110,75,45,0.08)', horizon_warm_2: 'rgba(75,52,30,0.04)',
+        moon_glow: 'rgba(170,190,200,0.10)', moon_pos: '22% -8%',
+        ground_tint: '#1e1c14' },
+    // Sunrise / sunset
+    { alt: 0,
+        sky_top: '#3a3a48', sky_mid_high: '#5a3e34', sky_mid: '#7a4a30',
+        sky_mid_low: '#3a2418', sky_floor: '#1a120c',
+        horizon_warm: 'rgba(230,150,80,0.22)', horizon_warm_2: 'rgba(170,90,50,0.10)',
+        moon_glow: 'rgba(255,210,160,0.10)', moon_pos: '80% 5%',
+        ground_tint: '#322618' },
+    // Mid-morning / late-afternoon
+    { alt: 8,
+        sky_top: '#9da99a', sky_mid_high: '#c4a079', sky_mid: '#caa073',
+        sky_mid_low: '#7c5a3e', sky_floor: '#3a281a',
+        horizon_warm: 'rgba(255,210,140,0.22)', horizon_warm_2: 'rgba(220,160,95,0.12)',
+        moon_glow: 'rgba(255,235,190,0.22)', moon_pos: '78% 8%',
+        ground_tint: '#574e34' },
+    // Bright daylight — sunlit Irish forest floor, mossy + earthy
+    { alt: 30,
+        sky_top: '#cdd2c8', sky_mid_high: '#d6c9b2', sky_mid: '#cfbf9e',
+        sky_mid_low: '#a08866', sky_floor: '#564030',
+        horizon_warm: 'rgba(255,245,220,0.20)', horizon_warm_2: 'rgba(240,220,190,0.12)',
+        moon_glow: 'rgba(255,250,235,0.28)', moon_pos: '50% -8%',
+        ground_tint: '#6a6240' },
+];
+
+function lerpColor(a, b, t) {
+    const parse = (s) => {
+        if (s.startsWith('#')) {
+            const h = s.slice(1);
+            return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16), 1];
+        }
+        const m = s.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+        if (!m) return [0,0,0,1];
+        return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+    };
+    const [r1,g1,b1,a1] = parse(a);
+    const [r2,g2,b2,a2] = parse(b);
+    const r = Math.round(r1 + (r2-r1)*t);
+    const g = Math.round(g1 + (g2-g1)*t);
+    const bb = Math.round(b1 + (b2-b1)*t);
+    const al = a1 + (a2-a1)*t;
+    if (a.startsWith('#') && b.startsWith('#')) {
+        const hex = n => n.toString(16).padStart(2,'0');
+        return `#${hex(r)}${hex(g)}${hex(bb)}`;
+    }
+    return `rgba(${r},${g},${bb},${al.toFixed(3)})`;
+}
+function paletteForAltitude(alt) {
+    for (let i = 0; i < PALETTES.length - 1; i++) {
+        const lo = PALETTES[i], hi = PALETTES[i+1];
+        if (alt >= lo.alt && alt < hi.alt) {
+            const t = (alt - lo.alt) / (hi.alt - lo.alt);
+            const out = { alt };
+            for (const k of Object.keys(lo)) {
+                if (k === 'alt' || k === 'moon_pos') continue;
+                out[k] = lerpColor(lo[k], hi[k], t);
+            }
+            out.moon_pos = t < 0.5 ? lo.moon_pos : hi.moon_pos;
+            return out;
+        }
+    }
+    return PALETTES[PALETTES.length - 1];
+}
+function applyTimePalette() {
+    const lat = parseFloat(localStorage.getItem('forest_lat')) || DEFAULT_LAT;
+    const lon = parseFloat(localStorage.getItem('forest_lon')) || DEFAULT_LON;
+    const alt = sunAltitude(new Date(), lat, lon);
+    const p   = paletteForAltitude(alt);
+    const r   = document.documentElement.style;
+    r.setProperty('--sky-top',        p.sky_top);
+    r.setProperty('--sky-mid-high',   p.sky_mid_high);
+    r.setProperty('--sky-mid',        p.sky_mid);
+    r.setProperty('--sky-mid-low',    p.sky_mid_low);
+    r.setProperty('--sky-floor',      p.sky_floor);
+    r.setProperty('--horizon-warm',   p.horizon_warm);
+    r.setProperty('--horizon-warm-2', p.horizon_warm_2);
+    r.setProperty('--moon-glow',      p.moon_glow);
+    r.setProperty('--moon-pos',       p.moon_pos);
+    // Forest-floor tint — palette-driven base colour under the texture.
+    if (p.ground_tint) r.setProperty('--ground-tint', p.ground_tint);
+
+    // Fireflies belong to dusk + night only.
+    const fc = document.getElementById('fireflies');
+    if (fc) fc.style.opacity = (alt < 2) ? '1' : '0';
+
+    // Re-skin the wood for the new light (cast-shadow length + haze + tint
+    // all shift) — but only once the trees already exist, so this no-ops on
+    // the very first call (loadPlaces draws them with the current light).
+    const tl = document.getElementById('world-trees');
+    if (tl && tl.firstChild) drawWorldTrees(_state.places);
+}
+applyTimePalette();
+setInterval(applyTimePalette, 5 * 60 * 1000);
+
+// A few birds, hung still and silhouetted high in the sky. Static — they
+// just settle into new spots on each load / place-move (like all the detail).
+function spawnSkyBirds(n) {
+    const el = document.getElementById('sky-birds');
+    if (!el) return;
+    el.innerHTML = '';
+    const wing = '<svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M1 6 Q4 1 8 5 Q12 1 15 6"/></svg>';
+    for (let i = 0; i < n; i++) {
+        const b = document.createElement('div');
+        b.className = 'sky-bird';
+        b.innerHTML = wing;
+        b.style.left = (6 + Math.random() * 84) + 'vw';
+        b.style.top  = (6 + Math.random() * 26) + 'vh';
+        b.style.transform = `scale(${0.7 + Math.random() * 0.7})`;
+        el.appendChild(b);
+    }
+}
+
+if (!localStorage.getItem('forest_geo_asked') && navigator.geolocation) {
+    localStorage.setItem('forest_geo_asked', '1');
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            localStorage.setItem('forest_lat', String(pos.coords.latitude));
+            localStorage.setItem('forest_lon', String(pos.coords.longitude));
+            applyTimePalette();
+        },
+        () => { /* denied */ },
+        { maximumAge: 24 * 60 * 60 * 1000, timeout: 8000 }
+    );
+}
+
+// =============================================================
+// GO
+// =============================================================
+window.addEventListener('resize', () => {
+    const minZ = minZoomForViewport();
+    if (_state.zoom < minZ) _state.zoom = minZ;
+    clampPan();
+    applyTransform();
+});
+spawnFireflies(10);
+loadPlaces();   // also seeds the forest + places the static birds
+</script>
+
+<!-- Live audio-health indicator: surfaces "tracks can't be read / wrong drive"
+     the moment the Forest loads. Hidden when everything is playable. -->
+<a id="forest-health" href="/audio-health" title="Audio health"
+   style="display:none;position:fixed;top:14px;right:16px;z-index:60;
+          font:500 0.82rem/1.3 var(--font-main,system-ui);text-decoration:none;
+          padding:7px 13px;border-radius:999px;color:#f5e6b0;
+          background:rgba(20,16,10,0.66);border:1px solid rgba(168,130,44,0.5);
+          backdrop-filter:blur(3px);box-shadow:0 2px 10px rgba(0,0,0,0.35);"></a>
+<script>
+(async function(){
+  try{
+    const d = await fetch('/api/library/health').then(r=>r.json());
+    const el = document.getElementById('forest-health');
+    if(!el || !d || !d.total) return;
+    if(d.warning && d.warning.kind === 'drive_unmounted'){
+      el.textContent = '⚠ ' + d.warning.volume + ' not connected · ' + d.warning.tracks + ' tracks unreadable';
+      el.style.color = '#f3d6cf';
+      el.style.background = 'rgba(90,28,20,0.78)';
+      el.style.borderColor = '#9c3b2c';
+      el.style.display = '';
+    } else if (d.missing > 0 || d.corrupt > 0){
+      el.textContent = d.playable + ' playable · ' + d.missing + ' not on this drive'
+                     + (d.corrupt ? ' · ' + d.corrupt + ' corrupt' : '');
+      el.style.display = '';
+    }
+  }catch(e){}
+})();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

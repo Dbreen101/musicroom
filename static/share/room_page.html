@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+<style>
+/* Self-contained shared room page. No network, no audio — metadata, notes,
+   links and covers only. Fonts ship in ./fonts (OFL), art in ./art.
+   Renders either a curated mixed showcase (ROOM.items) or a plain track
+   share (ROOM.tracks). */
+@font-face{ font-family:'EB Garamond'; src:url('fonts/ebgaramond-400-latin.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap; }
+@font-face{ font-family:'EB Garamond'; src:url('fonts/ebgaramond-400-italic-latin.woff2') format('woff2');
+  font-weight:400; font-style:italic; font-display:swap; }
+@font-face{ font-family:'EB Garamond'; src:url('fonts/ebgaramond-500-latin.woff2') format('woff2');
+  font-weight:500; font-style:normal; font-display:swap; }
+@font-face{ font-family:'Inter'; src:url('fonts/inter-400-latin.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap; }
+@font-face{ font-family:'Inter'; src:url('fonts/inter-500-latin.woff2') format('woff2');
+  font-weight:500; font-style:normal; font-display:swap; }
+@font-face{ font-family:'JetBrains Mono'; src:url('fonts/jetbrainsmono-400-latin.woff2') format('woff2');
+  font-weight:400; font-style:normal; font-display:swap; }
+
+:root{
+  --bg:#0d0b07; --surface:#1a1610; --surface2:#221c15;
+  --border:rgba(245,230,176,.16); --border2:rgba(245,230,176,.28);
+  --text:#efe6cf; --muted:#9a8c6c; --muted2:#7d7257;
+  --accent:#f5e6b0;
+  --serif:'EB Garamond', Georgia, serif;
+  --sans:'Inter','Helvetica Neue',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{ background:var(--bg); color:var(--text); font-family:var(--sans); font-size:15px;
+  -webkit-font-smoothing:antialiased; }
+
+.wrap{ max-width:1280px; margin:0 auto; padding:44px 28px 80px; }
+
+header{ margin-bottom:26px; }
+h1{ font-family:var(--serif); font-weight:500; font-size:2.3rem; margin:0 0 6px; color:var(--accent);
+  letter-spacing:.2px; }
+.sub{ color:var(--muted); font-size:.86rem; display:flex; gap:14px; flex-wrap:wrap; align-items:baseline; }
+.sub .n{ font-family:var(--mono); font-size:.78rem; }
+.desc{ font-family:var(--serif); font-style:italic; font-size:1.06rem; color:var(--text);
+  opacity:.88; max-width:64ch; margin:14px 0 0; line-height:1.55; }
+.roomlinks{ display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+.roomlinks a{ color:var(--accent); text-decoration:none; font-size:.8rem; border:1px solid var(--border2);
+  border-radius:20px; padding:6px 14px; transition:all .15s ease; }
+.roomlinks a:hover{ background:rgba(245,230,176,.1); }
+
+.controls{ display:flex; gap:10px; align-items:center; margin:26px 0 20px; flex-wrap:wrap; }
+.controls input[type=search]{ flex:1; min-width:200px; max-width:340px; background:var(--surface);
+  border:1px solid var(--border); border-radius:11px; color:var(--text); padding:9px 13px;
+  font-family:var(--sans); font-size:.88rem; outline:none; }
+.controls input[type=search]:focus{ border-color:var(--border2); }
+.controls input::placeholder{ color:var(--muted2); }
+.sortrow{ display:flex; gap:6px; }
+.sortb{ background:var(--surface); border:1px solid var(--border); border-radius:20px; color:var(--muted);
+  padding:7px 14px; font-family:var(--sans); font-size:.78rem; cursor:pointer; transition:all .14s ease; }
+.sortb:hover{ color:var(--text); border-color:var(--border2); }
+.sortb.on{ color:var(--accent); border-color:var(--border2); background:rgba(245,230,176,.07); }
+.count{ color:var(--muted2); font-family:var(--mono); font-size:.72rem; margin-left:auto; }
+
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:18px 16px; }
+.card{ cursor:pointer; position:relative; }
+.cov{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden;
+  background:var(--surface); transition:transform .16s ease, box-shadow .16s ease; }
+.card:hover .cov{ transform:translateY(-3px); box-shadow:0 14px 34px rgba(0,0,0,.55); }
+.cov img{ width:100%; height:100%; object-fit:cover; display:block; }
+.cov .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:var(--serif); font-size:2.4rem; color:rgba(245,230,176,.75); }
+.cov .notebody{ width:100%; height:100%; padding:16px 14px; font-family:var(--serif);
+  font-style:italic; font-size:.97rem; line-height:1.5; color:var(--text);
+  display:-webkit-box; -webkit-line-clamp:8; -webkit-box-orient:vertical; overflow:hidden;
+  border:1px solid var(--border); border-radius:8px; background:var(--surface2); }
+.kindtag{ position:absolute; top:8px; left:8px; z-index:2; font-family:var(--mono); font-size:.58rem;
+  letter-spacing:1.2px; text-transform:uppercase; color:var(--accent);
+  background:rgba(13,11,7,.78); border:1px solid var(--border); border-radius:20px; padding:3px 9px; }
+.card .t{ margin-top:8px; font-size:.85rem; font-weight:500; line-height:1.3;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.card .a{ margin-top:2px; font-family:var(--serif); font-style:italic; font-size:.83rem;
+  color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.empty{ color:var(--muted); font-family:var(--serif); font-style:italic; padding:40px 0; }
+
+/* detail overlay */
+.ovl{ position:fixed; inset:0; z-index:50; display:none; align-items:flex-start; justify-content:center;
+  background:rgba(6,4,2,.8); backdrop-filter:blur(4px); overflow-y:auto; padding:5vh 18px 8vh; }
+.ovl.on{ display:flex; }
+.panel{ width:min(880px,100%); background:linear-gradient(170deg,#1e1811,#141009);
+  border:1px solid var(--border2); border-radius:18px; padding:26px;
+  display:grid; grid-template-columns:300px 1fr; gap:26px; position:relative; }
+.panel.solo{ grid-template-columns:1fr; max-width:640px; }
+@media (max-width:720px){ .panel{ grid-template-columns:1fr; } }
+.panel .x{ position:absolute; top:14px; right:14px; background:none; border:1px solid var(--border);
+  color:var(--muted); border-radius:9px; padding:5px 11px; cursor:pointer; font-size:.85rem; z-index:2; }
+.panel .x:hover{ color:var(--text); border-color:var(--border2); }
+.bigcov{ width:100%; aspect-ratio:1; border-radius:10px; overflow:hidden; background:var(--surface); }
+.bigcov img{ width:100%; height:100%; object-fit:cover; display:block; }
+.bigcov .ph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:var(--serif); font-size:4rem; color:rgba(245,230,176,.75); }
+.d-title{ font-family:var(--serif); font-weight:500; font-size:1.7rem; margin:0 26px 2px 0; line-height:1.2; }
+.d-artist{ font-family:var(--serif); font-style:italic; font-size:1.12rem; color:var(--muted); margin:0 0 12px; }
+.d-meta{ font-family:var(--mono); font-size:.74rem; color:var(--muted); line-height:1.9; }
+.d-meta b{ color:var(--text); font-weight:400; }
+.chips{ display:flex; gap:6px; flex-wrap:wrap; margin:12px 0 0; }
+.chip{ font-size:.72rem; color:var(--muted); border:1px solid var(--border); border-radius:20px;
+  padding:3px 10px; }
+.chip.g{ color:var(--accent); border-color:var(--border2); }
+.d-notes{ margin-top:16px; border-top:1px solid var(--border); padding-top:14px; }
+.d-notes h4{ margin:0 0 8px; font-size:.7rem; font-family:var(--mono); font-weight:400;
+  letter-spacing:1.4px; text-transform:uppercase; color:var(--muted2); }
+.note{ font-family:var(--serif); font-size:.98rem; line-height:1.55; margin:0 0 9px; }
+.note .ts{ font-family:var(--mono); font-size:.7rem; color:var(--accent); margin-right:8px; opacity:.85; }
+.d-links{ display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
+.d-links a{ color:var(--bg); background:var(--accent); text-decoration:none; font-size:.8rem;
+  font-weight:500; border-radius:9px; padding:8px 15px; transition:opacity .14s ease; }
+.d-links a:hover{ opacity:.85; }
+.d-links a.q{ background:none; color:var(--accent); border:1px solid var(--border2); font-weight:400; }
+.tl{ margin-top:16px; border-top:1px solid var(--border); padding-top:6px; }
+.tl-row{ display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid rgba(245,230,176,.06);
+  cursor:pointer; }
+.tl-row:hover .tl-t{ color:var(--accent); }
+.tl-n{ font-family:var(--mono); font-size:.68rem; color:var(--muted2); min-width:20px; }
+.tl-t{ font-size:.9rem; }
+.tl-a{ font-family:var(--serif); font-style:italic; font-size:.82rem; color:var(--muted); margin-left:auto;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40%; }
+.bignote{ font-family:var(--serif); font-style:italic; font-size:1.25rem; line-height:1.65; margin:6px 0 0; }
+.bignote-ctx{ font-family:var(--mono); font-size:.72rem; color:var(--muted); margin-top:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="rname"></h1>
+    <div class="sub"><span class="n" id="rcount"></span><span class="n" id="rdate"></span></div>
+    <p class="desc" id="rdesc" hidden></p>
+    <div class="roomlinks" id="rlinks"></div>
+  </header>
+  <div class="controls">
+    <input type="search" id="q" placeholder="search">
+    <div class="sortrow" id="sorts"></div>
+    <span class="count" id="shown"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>nothing matches</div>
+</div>
+
+<div class="ovl" id="ovl">
+  <div class="panel" id="panel"></div>
+</div>
+
+<script id="room-data" type="application/json">__ROOM_JSON__</script>
+<script>
+'use strict';
+const ROOM = JSON.parse(document.getElementById('room-data').textContent);
+document.title = ROOM.name;
+if (ROOM.accent) document.documentElement.style.setProperty('--accent', ROOM.accent);
+
+/* one internal shape: a list of mixed items. A plain track share becomes
+   all-track items; a showcase arrives mixed, in the owner's order. */
+const CURATED = Array.isArray(ROOM.items);
+const ITEMS = (CURATED ? ROOM.items : (ROOM.tracks || []).map(t => Object.assign({ kind: 'track' }, t)))
+  .map((it, i) => Object.assign({ _i: i }, it));
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+document.getElementById('rname').textContent = ROOM.name;
+const nTracks = ITEMS.filter(i => i.kind === 'track').length;
+document.getElementById('rcount').textContent = CURATED
+  ? (ITEMS.length + ' thing' + (ITEMS.length === 1 ? '' : 's'))
+  : (nTracks + ' record' + (nTracks === 1 ? '' : 's'));
+if (ROOM.generated) document.getElementById('rdate').textContent = ROOM.generated;
+if (ROOM.description) {
+  const d = document.getElementById('rdesc');
+  d.textContent = ROOM.description; d.hidden = false;
+}
+const rl = document.getElementById('rlinks');
+(ROOM.links || []).forEach(l => {
+  if (!l.url) return;
+  const a = document.createElement('a');
+  a.href = l.url; a.target = '_blank'; a.rel = 'noopener';
+  a.textContent = (l.title || l.url) + ' ↗';
+  rl.appendChild(a);
+});
+
+/* hue for the colour arrangement (plain track shares only) */
+function hueOf(hex){
+  if (!hex) return null;
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim()); if (!m) return null;
+  const n = parseInt(m[1], 16), r = (n>>16)/255, g = ((n>>8)&255)/255, b = (n&255)/255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn;
+  if (d < 0.06) return 900 + mx;
+  let h;
+  if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+ITEMS.forEach(t => { if (t.kind === 'track') t._hue = hueOf(t.colour); });
+
+let sortKey = CURATED ? 'curated' : 'artist', q = '';
+const cmp = {
+  curated: (a,b) => a._i - b._i,
+  artist: (a,b) => (a.artist||'~').localeCompare(b.artist||'~') || (a.title||'').localeCompare(b.title||''),
+  title:  (a,b) => (a.title||'~').localeCompare(b.title||'~'),
+  year:   (a,b) => (a.year||9999) - (b.year||9999) || (a.artist||'').localeCompare(b.artist||''),
+  colour: (a,b) => (a._hue==null) - (b._hue==null) || (a._hue||0) - (b._hue||0),
+};
+function hayOf(it){
+  if (it.kind === 'track')
+    return [it.title, it.artist, it.album, it.label, (it.genres||[]).join(' '), (it.tags||[]).join(' ')].join(' ');
+  if (it.kind === 'album')
+    return [it.album, it.artist].concat((it.tracks||[]).map(t => t.title)).join(' ');
+  if (it.kind === 'note') return [it.text, it.context].join(' ');
+  return [it.title, it.subtitle, it.url].join(' ');
+}
+function matches(it){
+  if (!q) return true;
+  const hay = hayOf(it).toLowerCase();
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+
+const grid = document.getElementById('grid');
+function trackCover(t){
+  if (t.art) return '<img src="art/' + t.id + '.jpg" alt="" loading="lazy">';
+  const bgc = t.colour || '#221c15';
+  const init = esc((t.title || '?').trim().charAt(0).toUpperCase());
+  return '<div class="ph" style="background:' + esc(bgc) + '55">' + init + '</div>';
+}
+function albumCoverTrack(it){ return (it.tracks || []).find(t => t.art) || null; }
+function cardHtml(it, idx){
+  let cov, title, sub, tag = '';
+  if (it.kind === 'track') {
+    cov = trackCover(it); title = it.title; sub = it.artist || '';
+  } else if (it.kind === 'album') {
+    const ct = albumCoverTrack(it);
+    cov = ct ? '<img src="art/' + ct.id + '.jpg" alt="" loading="lazy">'
+             : '<div class="ph">' + esc((it.album || '?').charAt(0).toUpperCase()) + '</div>';
+    title = it.album; sub = it.artist || '';
+    tag = '<span class="kindtag">album · ' + (it.tracks || []).length + '</span>';
+  } else if (it.kind === 'note') {
+    cov = '<div class="notebody">' + esc(it.text) + '</div>';
+    title = ''; sub = it.context || '';
+    tag = '<span class="kindtag">note</span>';
+  } else {   /* link / article */
+    cov = it.image
+      ? '<img src="' + esc(it.image) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=ph>↗</div>\'">'
+      : '<div class="ph">↗</div>';
+    title = it.title || it.url; sub = it.subtitle || '';
+    tag = '<span class="kindtag">' + (it.kind === 'article' ? 'article' : 'link') + '</span>';
+  }
+  return '<div class="card" data-i="' + idx + '">' + tag +
+    '<div class="cov">' + cov + '</div>' +
+    (title ? '<div class="t">' + esc(title) + '</div>' : '') +
+    (sub ? '<div class="a">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+let shownList = [];
+function render(){
+  shownList = ITEMS.filter(matches).sort(cmp[sortKey]);
+  grid.innerHTML = shownList.map((it, idx) => cardHtml(it, idx)).join('');
+  document.getElementById('shown').textContent =
+    q ? (shownList.length + ' of ' + ITEMS.length) : '';
+  document.getElementById('empty').hidden = shownList.length !== 0;
+}
+
+const sorts = document.getElementById('sorts');
+if (!CURATED) {
+  [['artist','artist'],['title','title'],['year','year'],['colour','colour']].forEach(([k,lbl]) => {
+    const b = document.createElement('button');
+    b.className = 'sortb' + (k === sortKey ? ' on' : ''); b.textContent = lbl; b.dataset.k = k;
+    b.onclick = () => { sortKey = k;
+      sorts.querySelectorAll('.sortb').forEach(x => x.classList.toggle('on', x.dataset.k === k));
+      render(); };
+    sorts.appendChild(b);
+  });
+}
+document.getElementById('q').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); render(); });
+
+/* detail overlays */
+const ovl = document.getElementById('ovl'), panel = document.getElementById('panel');
+function linkRow(t){
+  const rows = [];
+  const add = (url, lbl, quiet) => { if (url) rows.push('<a ' + (quiet ? 'class="q" ' : '') +
+    'href="' + esc(url) + '" target="_blank" rel="noopener">' + lbl + '</a>'); };
+  add(t.links && t.links.bandcamp, 'Bandcamp');
+  add(t.links && t.links.soundcloud, 'SoundCloud');
+  add(t.links && t.links.youtube, 'YouTube');
+  add(t.links && t.links.spotify, 'Spotify');
+  add(t.links && t.links.other, 'Link');
+  if (!(t.links && t.links.bandcamp)) {
+    const qq = encodeURIComponent(((t.artist || '') + ' ' + (t.title || '')).trim());
+    if (qq) add('https://bandcamp.com/search?q=' + qq, 'find on Bandcamp ↗', true);
+  }
+  return rows.join('');
+}
+function trackPanelHtml(t){
+  const meta = [];
+  if (t.album) meta.push('album <b>' + esc(t.album) + '</b>');
+  if (t.year) meta.push('year <b>' + t.year + '</b>');
+  if (t.label) meta.push('label <b>' + esc(t.label) + '</b>');
+  if (t.bpm) meta.push('bpm <b>' + Math.round(t.bpm) + '</b>');
+  if (t.key) meta.push('key <b>' + esc(t.key) + '</b>');
+  const chips = (t.genres || []).map(g => '<span class="chip g">' + esc(g) + '</span>')
+    .concat((t.tags || []).map(g => '<span class="chip">' + esc(g) + '</span>')).join('');
+  const notes = (t.notes || []).map(n =>
+    '<p class="note">' + (n.ts ? '<span class="ts">' + esc(n.ts) + '</span>' : '') + esc(n.text) + '</p>').join('');
+  return '<div><div class="bigcov">' + trackCover(t) + '</div></div>' +
+    '<div>' +
+      '<h2 class="d-title">' + esc(t.title) + '</h2>' +
+      '<p class="d-artist">' + esc(t.artist || '') + '</p>' +
+      (meta.length ? '<div class="d-meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') +
+      (chips ? '<div class="chips">' + chips + '</div>' : '') +
+      (notes ? '<div class="d-notes"><h4>notes</h4>' + notes + '</div>' : '') +
+      '<div class="d-links">' + linkRow(t) + '</div>' +
+    '</div>';
+}
+function albumPanelHtml(it){
+  const ct = albumCoverTrack(it);
+  const cov = ct ? '<img src="art/' + ct.id + '.jpg" alt="">'
+    : '<div class="ph">' + esc((it.album || '?').charAt(0).toUpperCase()) + '</div>';
+  const rows = (it.tracks || []).map((t, i) =>
+    '<div class="tl-row" data-tid="' + t.id + '"><span class="tl-n">' + (i + 1) + '</span>' +
+    '<span class="tl-t">' + esc(t.title) + '</span>' +
+    (t.artist && t.artist !== it.artist ? '<span class="tl-a">' + esc(t.artist) + '</span>' : '') +
+    '</div>').join('');
+  const qq = encodeURIComponent(((it.artist || '') + ' ' + (it.album || '')).trim());
+  return '<div><div class="bigcov">' + cov + '</div></div>' +
+    '<div>' +
+      '<h2 class="d-title">' + esc(it.album) + '</h2>' +
+      '<p class="d-artist">' + esc(it.artist || '') + '</p>' +
+      '<div class="tl">' + rows + '</div>' +
+      '<div class="d-links"><a class="q" href="https://bandcamp.com/search?q=' + qq +
+        '" target="_blank" rel="noopener">find on Bandcamp ↗</a></div>' +
+    '</div>';
+}
+function notePanelHtml(it){
+  return '<div>' +
+    '<p class="bignote">' + esc(it.text) + '</p>' +
+    (it.detail ? '<p class="note" style="margin-top:12px">' + esc(it.detail) + '</p>' : '') +
+    (it.context ? '<p class="bignote-ctx">' + esc(it.context) + '</p>' : '') +
+  '</div>';
+}
+function openPanel(html, solo){
+  panel.className = 'panel' + (solo ? ' solo' : '');
+  panel.innerHTML = '<button class="x" id="ovl-x">✕</button>' + html;
+  ovl.classList.add('on');
+  document.getElementById('ovl-x').onclick = closePanel;
+}
+function closePanel(){ ovl.classList.remove('on'); }
+ovl.addEventListener('click', e => { if (e.target === ovl) closePanel(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+grid.addEventListener('click', e => {
+  const c = e.target.closest('.card'); if (!c) return;
+  const it = shownList[+c.dataset.i]; if (!it) return;
+  if (it.kind === 'track') openPanel(trackPanelHtml(it));
+  else if (it.kind === 'album') openPanel(albumPanelHtml(it));
+  else if (it.kind === 'note') openPanel(notePanelHtml(it), true);
+  else if (it.url) window.open(it.url, '_blank', 'noopener');
+});
+panel.addEventListener('click', e => {
+  const row = e.target.closest('.tl-row'); if (!row) return;
+  for (const it of ITEMS) {
+    if (it.kind !== 'album') continue;
+    const t = (it.tracks || []).find(x => x.id === +row.dataset.tid);
+    if (t) { openPanel(trackPanelHtml(t)); return; }
+  }
+});
+
+render();
+</script>
+</body>
+</html>

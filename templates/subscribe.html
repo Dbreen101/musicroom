@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+
+<main class="gr-main gr-main--narrow">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">Borrowing</div>
+        <h1 class="gr-h1">Choose how you borrow</h1>
+        <p class="gr-lede">Borrowed records live on this laptop and play in your Music Room. Buy one outright any time and what you've already paid this month comes off the price. During the residency this is play money — nothing real changes hands.</p>
+    </header>
+
+    <div class="gr-plans" id="plans"></div>
+    <div class="gr-status" id="status"></div>
+    <p class="gr-fine">You can change plan any time in Settings. The first borrow of a month charges the month.</p>
+</main>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script>
+const NEXT = {{ next_url|tojson }};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = c => '€' + ((c || 0) / 100).toFixed(2);
+let CURRENT = null;
+
+async function load(){
+    const st = await (await fetch('/api/gr/status')).json();
+    CURRENT = st.me ? st.me.plan : null;
+    const r = await fetch('/api/gr/plans');
+    const d = await r.json();
+    const box = document.getElementById('plans');
+    if (!r.ok) { box.innerHTML = `<div class="gr-empty">${esc(d.error || "the plans can't be read")} — join a server in <a href="/settings#gr-settings">Settings</a>.</div>`; return; }
+    box.innerHTML = d.plans.map(p => `
+        <button class="gr-plan ${CURRENT === p.key ? 'gr-plan--on' : ''}" onclick="pick('${p.key}', this)">
+            <div class="gr-plan__name">${esc(p.name)}</div>
+            <div class="gr-plan__price">${p.price_cents ? euro(p.price_cents) + '<small>/month</small>' : euro(p.per_borrow_cents) + '<small>/borrow</small>'}</div>
+            <div class="gr-plan__blurb">${esc(p.blurb)}</div>
+            <div class="gr-plan__cta">${CURRENT === p.key ? 'your plan' : 'choose'}</div>
+        </button>`).join('');
+    if (window.gsap && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+        gsap.from('.gr-plan', { y: 18, opacity: 0, duration: .6, stagger: .08, ease: 'power3.out' });
+}
+
+async function pick(key, btn){
+    btn.disabled = true;
+    const r = await fetch('/api/gr/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: key }) });
+    const d = await r.json();
+    if (!r.ok) { document.getElementById('status').textContent = d.error || 'that did not work'; btn.disabled = false; return; }
+    document.getElementById('status').textContent = 'Done — ' + d.plan_name + '.';
+    setTimeout(() => { location.href = NEXT; }, 500);
+}
+load();
+</script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+/* the faces a grúpa's cover may be set in travel with the app (see grupa.py FONTS) */
+@import url("/static/css/record_fonts.css");
+
+/* grúpa — a playlist that holds anything. The working document: hairline rows,
+   serif names, mono labels, one ink fill, red only for a warning.
+   One surface (static/js/grupa_ui.js), two homes: the Grúpa page and the Grúpaí
+   tab inside My Room. Everything is scoped under .gp / .gp-pick / .gp-say /
+   .gp-cv and reads the theme tokens, so it stands on any page (the deck's
+   "＋ grúpa" key loads this file on demand). */
+
+.gp { display: block; color: var(--text); font-family: var(--f-mono, ui-monospace, Menlo, monospace); text-align: left; }
+.gp, .gp *, .gp-pick, .gp-pick *, .gp-say { box-sizing: border-box; border-radius: 0; }
+.gp [hidden], .gp-pick [hidden] { display: none !important; }
+
+/* in My Room the surface covers the scene, under the room's own bar */
+.gp-roomhost { position: fixed; inset: 0; z-index: 8; overflow-y: auto; background: var(--bg); display: none;
+  padding: 96px clamp(18px, 4vw, 56px) 200px; transition: opacity .3s; }
+.gp-roomhost.on { display: block; }
+.gp-roomhost.away { opacity: 0; pointer-events: none; }
+.gp-roomhost > .gp { max-width: 1180px; margin: 0 auto; }
+
+/* ── a grúpa's cover: its name in type on a ground of colour, or a picture.
+   Put inside any square box (position: relative; overflow: hidden): the words
+   size themselves to the box (cqw = a hundredth of the box's width; where a
+   browser doesn't know that unit the plain size before it stands). ── */
+.gp-cv { position: absolute; inset: 0; display: flex; align-items: flex-end; overflow: hidden; container-type: size;
+  background: var(--surface2, var(--bg)); color: var(--text); font-family: var(--f-display, "Instrument Serif", Georgia, serif);
+  font-weight: 400; text-align: left; letter-spacing: 0; text-transform: none; }
+.gp-cv > span { display: block; width: 100%; padding: 0 9% 8%; font-size: 1rem; font-size: 15cqw; line-height: 1.04; letter-spacing: -.012em;
+  overflow-wrap: anywhere; max-height: 92%; overflow: hidden; }
+.gp-cv--xl > span { font-size: 1.6rem; font-size: 30cqw; line-height: .98; }
+.gp-cv--l > span { font-size: 1.3rem; font-size: 21cqw; line-height: 1; }
+.gp-cv--m > span { font-size: 1rem; font-size: 15cqw; }
+.gp-cv--s > span { font-size: .82rem; font-size: 11.5cqw; }
+.gp-cv--xs > span { font-size: .7rem; font-size: 9cqw; }
+.gp-cvimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── buttons: a hairline box, mono caps; one ink-filled primary ── */
+.gp-btn { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; flex: none;
+  font-family: var(--f-mono, ui-monospace, monospace); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 400; line-height: 1.2;
+  border: 1px solid var(--border2, var(--border)); background: none; color: var(--text); padding: 9px 14px; cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s; text-decoration: none; }
+.gp-btn:hover { border-color: var(--text); }
+.gp-btn--primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+.gp-btn--primary:hover { background: var(--gold-soft, var(--text)); border-color: var(--gold-soft, var(--text)); }
+.gp-btn--small { padding: 5px 10px; font-size: .62rem; }
+.gp-btn--danger { color: var(--red, #c9412f); border-color: var(--red, #c9412f); }
+.gp-btn[disabled] { opacity: .4; cursor: default; }
+
+/* ── inputs are lines on the page, not boxes ── */
+.gp .gp-input, .gp-pick input { display: block; width: 100%; min-width: 0; appearance: none; -webkit-appearance: none; outline: none;
+  border: 0 !important; border-bottom: 1px solid var(--text) !important; background: none !important; box-shadow: none !important;
+  color: var(--text); font-family: var(--f-mono, ui-monospace, monospace) !important; font-size: .9rem; padding: 10px 0 !important; }
+.gp textarea.gp-desc, .gp textarea.gp-note { display: block; width: 100%; outline: none; resize: none; overflow: hidden;
+  border: 0 !important; background: none !important; box-shadow: none !important; padding: 0 !important;
+  color: var(--text); font-family: var(--f-mono, ui-monospace, monospace) !important; }
+.gp .gp-input::placeholder, .gp textarea::placeholder, .gp-pick input::placeholder { color: var(--muted); opacity: 1; }
+.gp textarea.gp-note:focus, .gp textarea.gp-desc:focus { outline: 1px solid var(--border); outline-offset: 6px; }
+
+/* ── the pieces every view shares: a name, what it is, the bar of things to do ── */
+.gp-open { min-width: 0; }
+.gp-open.gp-drop { outline: 1px dashed var(--text); outline-offset: 14px; }
+.gp-name { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-weight: 400; font-size: clamp(2.4rem, 4.6vw, 3.8rem); line-height: 1.02; letter-spacing: -.01em;
+  margin: 0 0 14px; outline: none; min-height: 1em; word-break: break-word; color: var(--text); }
+.gp-name:empty::before { content: "Untitled"; color: var(--muted); }
+.gp-desc { font-size: .92rem; line-height: 1.6; max-width: 62ch; min-height: 1.6em; }
+.gp-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 26px 0 0; }
+.gp-bar__count { font-size: .72rem; color: var(--muted); margin-right: auto; padding-left: 6px; }
+
+/* ── home: every grúpa as a card ── */
+.gp-home__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
+.gp-home__head .gp-btn { align-self: center; }
+.gp-name--home { margin: 0; font-size: clamp(2.2rem, 4vw, 3.2rem); }
+.gp-home__n { font-size: .72rem; letter-spacing: .1em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gp-home__sp { flex: 1; }
+.gp-new { display: flex; align-items: flex-end; gap: 10px; margin: 0 0 26px; max-width: 420px; }
+.gp-new .gp-input { font-size: .84rem; }
+.gp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)); gap: 26px 18px; }
+.gp-cards > .gp-empty { grid-column: 1 / -1; max-width: 62ch; }
+.gp-card { min-width: 0; }
+.gp-card__cover { appearance: none; -webkit-appearance: none; position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; padding: 0; margin: 0;
+  overflow: hidden; background: none; border: 1px solid var(--border2, var(--border)); cursor: pointer; transition: border-color .2s, transform .2s; }
+.gp-card__cover:hover { border-color: var(--text); transform: translateY(-2px); }
+.gp-card__t { margin-top: 9px; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.14rem; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-card__s { margin-top: 3px; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); line-height: 1.55; }
+.gp-pubmark { color: var(--text); }
+.gp-warn { color: var(--red, #c9412f); }
+/* choosing several: a box in the corner of each cover, filled on the ones chosen */
+.gp-card__tick { display: none; position: absolute; left: 8px; top: 8px; width: 20px; height: 20px; background: var(--bg); border: 1px solid var(--text); }
+.gp-home--selecting .gp-card__tick { display: block; }
+.gp-card.sel .gp-card__tick { background: var(--text); }
+.gp-card.sel .gp-card__tick::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.gp-card.sel .gp-card__cover { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); }
+.gp-home--selecting .gp-card__cover:hover { transform: none; }
+.gp-selbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -6px 0 22px; padding: 10px 0; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); }
+.gp-selbar__n { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.gp-selbar__say { flex: 1 1 100%; font-size: .72rem; line-height: 1.5; color: var(--muted); }
+.gp-selbar__say:empty { display: none; }
+.gp-selbar__say.bad { color: var(--red, #c9412f); }
+
+/* ── a box that opens in the page: the shared look, one grúpa's cover ── */
+.gp-lookbox, .gp-coverbox { margin: 0 0 26px; padding: 14px 0 18px; border-top: 1px solid var(--text); border-bottom: 1px solid var(--border); max-width: 820px; }
+.gp-coverbox { margin: 22px 0 0; }
+.gp-box__h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.gp-box__p { font-size: .78rem; line-height: 1.6; color: var(--muted); max-width: 62ch; margin: 10px 0 0; }
+.gp-pickrow { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 12px; align-items: start; margin-top: 16px; }
+.gp-pickrow__k { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 9px; }
+.gp-fonts, .gp-swatches, .gp-pics { display: flex; flex-wrap: wrap; gap: 6px; }
+.gp-font { appearance: none; -webkit-appearance: none; background: none; border: 1px solid var(--border2, var(--border)); color: var(--text); cursor: pointer;
+  font-size: 1.02rem; line-height: 1; padding: 7px 10px 8px; letter-spacing: 0; text-transform: none; }
+.gp-font:hover { border-color: var(--text); }
+.gp-font.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.gp-sw { appearance: none; -webkit-appearance: none; position: relative; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border2, var(--border)); background: none;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text); font-family: inherit; }
+.gp-sw:hover { border-color: var(--text); }
+.gp-sw.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--text); border-color: var(--text); }
+.gp-sw--page { width: auto; padding: 0 9px; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; }
+.gp-sw--own { overflow: hidden; font-size: .9rem; }
+.gp-sw--own input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+.gp-seg { display: inline-flex; margin-top: 14px; border: 1px solid var(--border2, var(--border)); padding: 3px; gap: 3px; flex-wrap: wrap; }
+.gp-seg button { appearance: none; -webkit-appearance: none; background: none; border: 0; color: var(--muted); cursor: pointer; font-family: inherit;
+  font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; padding: 7px 11px; }
+.gp-seg button:hover { color: var(--text); }
+.gp-seg button.on { background: var(--text); color: var(--bg); }
+.gp-pics { margin-top: 16px; }
+.gp-pic { appearance: none; -webkit-appearance: none; width: 64px; height: 64px; padding: 0; background: none; border: 1px solid var(--border2, var(--border)); cursor: pointer; overflow: hidden; }
+.gp-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gp-pic:hover { border-color: var(--text); }
+.gp-pic.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--text); border-color: var(--text); }
+
+/* ── one grúpa, opened ── */
+.gp-one { max-width: 820px; }
+.gp-one > .gp-back { display: block; margin: 0 0 22px; padding: 6px 0; }
+.gp-head { display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 24px; align-items: end; }
+.gp-head__cover { appearance: none; -webkit-appearance: none; position: relative; width: 132px; height: 132px; padding: 0; overflow: hidden; background: none;
+  border: 1px solid var(--border2, var(--border)); cursor: pointer; }
+.gp-head__cover:hover { border-color: var(--text); }
+.gp-head__edit { position: absolute; right: 0; bottom: 0; background: var(--text); color: var(--bg); font-family: var(--f-mono, ui-monospace, monospace);
+  font-size: .54rem; letter-spacing: .1em; text-transform: uppercase; padding: 4px 6px; opacity: 0; transition: opacity .15s; }
+.gp-head__cover:hover .gp-head__edit, .gp-head__cover:focus-visible .gp-head__edit { opacity: 1; }
+.gp-head__main { min-width: 0; }
+.gp-head .gp-name { margin-bottom: 8px; }
+/* the public switch: a box that fills when it is on */
+.gp-switch { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 8px; background: none; border: 1px solid var(--border2, var(--border));
+  color: var(--text); cursor: pointer; font-family: inherit; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; padding: 5px 10px; line-height: 1.2; }
+.gp-switch:hover { border-color: var(--text); }
+.gp-switch__box { width: 11px; height: 11px; border: 1px solid var(--text); flex: none; }
+.gp-switch.on { border-color: var(--text); }
+.gp-switch.on .gp-switch__box { background: var(--text); }
+.gp-switch[disabled] { opacity: .5; cursor: default; }
+.gp-pubnote { font-size: .76rem; line-height: 1.6; color: var(--muted); max-width: 62ch; margin: 12px 0 0; }
+.gp-pubnote.bad { color: var(--red, #c9412f); }
+/* this grúpa as a folder of files (to drag into other programs) */
+.gp-folder { margin: 18px 0 0; padding: 14px 0 2px; border-top: 1px solid var(--border); max-width: 76ch; }
+.gp-folder__k { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.gp-folder__p { margin: 8px 0 0; font-size: .76rem; line-height: 1.6; color: var(--text); }
+.gp-folder__p--quiet { color: var(--muted); }
+.gp-folder__p--now { color: var(--red, #c9412f); }
+.gp-folder__path { margin: 8px 0 0; font-size: .66rem; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.gp-folder__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; }
+.gp-folder__link { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px; }
+.gp-folder__link:hover { color: var(--text); }
+.gp-folder__say { min-height: 0; margin: 8px 0 0; font-size: .72rem; line-height: 1.5; color: var(--muted); }
+.gp-folder__say:empty { margin: 0; }
+/* a row can be picked up by its number or its cover, as well as by its handle */
+.gp-items:not(.gp-items--read) .gp-n, .gp-items:not(.gp-items--read) .gp-cov { cursor: grab; }
+
+/* the add line: a link, or a search */
+.gp-add { position: relative; margin: 30px 0 0; }
+.gp-add__status { font-size: .72rem; color: var(--muted); min-height: 1.4em; padding-top: 6px; }
+.gp-add__status.bad { color: var(--red, #c9412f); }
+/* the results: a cover, the name, the small print, what kind of thing it is */
+.gp-results { border-bottom: 1px solid var(--border); max-height: min(62vh, 580px); overflow-y: auto; }
+.gp-results:empty { display: none; }
+.gp-res__h { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 16px 0 7px; }
+.gp-res__h:first-child { padding-top: 12px; }
+.gp-res__h i { font-style: normal; text-transform: none; letter-spacing: 0; margin-left: 8px; }
+.gp-res { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; width: 100%; text-align: left;
+  background: none; border: 0; border-top: 1px solid var(--border); padding: 7px 2px 7px 10px; margin: 0; cursor: pointer; color: var(--text); font-family: inherit;
+  box-shadow: inset 2px 0 0 transparent; letter-spacing: 0; text-transform: none; }
+.gp-res.on { box-shadow: inset 2px 0 0 var(--text); }                 /* where ↑ ↓ has got to */
+.gp-res:hover .gp-res__t, .gp-res:focus-visible .gp-res__t { text-decoration: underline; text-underline-offset: 3px; }
+.gp-res.have { cursor: default; }
+.gp-res.have .gp-res__t { color: var(--muted); text-decoration: none; }
+.gp-res.have .gp-res__c img { opacity: .5; }
+.gp-res__c { position: relative; width: 40px; height: 40px; background: var(--surface2, transparent); border: 1px solid var(--border); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; }
+.gp-res__c span { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.05rem; color: var(--muted); }
+.gp-res__c img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gp-res__m { min-width: 0; display: block; }
+.gp-res__t { display: block; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.08rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-res__s { display: block; font-size: .66rem; letter-spacing: .03em; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-res__k { font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; padding-left: 6px; }
+
+/* what Spotify is playing now · the sign-in line */
+.gp-now:empty { display: none; }
+.gp-now__row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.gp-now__k { flex: none; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gp-now__t { flex: 1; min-width: 0; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-now__t i { font-style: normal; color: var(--muted); }
+.gp-now__t--note { font-family: inherit; font-size: .76rem; line-height: 1.55; color: var(--muted); white-space: normal; }
+
+/* the elements */
+.gp-items { margin-top: 18px; border-top: 1px solid var(--border); }
+.gp-item { display: grid; grid-template-columns: 18px 26px 56px minmax(0, 1fr) auto; column-gap: 14px; align-items: start;
+  padding: 16px 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+.gp-item.sortable-ghost { opacity: .35; }
+.gp-handle { font-size: .8rem; line-height: 56px; color: var(--muted); cursor: grab; user-select: none; text-align: center; opacity: .55; }
+.gp-handle:hover { opacity: 1; }
+.gp-n { font-size: .68rem; letter-spacing: .06em; color: var(--muted); line-height: 56px; font-variant-numeric: tabular-nums; }
+.gp-cov { position: relative; width: 56px; height: 56px; background: var(--surface2, transparent); border: 1px solid var(--border); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; }
+.gp-cov span { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.5rem; color: var(--muted); }
+.gp-cov img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gp-main { min-width: 0; }
+.gp-t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.25rem; line-height: 1.2; color: var(--text); display: inline-block; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+button.gp-t { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; letter-spacing: 0; text-transform: none; }
+button.gp-t:hover { text-decoration: underline; text-underline-offset: 3px; }
+.gp-s { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-s .gone, .gp-ai { color: var(--red, #c9412f); }
+.gp-item--ai .gp-t { color: var(--muted); }
+.gp-item--ai .gp-cov img { filter: grayscale(1); opacity: .45; }
+.gp-note { font-size: .82rem; line-height: 1.55; margin-top: 8px; min-height: 1.55em; max-width: 60ch; }
+.gp-acts { display: flex; gap: 6px; align-items: center; padding-top: 14px; }
+.gp-act { appearance: none; -webkit-appearance: none; background: none; border: 1px solid var(--border2, var(--border)); color: var(--text); cursor: pointer;
+  font-family: inherit; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; height: 26px; min-width: 28px; padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center; text-decoration: none; line-height: 1; white-space: nowrap; }
+.gp-act:hover { border-color: var(--text); }
+.gp-act--word { color: var(--muted); }
+.gp-act--word:hover { color: var(--text); }
+.gp-act--x { border-color: transparent; color: var(--muted); }
+.gp-act--x:hover { color: var(--red, #c9412f); border-color: transparent; }
+.gp-empty { font-size: .82rem; line-height: 1.6; color: var(--muted); padding: 18px 0; border-bottom: 1px solid var(--border); }
+
+/* your Spotify playlists: the list, and one opened to its tracks (rows as in the search) */
+.gp-sp { margin-top: 34px; }
+.gp-sp:empty { display: none; }
+.gp-sp__h { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+.gp-sp__note { font-size: .78rem; color: var(--muted); padding: 12px 0; line-height: 1.6; max-width: 62ch; }
+.gp-sp__list { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 12px; max-height: min(64vh, 620px); overflow-y: auto; }
+.gp-sp__list .gp-res:first-child { border-top: 0; }
+.gp-sp__more { padding: 12px 0 0; }
+.gp-sp__open { padding: 16px 0 2px; }
+.gp-sp__name { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.6rem; line-height: 1.15; margin: 8px 0 0; color: var(--text); }
+.gp-sp__open .gp-bar { margin: 12px 0 0; }
+.gp-back { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gp-back:hover { color: var(--text); }
+
+/* ── a grúpa's panel: met in the grid, read-only — one column of the same pieces ── */
+.gp.gp-panel { display: block; }
+.gp-panel__k { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.gp-panel .gp-name { font-size: clamp(2rem, 3.2vw, 2.7rem); margin-bottom: 12px; }
+.gp-panel__d { font-size: .9rem; line-height: 1.6; margin: 0; max-width: 58ch; color: var(--text); white-space: pre-wrap; }
+.gp-panel .gp-bar { margin-top: 22px; }
+.gp-items--read .gp-item { grid-template-columns: 24px 48px minmax(0, 1fr) auto; padding: 13px 0; }
+.gp-items--read .gp-cov { width: 48px; height: 48px; }
+.gp-items--read .gp-n { line-height: 48px; }
+.gp-items--read .gp-acts { padding-top: 10px; }
+.gp-note--read { color: var(--text); white-space: pre-wrap; min-height: 0; }
+
+/* ── "add to a grúpa": a small window — find one, make one, tick as many as you like, Done ── */
+.gp-pick { position: fixed; z-index: 9500; width: 300px; max-width: calc(100vw - 16px); background: var(--bg, #f2efe8); color: var(--text, #161513);
+  border: 1px solid var(--text, #161513); padding: 0; font-family: var(--f-mono, ui-monospace, Menlo, monospace); text-align: left;
+  box-shadow: 0 18px 44px var(--shadow, rgba(0,0,0,.25)); display: flex; flex-direction: column; max-height: min(520px, calc(100vh - 16px)); }
+.gp-pick__h { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 8px 10px 14px;
+  font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+.gp-pick__x { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; padding: 0; background: none; border: 1px solid transparent; color: var(--muted);
+  font: inherit; font-size: .66rem; cursor: pointer; }
+.gp-pick__x:hover { color: var(--bg); background: var(--text); }
+.gp-pick input { display: block; width: 100%; min-width: 0; appearance: none; -webkit-appearance: none; outline: none;
+  border: 0 !important; border-bottom: 1px solid var(--border) !important; background: none !important; box-shadow: none !important;
+  color: var(--text); font-family: var(--f-mono, ui-monospace, monospace) !important; font-size: .82rem; padding: 11px 14px !important; }
+.gp-pick input::placeholder { color: var(--muted); opacity: 1; }
+.gp-pick input:focus { border-bottom-color: var(--text) !important; }
+.gp-pick__newrow { appearance: none; -webkit-appearance: none; flex: none; display: flex; align-items: center; gap: 11px; width: 100%; background: none; border: 0;
+  border-bottom: 1px solid var(--border); padding: 8px 14px; cursor: pointer; color: var(--text); font-family: var(--f-display, "Instrument Serif", Georgia, serif);
+  font-size: 1.08rem; line-height: 1.2; letter-spacing: 0; text-transform: none; text-align: left; }
+.gp-pick__newrow:hover { background: var(--accent-dim, rgba(0,0,0,.04)); }
+.gp-pick__plus { width: 34px; height: 34px; flex: none; border: 1px solid var(--text); display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--f-mono, ui-monospace, monospace); font-size: .9rem; }
+.gp-pick__new { flex: none; display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+.gp-pick__new input { border-bottom: 0 !important; }
+.gp-pick__new button, .gp-pick__done { appearance: none; -webkit-appearance: none; flex: none; white-space: nowrap; background: var(--text); color: var(--bg); border: 1px solid var(--text);
+  font-family: var(--f-mono, ui-monospace, monospace); font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; padding: 8px 12px; cursor: pointer; }
+.gp-pick__new button[disabled] { opacity: .5; }
+.gp-pick__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.gp-pick__row { appearance: none; -webkit-appearance: none; display: grid; grid-template-columns: 16px 34px minmax(0, 1fr) auto; column-gap: 11px; align-items: center; width: 100%;
+  background: none; border: 0; border-bottom: 1px solid var(--border); padding: 7px 14px; cursor: pointer; color: var(--text); text-align: left; font-family: inherit;
+  letter-spacing: 0; text-transform: none; }
+.gp-pick__row:hover { background: var(--accent-dim, rgba(0,0,0,.04)); }
+.gp-pick__box { width: 16px; height: 16px; border: 1px solid var(--text); position: relative; }
+.gp-pick__row.on .gp-pick__box { background: var(--text); }
+.gp-pick__row.on .gp-pick__box::after { content: ""; position: absolute; left: 4.5px; top: 1px; width: 4px; height: 8px; border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.gp-pick__cov { position: relative; width: 34px; height: 34px; overflow: hidden; border: 1px solid var(--border); }
+.gp-pick__n { min-width: 0; font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.08rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-pick__row i { font-style: normal; font-size: .64rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gp-pick__wait { font-size: .74rem; line-height: 1.5; color: var(--muted); padding: 12px 14px; }
+.gp-pick__foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 9px 9px 14px; border-top: 1px solid var(--text); }
+.gp-pick__say { font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── someone's public grúpa: who made it, and where each thing can be heard ── */
+.gp-pubhead { display: grid; grid-template-columns: 104px minmax(0, 1fr); column-gap: 20px; align-items: end; }
+.gp-pubhead__cover { position: relative; width: 104px; height: 104px; overflow: hidden; border: 1px solid var(--border2, var(--border)); }
+.gp-pubhead .gp-name { margin-bottom: 6px; }
+.gp-where { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; color: var(--text); font: inherit;
+  letter-spacing: inherit; text-transform: inherit; text-decoration: underline; text-decoration-color: var(--border2, var(--border)); text-underline-offset: 3px; }
+.gp-where:hover { text-decoration-color: var(--text); }
+/* a thing that can't be played from here: its cover steps back and is drawn with a broken edge;
+   one that lives only on its owner's laptop says so, plainly */
+.gp-item--away .gp-cov { border-style: dashed; border-color: var(--border2, var(--muted)); }
+.gp-item--away .gp-cov img { filter: grayscale(1); opacity: .55; }
+.gp-item--away .gp-t { color: var(--muted); }
+.gp-only { color: var(--text); border-bottom: 1px dotted var(--text); padding-bottom: 1px; }
+.gp-public .gp-s { white-space: normal; line-height: 1.6; }
+/* its sheet is narrow: each thing's keys go on a line of their own under its words, so a title keeps the width */
+.gp-public .gp-items--read .gp-item { grid-template-columns: 24px 48px minmax(0, 1fr); row-gap: 2px; }
+.gp-public .gp-acts { grid-column: 3; padding-top: 6px; flex-wrap: wrap; }
+.gp-public .gp-acts:empty { display: none; }
+.gp-public .gp-t { white-space: normal; }
+
+/* a short word by the thing you pressed */
+.gp-say { position: fixed; z-index: 9600; max-width: min(320px, calc(100vw - 16px)); background: var(--text, #161513); color: var(--bg, #f2efe8);
+  font-family: var(--f-mono, ui-monospace, Menlo, monospace); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; line-height: 1.4;
+  padding: 8px 11px; pointer-events: none; transition: opacity .45s; }
+.gp-say.bad { background: var(--red, #c9412f); color: #fff; }
+.gp-say.go { opacity: 0; }
+
+@media (max-width: 860px) {
+  .gp-cards { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 20px 14px; }
+}
+@media (max-width: 640px) {
+  .gp-item { grid-template-columns: 18px 44px minmax(0, 1fr); row-gap: 8px; }
+  .gp-n { display: none; }
+  .gp-cov { width: 44px; height: 44px; } .gp-handle { line-height: 44px; }
+  .gp-acts { grid-column: 2 / -1; padding-top: 0; flex-wrap: wrap; }
+  .gp-now__row { flex-wrap: wrap; }
+  .gp-s { white-space: normal; line-height: 1.5; }     /* a narrow window: the line wraps, so a mark is never cut off */
+  .gp-head { grid-template-columns: 92px minmax(0, 1fr); column-gap: 16px; }
+  .gp-head__cover { width: 92px; height: 92px; }
+  .gp-pubhead { grid-template-columns: 80px minmax(0, 1fr); column-gap: 14px; }
+  .gp-pubhead__cover { width: 80px; height: 80px; }
+  .gp-pickrow { grid-template-columns: minmax(0, 1fr); }
+  .gp-pickrow__k { padding: 0 0 6px; }
+}

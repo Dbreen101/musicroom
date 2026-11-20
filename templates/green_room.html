@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Green Room — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <script src="/static/js/room_transition.js"></script>
+    <style>
+        .gr-wrap { max-width: 860px; margin: 36px auto 110px; padding: 32px 36px 40px; }
+        .gr-wrap h1 { font-family: var(--font-celtic); font-size: 1.6rem; margin-bottom: 6px; }
+        .gr-sub { font-size: 0.86rem; color: var(--muted); margin-bottom: 22px; }
+
+        /* status strip */
+        .gr-status { display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline;
+            font-size: 0.84rem; color: var(--muted); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 10px 16px; margin-bottom: 26px; }
+        .gr-status b { color: var(--text); font-weight: 500; }
+        .gr-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            background: #7a4a3a; margin-right: 6px; vertical-align: 1px; }
+        .gr-dot.ok { background: #6fae7d; }
+
+        /* join card */
+        .gr-join { border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 22px 24px; margin-bottom: 26px; max-width: 480px; }
+        .gr-join h2 { font-family: var(--font-serif); font-style: italic; font-weight: 400;
+            font-size: 1.15rem; margin-bottom: 10px; }
+        .gr-join label { display: block; font-size: 0.78rem; color: var(--muted); margin: 12px 0 4px; }
+        .gr-join input { width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+            border-radius: var(--radius); background: var(--surface2); color: var(--text);
+            font-family: var(--font-main); font-size: 0.88rem; }
+        .gr-err { color: #d48080; font-size: 0.82rem; margin-top: 10px; min-height: 1.1em; }
+
+        .gr-btn { padding: 8px 18px; border-radius: var(--radius); border: 1px solid var(--accent);
+            color: var(--accent); background: none; cursor: pointer; font-family: var(--font-main);
+            font-size: 0.86rem; transition: transform .14s var(--spring, ease); }
+        .gr-btn:hover { background: var(--accent-dim); transform: translateY(-1px); }
+        .gr-btn[disabled] { opacity: 0.45; cursor: default; transform: none; }
+        .gr-btn--quiet { border-color: var(--border); color: var(--muted); }
+        .gr-btn--quiet:hover { color: var(--text); background: none; }
+        .gr-btn--small { padding: 4px 11px; font-size: 0.78rem; }
+
+        .gr-sec { margin-top: 30px; }
+        .gr-sec h2 { font-family: var(--font-serif); font-style: italic; font-weight: 400;
+            font-size: 1.2rem; margin-bottom: 4px; }
+        .gr-sec .gr-hint { font-size: 0.8rem; color: var(--muted2); margin-bottom: 12px; }
+
+        .gr-search { width: 260px; padding: 7px 11px; border: 1px solid var(--border);
+            border-radius: var(--radius); background: var(--surface2); color: var(--text);
+            font-family: var(--font-main); font-size: 0.85rem; margin-bottom: 12px; }
+
+        .gr-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 9px 12px;
+            border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        .gr-row:hover { background: rgba(255,255,255,0.025); }
+        .gr-sleeve { width: 56px; height: 56px; flex: none; border-radius: 4px; overflow: hidden;
+            background: #16120b; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+        .gr-sleeve img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .gr-sleeve span { font-family: var(--font-serif); font-style: italic; font-size: 1.45rem;
+            color: #e6c97a; line-height: 1; }
+        .gr-row__main { flex: 1 1 160px; min-width: 0; }
+        .gr-row__title { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-row__meta { font-size: 0.76rem; color: var(--muted2); margin-top: 1px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-chip { font-family: var(--font-mono, monospace); font-size: 0.7rem; color: var(--muted);
+            border: 1px solid var(--border); border-radius: 9px; padding: 1px 8px; flex: none; }
+        .gr-price { font-size: 0.8rem; color: var(--muted); flex: none; min-width: 52px; text-align: right; }
+        .gr-actions { display: flex; flex-wrap: wrap; gap: 7px; flex: none; margin-left: auto; }
+        .gr-off { opacity: 0.55; }
+        .gr-empty { color: var(--muted2); font-size: 0.84rem; padding: 16px 4px; }
+        .gr-note { font-size: 0.78rem; color: var(--muted2); margin-top: 14px; line-height: 1.6; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d" class="active">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/greenroom" class="active">Green Room</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="gr-wrap floor-sheet">
+    <h1>Green Room</h1>
+    <p class="gr-sub">Borrow records from the pool. A borrowed record lives on this laptop and plays here, in the Music Room.</p>
+
+    <div class="gr-status" id="gr-status" style="display:none"></div>
+
+    <div class="gr-join" id="gr-join" style="display:none">
+        <h2>Join</h2>
+        <label>Server address</label>
+        <input id="gr-server" placeholder="http://192.168.1.20:5301">
+        <label>Invite code</label>
+        <input id="gr-code" placeholder="gr-xxxxxx">
+        <label>Name this laptop (optional)</label>
+        <input id="gr-device" placeholder="e.g. Anna's MacBook">
+        <div class="gr-err" id="gr-join-err"></div>
+        <div style="margin-top:14px"><button class="gr-btn" id="gr-join-btn" onclick="grJoin()">Join</button></div>
+    </div>
+
+    <div class="gr-sec" id="gr-shelf-sec" style="display:none">
+        <h2>Borrowed</h2>
+        <div class="gr-hint">Yours while you're subscribed. Offload takes a record's file off this laptop without giving it back.</div>
+        <div id="gr-shelf"></div>
+    </div>
+
+    <div class="gr-sec" id="gr-cat-sec" style="display:none">
+        <h2>The pool</h2>
+        <div class="gr-hint" id="gr-cat-hint"></div>
+        <input class="gr-search" id="gr-search" placeholder="find a record…" oninput="renderCatalogue()">
+        <div id="gr-cat"></div>
+        <div class="gr-note">Borrowed files are locked — they only play inside the Music Room, and they can't be exported, copied out, or sent on.</div>
+    </div>
+</div>
+
+<script>
+let grStatus = null, grTracks = [];
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = c => (c == null ? '' : '€' + (c / 100).toFixed(2));
+const mmss = s => { if (!s) return ''; s = Math.round(s);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+function metaLine(r) {
+    return [r.artist, r.album, mmss(r.duration_s)].filter(Boolean).map(esc).join(' · ');
+}
+
+function initialOf(title) {
+    const c = String(title || '').trim().charAt(0);
+    return esc(c ? c.toUpperCase() : '♪');
+}
+
+// A record's sleeve: its cover, or — when it has none, or the cover can't be
+// fetched — a dark sleeve with the title's initial.
+function sleeveHtml(src, title) {
+    const fallback = `<span>${initialOf(title)}</span>`;
+    if (!src) return `<div class="gr-sleeve">${fallback}</div>`;
+    return `<div class="gr-sleeve"><img src="${src}" alt="" loading="lazy"
+        onerror="this.parentNode.innerHTML='${fallback.replace(/'/g, '&#39;')}'"></div>`;
+}
+
+function poolArt(t) {
+    return t.has_art ? `/api/gr/art/${t.id}?v=${t.art_v || 0}` : '';
+}
+
+function shelfArt(b) {
+    const t = grTracks.find(x => x.id === b.server_track_id);
+    if (t) return poolArt(t);
+    return `/api/gr/art/${b.server_track_id}`;   // offline: whatever is cached
+}
+
+async function grLoad() {
+    grStatus = await (await fetch('/api/gr/status')).json();
+    renderStatus();
+    renderShelf();
+    if (grStatus.joined && grStatus.server_url) {
+        document.getElementById('gr-cat-sec').style.display = '';
+        try {
+            const r = await fetch('/api/gr/catalogue');
+            const d = await r.json();
+            if (r.ok) { grTracks = d.tracks || []; document.getElementById('gr-cat-hint').textContent =
+                grTracks.length + ' records in the pool'; }
+            else { grTracks = []; document.getElementById('gr-cat-hint').textContent =
+                d.error || "the pool can't be reached right now"; }
+        } catch (e) {
+            grTracks = [];
+            document.getElementById('gr-cat-hint').textContent = "the pool can't be reached right now";
+        }
+        renderCatalogue();
+        renderShelf();     // again, now the pool's cover versions are known
+    }
+}
+
+function renderStatus() {
+    const el = document.getElementById('gr-status');
+    const join = document.getElementById('gr-join');
+    if (!grStatus.joined || !grStatus.server_url) {
+        join.style.display = ''; el.style.display = 'none'; return;
+    }
+    join.style.display = 'none'; el.style.display = '';
+    const me = grStatus.me;
+    let bits = [`<span><span class="gr-dot ${grStatus.reachable ? 'ok' : ''}"></span>` +
+        (grStatus.reachable ? 'connected' : 'server not reachable') + '</span>'];
+    bits.push(`<span>signed in as <b>${esc(grStatus.name || '—')}</b></span>`);
+    if (me) {
+        bits.push(`<span>wallet <b>${euro(me.wallet_cents)}</b> <i style="font-style:normal;color:var(--muted2)">(play money)</i></span>`);
+        bits.push(`<span>subscription <b>${me.sub_active ? 'active' : 'starts with your first borrow — ' + euro(me.sub_price_cents) + '/month'}</b></span>`);
+        bits.push(`<span>borrowed <b>${me.borrows_this_month}</b> of ${me.borrow_limit} this month</span>`);
+    }
+    el.innerHTML = bits.join('');
+}
+
+function renderShelf() {
+    const sec = document.getElementById('gr-shelf-sec');
+    const box = document.getElementById('gr-shelf');
+    const rows = grStatus.borrowed || [];
+    sec.style.display = (grStatus.joined ? '' : 'none');
+    if (!rows.length) { box.innerHTML = '<div class="gr-empty">Nothing borrowed yet.</div>'; return; }
+    box.innerHTML = rows.map(b => `
+        <div class="gr-row ${b.on_disk ? '' : 'gr-off'}">
+            ${sleeveHtml(shelfArt(b), b.title)}
+            <div class="gr-row__main">
+                <div class="gr-row__title">${esc(b.title || 'Untitled')}</div>
+                <div class="gr-row__meta">${metaLine(b)}</div>
+            </div>
+            <span class="gr-chip">${esc(b.format || '')}</span>
+            <div class="gr-actions">
+                ${b.on_disk
+                    ? `<button class="gr-btn gr-btn--small" onclick="grPlay(${b.id})">▶ play</button>
+                       <button class="gr-btn gr-btn--small gr-btn--quiet" onclick="grCue(${b.id})">＋ cue</button>
+                       <button class="gr-btn gr-btn--small gr-btn--quiet" title="Take the file off this laptop; the borrow is kept" onclick="grAct('offload', ${b.id}, this)">⌁ offload</button>`
+                    : `<button class="gr-btn gr-btn--small" title="Bring the file back onto this laptop" onclick="grAct('redownload', ${b.id}, this)">⇣ download</button>`}
+                <button class="gr-btn gr-btn--small gr-btn--quiet" title="Give it back to the pool" onclick="grReturn(${b.id}, this)">↩ return</button>
+            </div>
+        </div>`).join('');
+}
+
+function renderCatalogue() {
+    const box = document.getElementById('gr-cat');
+    const q = (document.getElementById('gr-search').value || '').toLowerCase();
+    const rows = grTracks.filter(t => !q ||
+        (t.title || '').toLowerCase().includes(q) ||
+        (t.artist || '').toLowerCase().includes(q) ||
+        (t.album || '').toLowerCase().includes(q));
+    if (!rows.length) { box.innerHTML = '<div class="gr-empty">' +
+        (grTracks.length ? 'No records match.' : 'The pool is empty or out of reach.') + '</div>'; return; }
+    box.innerHTML = rows.map(t => `
+        <div class="gr-row">
+            ${sleeveHtml(poolArt(t), t.title)}
+            <div class="gr-row__main">
+                <div class="gr-row__title">${esc(t.title || 'Untitled')}</div>
+                <div class="gr-row__meta">${metaLine(t)}</div>
+            </div>
+            <span class="gr-chip">${esc(t.format || '')}</span>
+            <span class="gr-price">${euro(t.price_cents)}</span>
+            <div class="gr-actions">
+                ${t.local_id
+                    ? `<button class="gr-btn gr-btn--small" disabled>borrowed ✓</button>`
+                    : `<button class="gr-btn gr-btn--small" onclick="grBorrow(${t.id}, this)">borrow</button>`}
+            </div>
+        </div>`).join('');
+}
+
+async function grJoin() {
+    const btn = document.getElementById('gr-join-btn');
+    const err = document.getElementById('gr-join-err');
+    btn.disabled = true; btn.textContent = 'joining…'; err.textContent = '';
+    const r = await fetch('/api/gr/join', { method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            server_url: document.getElementById('gr-server').value,
+            invite_code: document.getElementById('gr-code').value,
+            device_name: document.getElementById('gr-device').value }) });
+    const d = await r.json();
+    btn.disabled = false; btn.textContent = 'Join';
+    if (!r.ok) { err.textContent = d.error || 'that did not work'; return; }
+    grLoad();
+}
+
+async function grBorrow(trackId, btn) {
+    btn.disabled = true; btn.textContent = 'borrowing…';
+    const r = await fetch('/api/gr/borrow', { method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ track_id: trackId }) });
+    const d = await r.json();
+    if (!r.ok) { btn.disabled = false; btn.textContent = 'borrow';
+        document.getElementById('gr-cat-hint').textContent = d.error || 'the borrow failed'; return; }
+    grLoad();
+}
+
+async function grAct(action, localId, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    const r = await fetch('/api/gr/' + action, { method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ local_id: localId }) });
+    if (!r.ok) { const d = await r.json();
+        document.getElementById('gr-cat-hint').textContent = d.error || 'that did not work'; }
+    grLoad();
+}
+
+async function grReturn(localId, btn) {
+    if (!confirm('Give this record back to the pool? Its file leaves this laptop.')) return;
+    grAct('return', localId, btn);
+}
+
+function grItem(localId) {
+    const b = (grStatus.borrowed || []).find(x => x.id === localId) || {};
+    return { gr_borrow_id: localId, title: b.title || '', artist: b.artist || '',
+             duration_sec: b.duration_s || 0 };
+}
+
+async function grPlay(localId) {
+    await fetch('/api/seinnteoir/queue', { method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ items: [grItem(localId)] }) });
+}
+
+async function grCue(localId) {
+    await fetch('/api/seinnteoir/add', { method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ items: [grItem(localId)], autostart: false }) });
+}
+
+grLoad();
+</script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/mr_tips.js"></script>
+<script src="/static/js/feedback.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

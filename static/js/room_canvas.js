@@ -1,0 +1,418 @@
+// room_canvas.js — the user's own wall of BLOCKS in their music room.
+//
+// A block is a box the user makes, drags, resizes and fills: words, an image,
+// one record, a playlist (a place, a set, or records picked by hand), a mix
+// (a link that plays in place where the site allows it) or a link. Blocks
+// overlap freely (↑/↓ for front/back). Everything is direct manipulation on
+// the canvas itself — no form on the side. The layout is saved per room
+// (POST /api/room/canvas/<place_id>), images upload to the app's own folder.
+//
+// Mount: MRRoomCanvas.mount(hostEl, { placeId, getTracks, sntItem, openTrack })
+//   getTracks() → the room's records (for picking); sntItem(t) → a player item;
+//   openTrack(id) → open that record's detail (may throw if not in this room).
+//
+// David coins the words. Labels here are functional placeholders.
+window.MRRoomCanvas = (function () {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const SNAP = 8, MIN_W = 120, MIN_H = 72;
+  const TYPES = {
+    text:     { label: 'Words',    hint: 'a heading and some words',             w: 360, h: 200 },
+    image:    { label: 'Image',    hint: 'a picture from your computer or a link', w: 320, h: 320 },
+    record:   { label: 'Record',   hint: 'one record from your room',              w: 240, h: 310 },
+    playlist: { label: 'Playlist', hint: 'a place, a set, or records you pick',    w: 380, h: 380 },
+    mix:      { label: 'Mix',      hint: 'a mix or video link that plays here',    w: 440, h: 280 },
+    link:     { label: 'Link',     hint: 'any web page, as a card',                w: 320, h: 200 },
+  };
+  const snap = v => Math.max(0, Math.round(v / SNAP) * SNAP);
+  const uid = () => 'k' + Math.random().toString(36).slice(2, 9);
+  const coverUrl = (t, s) => t && (t.id || t.track_id) ? `/api/artwork/${t.id || t.track_id}?s=${s}&v=${t.art_v || 0}` : '';
+
+  // ── mix / link helpers ───────────────────────────────────────────────────
+  function embedFor(url) {
+    try {
+      const u = new URL(url);
+      const h = u.hostname.replace(/^www\.|^m\./, '');
+      if (h === 'youtube.com' || h === 'youtu.be' || h === 'music.youtube.com') {
+        const id = h === 'youtu.be' ? u.pathname.slice(1) : (u.searchParams.get('v') || (u.pathname.match(/\/(?:embed|shorts|live)\/([\w-]+)/) || [])[1]);
+        if (id) return { src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}`, kind: 'video' };
+      }
+      if (h === 'soundcloud.com' || h === 'on.soundcloud.com')
+        return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23c9a84c&auto_play=false&hide_related=true&show_comments=false&show_user=true&visual=true`, kind: 'audio' };
+      if (h === 'open.spotify.com') {
+        const m = u.pathname.match(/\/(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
+        if (m) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}`, kind: 'audio' };
+      }
+      if (h === 'mixcloud.com')
+        return { src: `https://www.mixcloud.com/widget/iframe/?hide_cover=1&light=0&feed=${encodeURIComponent(u.pathname)}`, kind: 'audio' };
+      if (h === 'vimeo.com') {
+        const id = (u.pathname.match(/\/(\d+)/) || [])[1];
+        if (id) return { src: `https://player.vimeo.com/video/${id}`, kind: 'video' };
+      }
+    } catch (_) {}
+    return null;
+  }
+  function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return url; } }
+  async function resolveLink(url) {
+    try {
+      const r = await fetch('/api/discover/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      const d = await r.json();
+      return { title: d.raw_title || [d.artist, d.title].filter(Boolean).join(' — ') || hostOf(url), image: d.image || '', source: d.source || hostOf(url) };
+    } catch (_) { return { title: hostOf(url), image: '', source: hostOf(url) }; }
+  }
+  function openUrl(url) {
+    fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {});
+  }
+
+  // ── the player (the room's server player; nothing plays in the browser) ──
+  async function cue(items, autostart) {
+    const its = (items || []).filter(t => t && t.file_id);
+    if (!its.length) return;
+    await fetch('/api/seinnteoir/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: its, autostart: !!autostart }) });
+  }
+  async function playNow(item) {
+    if (!item || !item.file_id) return;
+    await cue([item], false);
+    try {
+      const st = await (await fetch('/api/seinnteoir/state')).json();
+      const q = st.queue || [];
+      let idx = -1;
+      for (let i = q.length - 1; i >= 0; i--) if (q[i].file_id === item.file_id) { idx = i; break; }
+      if (idx >= 0) await fetch('/api/seinnteoir/play_at', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idx }) });
+    } catch (_) {}
+  }
+  function playAll(items) { if (window.Seinnteoir) window.Seinnteoir.playAll(items); }
+
+  // ── mount ────────────────────────────────────────────────────────────────
+  function mount(host, opts) {
+    opts = opts || {};
+    const placeId = opts.placeId;
+    const getTracks = opts.getTracks || (() => []);
+    const toItem = opts.sntItem || (t => ({ track_id: t.id, file_id: t.file_id, title: t.title, artist: t.artist_name }));
+    let blocks = [], sel = null, saveT = null, sheetFor = null, loaded = false;
+
+    host.classList.add('rc');
+    host.innerHTML = `
+      <div class="rc-stage" id="rc-stage"></div>
+      <div class="rc-empty" id="rc-empty"><div class="rc-empty__t">Nothing here yet.</div><div class="rc-empty__b">Make a block, drag it where you want it, pull its corner to size it, fill it.</div></div>
+      <div class="rc-addwrap">
+        <span class="rc-status" id="rc-status"></span>
+        <button class="rc-add" id="rc-add" title="Make a new block">+ block</button>
+        <div class="rc-addmenu" id="rc-addmenu"></div>
+      </div>
+      <div class="rc-sheet" id="rc-sheet"></div>`;
+    const stage = host.querySelector('#rc-stage'), empty = host.querySelector('#rc-empty');
+    const addBtn = host.querySelector('#rc-add'), addMenu = host.querySelector('#rc-addmenu');
+    const sheet = host.querySelector('#rc-sheet'), status = host.querySelector('#rc-status');
+    addMenu.innerHTML = Object.keys(TYPES).map(t => `<button data-type="${t}"><b>${esc(TYPES[t].label)}</b><small>${esc(TYPES[t].hint)}</small></button>`).join('');
+
+    // ── persistence ──
+    async function load() {
+      try {
+        const d = await (await fetch(`/api/room/canvas/${placeId}`)).json();
+        blocks = Array.isArray(d.blocks) ? d.blocks : [];
+      } catch (_) { blocks = []; }
+      loaded = true; renderAll();
+    }
+    function dirty() { status.textContent = '…'; clearTimeout(saveT); saveT = setTimeout(save, 600); }
+    async function save() {
+      try {
+        const r = await fetch(`/api/room/canvas/${placeId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ v: 1, blocks }) });
+        if (!r.ok) throw new Error('save failed');
+        status.textContent = 'saved'; setTimeout(() => { if (status.textContent === 'saved') status.textContent = ''; }, 1400);
+      } catch (_) { status.textContent = 'not saved'; }
+    }
+
+    // ── blocks ──
+    const byId = id => blocks.find(b => b.id === id);
+    function addBlock(type, at) {
+      const T = TYPES[type]; if (!T) return;
+      const r = host.getBoundingClientRect();
+      const x = at ? at.x : snap(host.scrollLeft + Math.max(24, (r.width - T.w) / 2) + (blocks.length % 5) * 24);
+      const y = at ? at.y : snap(host.scrollTop + 120 + (blocks.length % 5) * 24);
+      const b = { id: uid(), type, x, y, w: T.w, h: T.h, z: blocks.length + 1, data: {} };
+      blocks.push(b); renderAll(); select(b.id); dirty();
+      if (type !== 'text') openSheet(b.id); else { const h = stage.querySelector(`[data-id="${b.id}"] [data-k="heading"]`); if (h) h.focus(); }
+    }
+    function removeBlock(id) {
+      const i = blocks.findIndex(b => b.id === id); if (i < 0) return;
+      blocks.splice(i, 1); if (sel === id) sel = null; closeSheet(); renderAll(); dirty();
+    }
+    function bump(id, dir) {
+      const zs = blocks.slice().sort((a, b) => a.z - b.z);
+      const i = zs.findIndex(b => b.id === id); const j = i + dir;
+      if (i < 0 || j < 0 || j >= zs.length) return;
+      [zs[i].z, zs[j].z] = [zs[j].z, zs[i].z]; renderAll(); dirty();
+    }
+    function select(id) {
+      sel = id;
+      stage.querySelectorAll('.rc-block').forEach(el => el.classList.toggle('sel', el.dataset.id === id));
+    }
+
+    // ── render ──
+    function renderAll() {
+      const keep = new Set();
+      blocks.forEach(b => { keep.add(b.id); let el = stage.querySelector(`[data-id="${b.id}"]`); if (!el) { el = makeEl(b); stage.appendChild(el); } place(b, el); if (el.dataset.sig !== sig(b)) { el.dataset.sig = sig(b); fillBody(b, el); } });
+      stage.querySelectorAll('.rc-block').forEach(el => { if (!keep.has(el.dataset.id)) el.remove(); });
+      empty.style.display = blocks.length ? 'none' : '';
+      let maxB = 0, maxR = 0; blocks.forEach(b => { maxB = Math.max(maxB, b.y + b.h); maxR = Math.max(maxR, b.x + b.w); });
+      stage.style.minHeight = (maxB + 240) + 'px'; stage.style.minWidth = (maxR + 80) + 'px';
+      select(sel);
+    }
+    const sig = b => b.type + '|' + JSON.stringify(b.data);
+    function place(b, el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px'; el.style.zIndex = String(b.z); }
+    function makeEl(b) {
+      const el = document.createElement('div');
+      el.className = `rc-block rc-block--${b.type}`; el.dataset.id = b.id;
+      el.innerHTML = `
+        <div class="rc-tools">
+          <span class="rc-tools__type">${esc(TYPES[b.type].label)}</span>
+          ${b.type !== 'text' ? '<button data-act="fill" title="Fill this block">fill</button>' : ''}
+          <button data-act="down" title="Send back">↓</button><button data-act="up" title="Bring forward">↑</button>
+          <button data-act="del" title="Remove this block">✕</button>
+        </div>
+        <div class="rc-body"></div>
+        ${b.type !== 'text' ? '<div class="rc-cap" contenteditable="true" spellcheck="false" data-k="caption" placeholder="a caption"></div>' : ''}
+        <div class="rc-rz rc-rz--e"></div><div class="rc-rz rc-rz--s"></div><div class="rc-rz rc-rz--se"></div>`;
+      return el;
+    }
+    function fillBody(b, el) {
+      const body = el.querySelector('.rc-body'); const d = b.data || {};
+      const cap = el.querySelector('.rc-cap'); if (cap && cap.innerText !== (d.caption || '')) cap.innerText = d.caption || '';
+      if (cap) cap.classList.toggle('has', !!(d.caption || '').trim());
+      if (b.type === 'text') {
+        body.innerHTML = `<div class="rc-text"><div class="rc-text__h" contenteditable="true" spellcheck="false" data-k="heading" placeholder="A heading"></div><div class="rc-text__b" contenteditable="true" data-k="body" placeholder="Words"></div></div>`;
+        body.querySelector('[data-k="heading"]').innerText = d.heading || '';
+        body.querySelector('[data-k="body"]').innerText = d.body || '';
+      } else if (b.type === 'image') {
+        body.innerHTML = d.src ? `<img class="rc-img rc-img--${d.fit || 'cover'}" src="${esc(d.src)}" alt="${esc(d.alt || '')}" draggable="false">`
+          : `<button class="rc-fillme" data-act="fill">+ add an image</button>`;
+      } else if (b.type === 'record') {
+        const t = d.track;
+        body.innerHTML = t ? `
+          <div class="rc-rec">
+            <img class="rc-rec__cover" src="${coverUrl(t, 768)}" alt="" draggable="false" data-act="open">
+            <div class="rc-rec__meta"><div class="rc-rec__t" data-act="open">${esc(t.title || 'Untitled')}</div><div class="rc-rec__a">${esc(t.artist_name || t.artist || '')}</div></div>
+            <div class="rc-rec__acts"><button data-act="play" title="Play now">▶ play</button><button data-act="cue" title="Add to the cue">＋ cue</button></div>
+          </div>` : `<button class="rc-fillme" data-act="fill">+ choose a record</button>`;
+      } else if (b.type === 'playlist') {
+        const ts = d.tracks || [];
+        body.innerHTML = ts.length || d.name ? `
+          <div class="rc-pl">
+            <div class="rc-pl__head"><div class="rc-pl__name">${esc(d.name || 'Playlist')}</div><span class="rc-pl__n">${ts.length}</span>
+              <div class="rc-pl__acts"><button data-act="playall" title="Play these, in order (replaces the cue)">▶ play all</button><button data-act="cueall" title="Add these to the cue">＋ cue all</button></div></div>
+            <div class="rc-pl__rows">${ts.map((t, i) => `<div class="rc-pl__row" data-i="${i}"><img class="rc-pl__cover" src="${coverUrl(t, 192)}" alt="" loading="lazy" draggable="false"><div class="rc-pl__meta"><div class="rc-pl__t" data-act="open" data-tid="${t.id}">${esc(t.title || 'Untitled')}</div><div class="rc-pl__a">${esc(t.artist_name || t.artist || '')}</div></div><button class="rc-pl__play" data-act="playrow" data-i="${i}" title="Play now">▶</button></div>`).join('')}</div>
+          </div>` : `<button class="rc-fillme" data-act="fill">+ choose a playlist</button>`;
+      } else if (b.type === 'mix') {
+        const em = d.url && d.embed !== false ? embedFor(d.url) : null;
+        body.innerHTML = !d.url ? `<button class="rc-fillme" data-act="fill">+ paste a mix or video link</button>`
+          : em ? `<iframe class="rc-embed rc-embed--${em.kind}" src="${esc(em.src)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
+          : linkCard(d);
+      } else if (b.type === 'link') {
+        body.innerHTML = d.url ? linkCard(d) : `<button class="rc-fillme" data-act="fill">+ paste a link</button>`;
+      }
+    }
+    const linkCard = d => `<div class="rc-link" data-act="openurl" title="${esc(d.url)}">${d.image ? `<img class="rc-link__img" src="${esc(d.image)}" alt="" draggable="false">` : ''}<div class="rc-link__meta"><div class="rc-link__src">${esc(d.source || hostOf(d.url))} ↗</div><div class="rc-link__t">${esc(d.title || d.url)}</div></div></div>`;
+
+    // ── the fill sheet (one popover, per type) ──
+    function openSheet(id) {
+      const b = byId(id); if (!b) return;
+      sheetFor = id; select(id); sheet.classList.add('on');
+      const d = b.data;
+      if (b.type === 'image') sheet.innerHTML = `
+        <div class="rc-sheet__h">Image</div>
+        <label class="rc-btn rc-btn--primary">choose a file<input type="file" accept="image/*" hidden data-s="file"></label>
+        <div class="rc-row"><input data-s="url" placeholder="or paste an image address" value="${esc(d.srcUrl || '')}"><button class="rc-btn" data-s="useurl">use</button></div>
+        <div class="rc-row"><span class="rc-lbl">fit</span><button class="rc-btn ${(d.fit || 'cover') === 'cover' ? 'on' : ''}" data-s="fit" data-v="cover">fill the block</button><button class="rc-btn ${d.fit === 'contain' ? 'on' : ''}" data-s="fit" data-v="contain">show it all</button></div>
+        ${d.src ? '<button class="rc-btn rc-btn--quiet" data-s="clear">remove the image</button>' : ''}
+        <div class="rc-hint">You can also drop an image file onto the block.</div>`;
+      else if (b.type === 'record') sheet.innerHTML = `
+        <div class="rc-sheet__h">One record</div>
+        <input data-s="q" placeholder="search your room — title or artist" autofocus>
+        <div class="rc-list" data-s="list"></div>`;
+      else if (b.type === 'playlist') sheet.innerHTML = `
+        <div class="rc-sheet__h">A playlist</div>
+        <div class="rc-row rc-tabs"><button class="rc-btn ${d.kind === 'place' ? 'on' : ''}" data-s="kind" data-v="place">a place</button><button class="rc-btn ${d.kind === 'set' ? 'on' : ''}" data-s="kind" data-v="set">a set</button><button class="rc-btn ${!d.kind || d.kind === 'picks' ? 'on' : ''}" data-s="kind" data-v="picks">records I pick</button></div>
+        <div data-s="pane"></div>`;
+      else if (b.type === 'mix' || b.type === 'link') sheet.innerHTML = `
+        <div class="rc-sheet__h">${b.type === 'mix' ? 'A mix or video' : 'A link'}</div>
+        <div class="rc-row"><input data-s="url" placeholder="paste the address" value="${esc(d.url || '')}"><button class="rc-btn rc-btn--primary" data-s="useurl">use</button></div>
+        ${d.url ? `<div class="rc-row"><input data-s="title" placeholder="title" value="${esc(d.title || '')}"></div>` : ''}
+        ${b.type === 'mix' && d.url ? `<div class="rc-row"><span class="rc-lbl">show</span><button class="rc-btn ${d.embed !== false ? 'on' : ''}" data-s="embed" data-v="1">the player</button><button class="rc-btn ${d.embed === false ? 'on' : ''}" data-s="embed" data-v="0">a card</button></div>` : ''}
+        <div class="rc-hint">${b.type === 'mix' ? 'YouTube, SoundCloud, Mixcloud and Vimeo play here. Anything else becomes a card that opens in your browser.' : 'Opens in your browser.'}</div>`;
+      sheet.innerHTML += `<button class="rc-sheet__x" data-s="close" title="Close">✕</button>`;
+      positionSheet(b);
+      if (b.type === 'record') { renderPicker(sheet.querySelector('[data-s="list"]'), '', t => { b.data.track = snap_t(t); renderAll(); dirty(); closeSheet(); }); const q = sheet.querySelector('[data-s="q"]'); q.oninput = () => renderPicker(sheet.querySelector('[data-s="list"]'), q.value, t => { b.data.track = snap_t(t); renderAll(); dirty(); closeSheet(); }); setTimeout(() => q.focus(), 30); }
+      if (b.type === 'playlist') renderPlaylistPane(b);
+    }
+    const snap_t = t => ({ id: t.id, file_id: t.file_id, title: t.title, artist_name: t.artist_name || t.artist, art_v: t.art_v || 0 });
+    function positionSheet(b) {
+      const el = stage.querySelector(`[data-id="${b.id}"]`); if (!el) return;
+      const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect();
+      let left = r.right + 12, top = r.top;
+      if (left + 340 > hr.right - 12) left = Math.max(hr.left + 12, r.left - 352);
+      if (left + 340 > hr.right - 12) left = hr.right - 352;
+      top = Math.min(Math.max(hr.top + 72, top), hr.bottom - 24 - Math.min(460, hr.height - 100));
+      sheet.style.left = left + 'px'; sheet.style.top = top + 'px';
+    }
+    function closeSheet() { sheetFor = null; sheet.classList.remove('on'); sheet.innerHTML = ''; }
+    function renderPicker(listEl, q, pick) {
+      const all = getTracks() || []; q = (q || '').trim().toLowerCase();
+      const hits = []; for (const t of all) { if (!t || !t.file_id) continue; if (!q || (t.title || '').toLowerCase().includes(q) || (t.artist_name || '').toLowerCase().includes(q)) { hits.push(t); if (hits.length >= 40) break; } }
+      listEl.innerHTML = hits.length ? hits.map(t => `<button class="rc-list__row" data-tid="${t.id}"><img src="${coverUrl(t, 192)}" alt="" loading="lazy"><span><b>${esc(t.title || 'Untitled')}</b><small>${esc(t.artist_name || '')}</small></span></button>`).join('') : `<div class="rc-hint">${all.length ? 'no match' : 'no records in this room'}</div>`;
+      listEl.querySelectorAll('.rc-list__row').forEach(r => r.onclick = () => { const t = all.find(x => x.id === +r.dataset.tid); if (t) pick(t); });
+    }
+    async function renderPlaylistPane(b) {
+      const pane = sheet.querySelector('[data-s="pane"]'); if (!pane) return;
+      const d = b.data; const kind = d.kind || 'picks';
+      if (kind === 'picks') {
+        pane.innerHTML = `<div class="rc-picked" data-s="picked"></div><input data-s="q" placeholder="search your room — add records one by one"><div class="rc-list" data-s="list"></div>`;
+        const drawPicked = () => { const p = pane.querySelector('[data-s="picked"]'); const ts = d.tracks || []; p.innerHTML = ts.length ? ts.map((t, i) => `<span class="rc-chip">${esc(t.title || 'Untitled')}<button data-i="${i}" title="take it out">✕</button></span>`).join('') : '<div class="rc-hint">nothing picked yet</div>'; p.querySelectorAll('button').forEach(x => x.onclick = () => { d.tracks.splice(+x.dataset.i, 1); drawPicked(); renderAll(); dirty(); }); };
+        drawPicked();
+        const q = pane.querySelector('[data-s="q"]'), list = pane.querySelector('[data-s="list"]');
+        const pick = t => { d.tracks = d.tracks || []; if (!d.tracks.some(x => x.id === t.id)) d.tracks.push(snap_t(t)); d.name = d.name || 'My picks'; drawPicked(); renderAll(); dirty(); };
+        renderPicker(list, '', pick); q.oninput = () => renderPicker(list, q.value, pick); setTimeout(() => q.focus(), 30);
+      } else {
+        pane.innerHTML = `<div class="rc-list" data-s="list"><div class="rc-hint">loading…</div></div>`;
+        const list = pane.querySelector('[data-s="list"]');
+        try {
+          const rows = await (await fetch(kind === 'place' ? '/api/places' : '/api/sets')).json();
+          const items = (rows || []).filter(r => (r.track_count || 0) > 0);
+          list.innerHTML = items.length ? items.map(r => `<button class="rc-list__row rc-list__row--plain ${d.ref_id === r.id ? 'on' : ''}" data-rid="${r.id}"><span><b>${esc(r.name)}</b><small>${r.track_count} record${r.track_count === 1 ? '' : 's'}</small></span></button>`).join('') : `<div class="rc-hint">none with records yet</div>`;
+          list.querySelectorAll('.rc-list__row').forEach(x => x.onclick = async () => {
+            const r = items.find(i => i.id === +x.dataset.rid); if (!r) return;
+            list.querySelectorAll('.rc-list__row').forEach(y => y.classList.toggle('on', y === x));
+            const res = await (await fetch(kind === 'place' ? `/api/place/${r.id}/tracks` : `/api/set/${r.id}`)).json();
+            const ts = (kind === 'place' ? (Array.isArray(res) ? res : (res.tracks || [])) : (res.tracks || [])).filter(t => t.file_id).map(snap_t);
+            Object.assign(d, { kind, ref_id: r.id, name: r.name, tracks: ts }); renderAll(); dirty();
+          });
+        } catch (_) { list.innerHTML = '<div class="rc-hint">could not load</div>'; }
+      }
+    }
+
+    // ── uploads ──
+    async function uploadImage(b, file) {
+      if (!file || !/^image\//.test(file.type)) return;
+      const fd = new FormData(); fd.append('image', file);
+      status.textContent = 'uploading…';
+      try {
+        const r = await (await fetch('/api/room/canvas/image', { method: 'POST', body: fd })).json();
+        if (r.url) { b.data.src = r.url; b.data.srcUrl = ''; renderAll(); dirty(); if (sheetFor === b.id) openSheet(b.id); }
+        else status.textContent = r.error || 'upload failed';
+      } catch (_) { status.textContent = 'upload failed'; }
+    }
+
+    // ── events: sheet ──
+    sheet.addEventListener('click', e => {
+      const t = e.target.closest('[data-s]'); if (!t) return;
+      const b = byId(sheetFor); if (!b) return;
+      const s = t.dataset.s;
+      if (s === 'close') closeSheet();
+      else if (s === 'useurl') {
+        const inp = sheet.querySelector('[data-s="url"]'); const url = (inp.value || '').trim(); if (!url) return;
+        if (b.type === 'image') { b.data.src = url; b.data.srcUrl = url; renderAll(); dirty(); openSheet(b.id); }
+        else { t.textContent = '…'; resolveLink(/^https?:\/\//.test(url) ? url : 'https://' + url).then(m => { Object.assign(b.data, { url: /^https?:\/\//.test(url) ? url : 'https://' + url }, m); renderAll(); dirty(); openSheet(b.id); }); }
+      }
+      else if (s === 'fit') { b.data.fit = t.dataset.v; renderAll(); dirty(); openSheet(b.id); }
+      else if (s === 'embed') { b.data.embed = t.dataset.v === '1'; renderAll(); dirty(); openSheet(b.id); }
+      else if (s === 'clear') { b.data.src = ''; b.data.srcUrl = ''; renderAll(); dirty(); openSheet(b.id); }
+      else if (s === 'kind') { b.data.kind = t.dataset.v; sheet.querySelectorAll('[data-s="kind"]').forEach(x => x.classList.toggle('on', x === t)); renderPlaylistPane(b); }
+    });
+    sheet.addEventListener('change', e => { const f = e.target.closest('[data-s="file"]'); const b = byId(sheetFor); if (f && b && f.files[0]) uploadImage(b, f.files[0]); });
+    sheet.addEventListener('input', e => { const t = e.target.closest('[data-s="title"]'); const b = byId(sheetFor); if (t && b) { b.data.title = t.value; renderAll(); dirty(); } });
+    sheet.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[data-s="url"]')) { e.preventDefault(); sheet.querySelector('[data-s="useurl"]').click(); } if (e.key === 'Escape') closeSheet(); });
+
+    // ── events: add menu ──
+    addBtn.onclick = e => { e.stopPropagation(); addMenu.classList.toggle('on'); };
+    addMenu.onclick = e => { const t = e.target.closest('[data-type]'); if (t) { addMenu.classList.remove('on'); addBlock(t.dataset.type); } };
+    stage.addEventListener('contextmenu', e => {
+      if (e.target !== stage) return; e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      addMenu.classList.add('on'); addMenu.dataset.x = snap(e.clientX - r.left); addMenu.dataset.y = snap(e.clientY - r.top);
+      addMenu.style.left = Math.min(e.clientX, innerWidth - 260) + 'px'; addMenu.style.top = Math.min(e.clientY, innerHeight - 320) + 'px'; addMenu.classList.add('at');
+    });
+    addMenu.addEventListener('click', e => { const t = e.target.closest('[data-type]'); if (t && addMenu.classList.contains('at')) { const x = +addMenu.dataset.x, y = +addMenu.dataset.y; addMenu.classList.remove('at'); addMenu.style.left = ''; addMenu.style.top = ''; const last = blocks[blocks.length - 1]; if (last) { last.x = x; last.y = y; renderAll(); dirty(); positionSheet(last); } } }, true);
+    document.addEventListener('click', e => { if (!addMenu.contains(e.target) && e.target !== addBtn) { addMenu.classList.remove('on', 'at'); addMenu.style.left = ''; addMenu.style.top = ''; } });
+
+    // ── events: blocks (select · tools · inline text · play) ──
+    stage.addEventListener('click', e => {
+      const el = e.target.closest('.rc-block');
+      if (!el) { if (e.target === stage) { select(null); closeSheet(); } return; }
+      const b = byId(el.dataset.id); if (!b) return;
+      select(b.id);
+      const act = e.target.closest('[data-act]'); if (!act) return;
+      const a = act.dataset.act;
+      if (a === 'del') { if (confirm('Remove this block?')) removeBlock(b.id); }
+      else if (a === 'up') bump(b.id, +1);
+      else if (a === 'down') bump(b.id, -1);
+      else if (a === 'fill') openSheet(b.id);
+      else if (a === 'play') playNow(toItem(b.data.track));
+      else if (a === 'cue') { cue([toItem(b.data.track)], false); flash(act, '✓'); }
+      else if (a === 'playall') playAll((b.data.tracks || []).map(toItem));
+      else if (a === 'cueall') { cue((b.data.tracks || []).map(toItem), false); flash(act, '✓ cued'); }
+      else if (a === 'playrow') playNow(toItem((b.data.tracks || [])[+act.dataset.i]));
+      else if (a === 'open') { const tid = +(act.dataset.tid || (b.data.track || {}).id); if (tid && opts.openTrack) { try { opts.openTrack(tid); } catch (_) { location.href = `/room?track=${tid}`; } } }
+      else if (a === 'openurl') openUrl(b.data.url);
+    });
+    function flash(btn, txt) { const o = btn.textContent; btn.textContent = txt; setTimeout(() => { btn.textContent = o; }, 1200); }
+    stage.addEventListener('input', e => {
+      const ed = e.target.closest('[contenteditable][data-k]'); if (!ed) return;
+      const el = ed.closest('.rc-block'); const b = byId(el.dataset.id); if (!b) return;
+      b.data[ed.dataset.k] = ed.innerText.replace(/\n+$/, '');
+      if (ed.dataset.k === 'caption') ed.classList.toggle('has', !!b.data.caption.trim());
+      el.dataset.sig = sig(b);              // typed here — don't re-render under the caret
+      dirty();
+    });
+    stage.addEventListener('paste', e => {   // plain words only
+      const ed = e.target.closest('[contenteditable]'); if (!ed) return;
+      e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+    });
+    stage.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.matches('[data-k="heading"], [data-k="caption"]')) { e.preventDefault(); e.target.blur(); }
+      if (e.key === 'Escape' && e.target.matches('[contenteditable]')) e.target.blur();
+    });
+    // drop an image file onto an image block (or anywhere on an empty block)
+    stage.addEventListener('dragover', e => { const el = e.target.closest('.rc-block--image'); if (el) { e.preventDefault(); el.classList.add('drop'); } });
+    stage.addEventListener('dragleave', e => { const el = e.target.closest('.rc-block--image'); if (el) el.classList.remove('drop'); });
+    stage.addEventListener('drop', e => { const el = e.target.closest('.rc-block--image'); if (!el) return; e.preventDefault(); el.classList.remove('drop'); const b = byId(el.dataset.id); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (b && f) uploadImage(b, f); });
+
+    // ── drag + resize (pointer events; a click under 4px stays a click) ──
+    let drag = null;
+    stage.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      const el = e.target.closest('.rc-block'); if (!el) return;
+      const b = byId(el.dataset.id); if (!b) return;
+      const rz = e.target.closest('.rc-rz');
+      if (!rz && e.target.closest('[contenteditable], input, button, a, iframe, select, textarea, img[data-act], .rc-pl__rows')) return;
+      drag = { b, el, mode: rz ? rz.className.replace(/.*rc-rz--(\w+).*/, '$1') : 'move', sx: e.clientX, sy: e.clientY, ox: b.x, oy: b.y, ow: b.w, oh: b.h, moved: false, z0: b.z };
+      el.setPointerCapture(e.pointerId); el.classList.add('live'); b.z = 9999; el.style.zIndex = '9999';
+      e.preventDefault();
+    });
+    stage.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return; drag.moved = true;
+      const b = drag.b;
+      if (drag.mode === 'move') { b.x = snap(drag.ox + dx); b.y = snap(drag.oy + dy); }
+      else { if (drag.mode !== 's') b.w = Math.max(MIN_W, snap(drag.ow + dx)); if (drag.mode !== 'e') b.h = Math.max(MIN_H, snap(drag.oh + dy)); }
+      place(b, drag.el); if (sheetFor === b.id) positionSheet(b);
+    });
+    const endDrag = e => {
+      if (!drag) return;
+      const { b, el, moved, z0 } = drag; drag = null; el.classList.remove('live');
+      b.z = z0; if (moved) { b.z = Math.max(...blocks.map(x => x.z === 9999 ? 0 : x.z), 0) + 1; }   // what you touched comes to the front
+      renderAll(); if (moved) dirty(); select(b.id);
+    };
+    stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+    addEventListener('keydown', e => {
+      if (!host.classList.contains('on')) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !e.target.matches('input, textarea, [contenteditable]')) { e.preventDefault(); if (confirm('Remove this block?')) removeBlock(sel); }
+      if (e.key === 'Escape' && !e.target.matches('input, textarea, [contenteditable]')) { closeSheet(); select(null); }
+    });
+    addEventListener('resize', () => { const b = byId(sheetFor); if (b) positionSheet(b); });
+
+    load();
+    return { reload: load, addBlock, get blocks() { return blocks; } };
+  }
+
+  return { mount, TYPES, embedFor };
+})();

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sets — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+<script src="/static/js/room_transition.js"></script>
+    <style>
+        .set-kind-cards { display:flex; flex-direction:column; gap:12px; margin:6px 0 4px; }
+        .set-kind-card { text-align:left; background:var(--surface2); border:1px solid var(--border);
+            border-radius:var(--radius); padding:15px 18px; cursor:pointer; display:flex; flex-direction:column;
+            gap:5px; font-family:var(--font-main); transition:border-color .15s ease, background .15s ease; }
+        .set-kind-card:hover, .set-kind-card:focus-visible { border-color:var(--accent);
+            background:var(--accent-dim); outline:none; }
+        .set-kind-card__title { font-family:var(--font-serif); font-style:italic; font-size:1.12rem; color:var(--text); }
+        .set-kind-card__desc { font-size:0.82rem; color:var(--muted); line-height:1.5; }
+        .set-step-hint { font-size:0.84rem; color:var(--muted); margin:2px 0 4px; }
+        #set-details-kind { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.06em;
+            text-transform:uppercase; color:var(--accent); }
+        .sets-pill.active { border-color:var(--accent); color:var(--accent); }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets" class="active">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="floor-sheet" style="max-width: 860px; margin: 50px auto 40px; padding: 40px 32px;">
+
+    <!-- + New Set lives IN the page, not the nav: inside the room this page
+         opens over the dimmed room with its nav hidden, and a nav-embedded
+         button vanished with it (David, 2026-07-10) -->
+    <div class="forest-header" style="display:flex; align-items:flex-start; gap:16px;">
+        <div style="flex:1; min-width:0;">
+            <h1>Sets</h1>
+            <p>Named sequences of tracks. Build a set, export to Rekordbox.</p>
+        </div>
+        <button class="btn btn--ghost" style="flex:0 0 auto; margin-top:8px; white-space:nowrap;" onclick="openNewSetModal()">+ New Set</button>
+    </div>
+
+    <div id="sets-controls" style="display:none; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 18px;">
+        <input type="search" id="sets-search" placeholder="find a set…" autocomplete="off"
+               style="flex:1; min-width:170px; max-width:300px; padding:8px 14px; border-radius:100px;
+                      border:1px solid var(--border); background:var(--surface2); color:var(--text);
+                      font-family:inherit; font-size:0.88rem; outline:none;">
+        <span style="display:inline-flex; gap:6px;">
+            <button class="btn btn--ghost btn--small sets-pill active" data-kind="">All</button>
+            <button class="btn btn--ghost btn--small sets-pill" data-kind="charted">Charted</button>
+            <button class="btn btn--ghost btn--small sets-pill" data-kind="set_prep">Set prep</button>
+            <button class="btn btn--ghost btn--small sets-pill" data-kind="radio">Radio</button>
+        </span>
+        <span id="sets-count" style="font-size:0.78rem; color:var(--muted2);"></span>
+    </div>
+
+    <div id="sets-container">
+        <div class="loading">Loading sets...</div>
+    </div>
+
+</div>
+
+<!-- New Set Modal -->
+<div class="modal-overlay" id="new-set-modal">
+    <div class="modal" style="max-width: 500px;">
+        <!-- Step 1 — what kind of set? -->
+        <div id="set-step-choose">
+            <h2>New Set</h2>
+            <p class="set-step-hint">What are you making?</p>
+            <div class="set-kind-cards">
+                <button type="button" class="set-kind-card" onclick="chooseKind('charted')">
+                    <span class="set-kind-card__title">Charted</span>
+                    <span class="set-kind-card__desc">A programmed set — ordered, with transitions. Plan the sequence, start to finish.</span>
+                </button>
+                <button type="button" class="set-kind-card" onclick="chooseKind('set_prep')">
+                    <span class="set-kind-card__title">Set prep</span>
+                    <span class="set-kind-card__desc">A playlist of selections to prep for a gig and export to rekordbox — pull from it live.</span>
+                </button>
+                <button type="button" class="set-kind-card" onclick="chooseKind('radio')">
+                    <span class="set-kind-card__title">Radio show</span>
+                    <span class="set-kind-card__desc">Write a show — running order, script, research and links, a published tracklist that does the telling, and a one-button show folder.</span>
+                </button>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn--ghost" onclick="closeNewSetModal()">Cancel</button>
+            </div>
+        </div>
+        <!-- Step 2 — the details -->
+        <div id="set-step-details" style="display:none;">
+            <h2>New Set · <span id="set-details-kind"></span></h2>
+            <div class="form-field">
+                <label>Name</label>
+                <input type="text" id="set-name" placeholder="e.g. After Midnight, 3 March">
+            </div>
+            <div class="form-field">
+                <label>Date</label>
+                <input type="text" id="set-date" placeholder="e.g. 2025-03-03">
+            </div>
+            <div class="form-field">
+                <label>Place</label>
+                <select id="set-place">
+                    <option value="">— no place —</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Notes</label>
+                <textarea id="set-notes" placeholder="Context, intentions, anything relevant..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn--ghost" onclick="backToChoose()">← Back</button>
+                <button class="btn btn--primary" onclick="createSet()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let _allSets = [];
+let _setsKind = '';
+
+async function loadSets() {
+    const res  = await fetch('/api/sets');
+    _allSets   = await res.json();
+    document.getElementById('sets-controls').style.display = _allSets.length ? 'flex' : 'none';
+    applySetsFilter();
+}
+
+function applySetsFilter() {
+    const q = (document.getElementById('sets-search').value || '').trim().toLowerCase();
+    const shown = _allSets.filter(s =>
+        (!_setsKind || (s.set_type === 'charted' ? 'charted' : (s.set_type === 'radio' ? 'radio' : 'set_prep')) === _setsKind) &&
+        (!q || (s.name || '').toLowerCase().includes(q)
+            || (s.place_name || '').toLowerCase().includes(q)));
+    const countEl = document.getElementById('sets-count');
+    countEl.textContent = (q || _setsKind) ? `${shown.length} of ${_allSets.length}` : '';
+    renderSets(shown);
+}
+
+function renderSets(sets) {
+    const el = document.getElementById('sets-container');
+    if (!_allSets.length) {
+        el.innerHTML = `
+            <div class="empty-state">
+                <p>No sets yet.</p>
+                <button class="btn btn--ghost" onclick="openNewSetModal()">Build your first set</button>
+            </div>`;
+        return;
+    }
+    if (!sets.length) {
+        el.innerHTML = `<div class="empty-state"><p>No sets match.</p></div>`;
+        return;
+    }
+
+    function fmtDuration(min) {
+        if (!min) return '';
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    el.innerHTML = `<div class="sets-list">` + sets.map(s => {
+        const typeBadge = s.set_type === 'charted'
+            ? `<span style="font-size:0.6rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:100px;padding:2px 7px;margin-left:8px;opacity:0.7;">Charted</span>`
+            : s.set_type === 'radio'
+            ? `<span style="font-size:0.6rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:100px;padding:2px 7px;margin-left:8px;">Radio show</span>`
+            : `<span style="font-size:0.6rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted2);border:1px solid var(--border);border-radius:100px;padding:2px 7px;margin-left:8px;">Set prep</span>`;
+        return `
+        <a href="/set/${s.id}" class="set-row">
+            <span class="set-row__name">${s.name}${typeBadge}</span>
+            <span class="set-row__meta">
+                ${s.track_count} track${s.track_count !== 1 ? 's' : ''}
+                ${s.set_date ? `· ${s.set_date}` : ''}
+                ${s.place_name ? `· ${s.place_name}` : ''}
+                ${s.duration_min ? `· ${fmtDuration(s.duration_min)}` : ''}
+            </span>
+        </a>`;
+    }).join('') + `</div>`;
+}
+
+let _setKind = 'charted';
+const SET_KIND_LABEL = { charted: 'Charted', set_prep: 'Set prep', radio: 'Radio show' };
+
+async function openNewSetModal() {
+    // Load places for the dropdown
+    const res    = await fetch('/api/places');
+    const places = await res.json();
+    const sel    = document.getElementById('set-place');
+    sel.innerHTML = `<option value="">— no place —</option>` +
+        places.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+    // always start at the choice step
+    document.getElementById('set-step-choose').style.display = '';
+    document.getElementById('set-step-details').style.display = 'none';
+    document.getElementById('new-set-modal').classList.add('open');
+    const first = document.querySelector('.set-kind-card');
+    if (first) first.focus();
+}
+
+function chooseKind(kind) {
+    _setKind = kind;
+    document.getElementById('set-details-kind').textContent = SET_KIND_LABEL[kind] || 'Charted';
+    document.getElementById('set-step-choose').style.display = 'none';
+    document.getElementById('set-step-details').style.display = '';
+    document.getElementById('set-name').focus();
+}
+
+function backToChoose() {
+    document.getElementById('set-step-details').style.display = 'none';
+    document.getElementById('set-step-choose').style.display = '';
+    const first = document.querySelector('.set-kind-card');
+    if (first) first.focus();
+}
+
+function closeNewSetModal() {
+    document.getElementById('new-set-modal').classList.remove('open');
+}
+
+async function createSet() {
+    const name = document.getElementById('set-name').value.trim();
+    if (!name) { document.getElementById('set-name').focus(); return; }
+
+    const res = await fetch('/api/sets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            set_type:  _setKind || 'charted',
+            set_date:  document.getElementById('set-date').value.trim() || null,
+            place_id:  document.getElementById('set-place').value || null,
+            notes:     document.getElementById('set-notes').value.trim() || null,
+        }),
+    });
+
+    if (res.ok) {
+        const s = await res.json();
+        window.location.href = `/set/${s.id}`;
+    }
+}
+
+// (New-set modal — backdrop click intentionally does NOT close so partially
+//  filled form data isn't lost. Use × or Cancel. ESC still closes.)
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeNewSetModal();
+});
+
+document.getElementById('sets-search').addEventListener('input', applySetsFilter);
+document.getElementById('sets-search').addEventListener('search', applySetsFilter);
+document.querySelectorAll('.sets-pill').forEach(p => p.addEventListener('click', () => {
+    _setsKind = p.dataset.kind;
+    document.querySelectorAll('.sets-pill').forEach(x => x.classList.toggle('active', x === p));
+    applySetsFilter();
+}));
+
+loadSets();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+
+<script>window.MR_TIP = { key:'sets', title:'Sets', steps:[
+  { title:'Named sequences of records',
+    body:'Two kinds. <b>Charted</b> is a programmed set \u2014 ordered, with transitions written between the records. <b>Set prep</b> is a simple ordered list to pull from in the booth.' },
+  { sel:'.forest-header button', title:'Start one here',
+    body:'\u002b New Set asks which kind, then a name. You can also make one straight from the room: narrow to the records you want and press \u201cmake a set\u201d.' },
+  { title:'Filling a set',
+    body:'Add records from anywhere \u2014 a record\u2019s panel has \u201c+ Add to a set\u201d, the room\u2019s \u201cmake a set\u201d takes everything in hand, and inside a set you drag records into order.' },
+  { title:'They travel with you',
+    body:'Every set-prep becomes a playlist in rekordbox when you export. Build here, play anywhere.',
+    link:'/help#sets', linkText:'sets in the guide' },
+]};</script>
+<script src="/static/js/mr_tips.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

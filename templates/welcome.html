@@ -1,0 +1,635 @@
+{# -- Welcome — first-run setup walkthrough. Re-runnable from Help. -- #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <script src="/static/js/path_picker.js"></script>
+    <style>
+        /* The wizard wears the same dark desk as the room / Explore —
+           explore-theme.css flips the palette vars; only the wizard's own
+           surfaces are set here. */
+        body { margin: 0; background: var(--bg); min-height: 100vh; }
+        .wz-top {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 22px; border-bottom: 1px solid var(--border);
+            background: rgba(16,14,10,0.92); position: sticky; top: 0; z-index: 5;
+        }
+        .wz-top .nav__logo { font-family: var(--font-celtic); font-size: 1.3rem; color: var(--text); text-decoration: none; }
+        .wz-skip { background: none; border: none; color: var(--muted); font-size: 0.86rem;
+                   font-family: var(--font-serif); font-style: italic; cursor: pointer; }
+        .wz-skip:hover { color: var(--oxblood); }
+
+        .wz-scene { padding: 40px 24px 80px; }
+        .wz-card {
+            max-width: 720px; margin: 0 auto;
+            background: var(--surface);
+            border: 1px solid var(--border); border-radius: 18px;
+            padding: 38px 42px 30px;
+            box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+            min-height: 420px; display: flex; flex-direction: column;
+        }
+
+        /* progress dots */
+        .wz-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 26px; flex-wrap: wrap; }
+        .wz-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border2); transition: all 0.2s; }
+        .wz-dot.active { background: var(--oxblood); transform: scale(1.25); }
+        .wz-dot.done { background: var(--gold); }
+
+        .wz-step { display: none; flex: 1; flex-direction: column; }
+        .wz-step.active { display: flex; }
+        .wz-kicker { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.18em;
+                     text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+        .wz-step h1 { font-family: var(--font-celtic); font-size: 2.1rem; color: var(--text);
+                      margin: 0 0 14px; letter-spacing: 0.04em; }
+        .wz-step h1::first-letter { color: var(--oxblood); }
+        .wz-step p { font-size: 1rem; color: var(--text); line-height: 1.62; margin: 8px 0; }
+        .wz-step p.lead { font-family: var(--font-serif); font-style: italic; font-size: 1.12rem; color: var(--muted); }
+        .wz-step ul { color: var(--text); line-height: 1.6; font-size: 0.95rem; }
+        .wz-step code { font-family: var(--font-mono); font-size: 0.82rem; background: rgba(245,230,176,0.1);
+                        color: #e8d9a8; padding: 1px 6px; border-radius: 5px; }
+        .wz-field { display: flex; gap: 8px; margin: 16px 0 6px; flex-wrap: wrap; }
+        .wz-input {
+            flex: 1; min-width: 240px; background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); padding: 10px 13px;
+            font-family: var(--font-mono); font-size: 0.86rem; outline: none;
+        }
+        .wz-input:focus { border-color: var(--gold); }
+        .wz-hint { font-size: 0.78rem; color: var(--muted2); font-style: italic; margin-top: 4px; }
+        .wz-callout { border-left: 3px solid var(--gold); background: rgba(245,230,176,0.06);
+                      padding: 11px 16px; margin: 14px 0; border-radius: 0 8px 8px 0; font-size: 0.92rem; color: var(--text); }
+
+        .wz-btn {
+            background: none; border: 1px solid var(--border2);
+            color: var(--muted); padding: 9px 18px; border-radius: 100px;
+            font-family: var(--font-main); font-size: 0.9rem; cursor: pointer; transition: all 0.15s;
+        }
+        .wz-btn:hover { color: var(--text); border-color: rgba(245,230,176,0.5); }
+        .wz-btn:disabled { opacity: 0.5; cursor: default; }
+        .wz-btn--gold { background: rgba(245,230,176,0.08); border-color: rgba(245,230,176,0.5); color: var(--gold); }
+        .wz-btn--gold:hover { background: rgba(245,230,176,0.18); }
+        .wz-btn.on { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+        .wz-status { font-size: 0.85rem; color: var(--muted); margin-top: 10px; min-height: 1.2em; }
+
+        .wz-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 26px;
+                   padding-top: 18px; border-top: 1px solid var(--border); }
+        .wz-foot__right { display: flex; gap: 10px; align-items: center; }
+        .wz-back { background: none; border: none; color: var(--muted); font-size: 0.88rem; cursor: pointer; font-family: var(--font-main); }
+        .wz-back:hover { color: var(--text); }
+        .wz-next {
+            background: var(--oxblood); color: #fbf4dd; border: none; padding: 10px 24px;
+            border-radius: 100px; font-family: var(--font-main); font-size: 0.92rem; cursor: pointer; transition: all 0.15s;
+        }
+        .wz-next:hover { background: #842f22; }
+        .wz-skip-step { background: none; border: none; color: var(--muted2); font-size: 0.82rem;
+                        font-style: italic; cursor: pointer; font-family: var(--font-serif); }
+        .wz-skip-step:hover { color: var(--muted); }
+        .radio-row { display: flex; gap: 18px; margin: 12px 0; flex-wrap: wrap; }
+        .radio-row label { font-size: 0.92rem; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .wz-bar { height: 7px; border-radius: 4px; background: rgba(245,230,176,0.12); overflow: hidden; margin-top: 12px; }
+        .wz-bar__fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<div class="wz-top">
+    <a href="/room" class="nav__logo">Music Room</a>
+    <button class="wz-skip" onclick="finishSetup(true)">I'll explore on my own →</button>
+</div>
+
+<div class="wz-scene">
+  <div class="wz-card">
+    <div class="wz-dots" id="wz-dots"></div>
+
+    <!-- 1. WELCOME -->
+    <div class="wz-step active" data-step="welcome">
+        <div class="wz-kicker">Fáilte · Welcome</div>
+        <h1>This is the Music Room</h1>
+        <p class="lead">It's not really a library app. It's a place you walk into — a forest, with
+            rooms, and a well at the centre that holds everything.</p>
+        <p>But a room is a quiet, strange place with nothing in it. <strong>The Music Room only comes
+            alive once your records are inside.</strong> So before anything else, let's bring some music in —
+            it takes a minute, and you can stop whenever you like.</p>
+        <p>A quick word on how it treats your music: it <strong>reads your files where they
+            already are</strong>. Everything it learns goes in its own database, not into your files.
+            The next few steps set that up.</p>
+        <div class="wz-callout">Everything here is optional. Skip any step and the door's still open —
+            you can always come back to this walkthrough from the <strong>Help</strong> tab.</div>
+        <div class="wz-field" style="margin-top:20px;">
+            <button class="wz-btn wz-btn--gold" onclick="chooseMode('full')">The full walkthrough</button>
+            <button class="wz-btn" onclick="chooseMode('light')">Just the essentials</button>
+        </div>
+        <div class="wz-hint">The essentials get your music in, and each part of the app says
+            hello the first time you open it. The full version shows you around everything first.</div>
+    </div>
+
+    <!-- 2. TRUST + BACKUP — before the app touches anything -->
+    <div class="wz-step" data-step="trust">
+        <div class="wz-kicker">Your files, first</div>
+        <h1>Before anything touches your library</h1>
+        <p>First, the ground rules. Your music collection is precious, so here is exactly
+            what Music Room will and won't do with it:</p>
+        <ul>
+            <li>When you import, it <strong>only reads your files</strong>. It never moves them,
+                renames them, or writes anything into them.</li>
+            <li>If you later ask it to organise your library, it makes <strong>copies</strong>
+                (it can move instead, but only if you tell it to). If two files would end up with
+                the same name, it adds “&nbsp;(2)” rather than replacing anything.</li>
+            <li>Everything it works out about a track goes in <strong>its own database</strong>,
+                not into your files. Writing tags into a file is a button you press yourself.</li>
+            <li>Deleting something sends it to the <strong>Trash</strong>. Nothing just disappears.</li>
+        </ul>
+        <div class="wz-callout"><strong>Even so: back up your music first.</strong> Copy the folder
+            onto another drive, or let Time Machine run. Ten minutes now, and nothing any app does
+            can ever really hurt you.</div>
+    </div>
+
+    <!-- 3. STORAGE — this Mac or an external drive -->
+    <div class="wz-step" data-step="storage">
+        <div class="wz-kicker">Where the music lives</div>
+        <h1>This Mac, or a drive?</h1>
+        <p>Where do you keep your music? This just tells Music Room where to keep its own
+            things. You can change it any time in Settings.</p>
+        <div class="wz-field" style="margin-top:20px;">
+            <button class="wz-btn wz-btn--gold wz-store-btn" data-v="local" onclick="chooseStorage('local')">On this Mac</button>
+            <button class="wz-btn wz-btn--gold wz-store-btn" data-v="external" onclick="chooseStorage('external')">On an external drive</button>
+        </div>
+        <div class="wz-status" id="wz-storage-status"></div>
+    </div>
+
+    <!-- 4. LOCATION — one home for the Music Room's files; the database story -->
+    <div class="wz-step" data-step="location">
+        <div class="wz-kicker">The Music Room's home</div>
+        <h1>One folder for its things</h1>
+        <p>If you ever ask Music Room to tidy your library, the copies land in a folder
+            called <strong>Music Room Library</strong>. Pick where you'd like that folder to live
+            <span id="wz-loc-mode-hint"></span>:</p>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-lib-dest"
+                   placeholder="Choose the Music Room Library folder, or paste a path">
+            <button class="wz-btn wz-btn--gold" onclick="mrChooseInto('wz-lib-dest','folder', saveLibDest)">📁 Choose…</button>
+            <button class="wz-btn" onclick="saveLibDest()">Save</button>
+        </div>
+        <div class="wz-status" id="wz-libdest-status"></div>
+        <p style="margin-top:16px;">Everything Music Room learns, and everything you write in it,
+            is kept in its <strong>database</strong>. That lives here:</p>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-data-dir" readonly style="opacity:0.8;">
+            <button class="wz-btn" onclick="revealData()">Reveal</button>
+        </div>
+        <p id="wz-loc-external" style="display:none;">Since your music is on a drive, Music Room
+            keeps a full copy of the database <strong>on the drive as well</strong>, right beside the
+            music. If the drive travels, everything travels with it. A spare copy stays on this Mac.
+            You don't have to do anything for this — it just happens.</p>
+        <div id="wz-loc-local">
+            <p>It can also keep a spare copy of the database wherever you like. An external
+                drive is a good spot, when you have one:</p>
+            <div class="wz-field">
+                <input type="text" class="wz-input" id="wz-backup" placeholder="Choose a backup folder (optional)">
+                <button class="wz-btn wz-btn--gold" onclick="mrChooseInto('wz-backup','folder', saveBackup)">📁 Choose…</button>
+                <button class="wz-btn" onclick="saveBackup()">Save</button>
+            </div>
+            <div class="wz-status" id="wz-backup-status"></div>
+        </div>
+    </div>
+
+    <!-- 5. IMPORT — the source folder + the import itself, one step -->
+    <div class="wz-step" data-step="import">
+        <div class="wz-kicker">Bring it in</div>
+        <h1>Load some music</h1>
+        <p>Point it at the folder your music is in right now and press <strong>Import</strong>.
+            It reads the files where they are and your records appear in the Music Room.
+            One folder now, more whenever you like. Importing again never duplicates anything.</p>
+        <div class="wz-hint">Tip: in Finder, right-click a folder → hold <strong>⌥ Option</strong> →
+            “Copy <em>folder</em> as Pathname”, then paste it here.</div>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-import-path" placeholder="the folder your music is in">
+            <button class="wz-btn" onclick="mrChooseInto('wz-import-path','folder')">📁 Choose…</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;color:var(--muted);white-space:nowrap;">
+                <input type="checkbox" id="wz-import-analyse" style="accent-color:var(--accent);"> also analyse
+            </label>
+            <button class="wz-btn wz-btn--gold" id="wz-import-btn" onclick="startImport()">Import</button>
+            <button class="wz-btn" id="wz-import-stop" onclick="stopJob()" style="display:none;">Stop</button>
+        </div>
+        <div class="wz-hint">“Also analyse” works out BPM, key and the sound fingerprint as it goes —
+            slower (5–15s a track), but you can also do it later. Leave it off to import fast.</div>
+        <div class="wz-bar" id="wz-import-bar" style="display:none;"><div class="wz-bar__fill" id="wz-import-fill"></div></div>
+        <div class="wz-status" id="wz-import-status"></div>
+    </div>
+
+    <!-- 4. ORGANISE (optional) -->
+    <div class="wz-step" data-step="organise">
+        <div class="wz-kicker">Tidy up (optional)</div>
+        <h1>Organise into one folder</h1>
+        <p>If your music is scattered across folders, Music Room can sort it into one tidy library —
+            alphabetised by artist:</p>
+        <p><code>Music Room Library / A / Aphex Twin / Selected Ambient Works / 01 - Radiator.flac</code></p>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-org-dest"
+                   placeholder="Choose your library folder, or paste a path">
+            <button class="wz-btn wz-btn--gold" onclick="mrChooseInto('wz-org-dest','folder')">📁 Choose…</button>
+        </div>
+        <div class="radio-row">
+            <label><input type="radio" name="wz-org-mode" value="copy" checked> <strong>Copy</strong> — leave my originals where they are (uses more space)</label>
+            <label><input type="radio" name="wz-org-mode" value="move"> <strong>Move</strong> — consolidate (frees the old spots)</label>
+        </div>
+        <div class="wz-field">
+            <button class="wz-btn wz-btn--gold" id="wz-org-btn" onclick="startOrganise()">Tidy it up</button>
+            <button class="wz-btn" id="wz-org-stop" onclick="stopOrganise()" style="display:none;">Stop</button>
+        </div>
+        <div class="wz-callout">Only your <em>imported</em> tracks get organised, so do this after importing.
+            <strong>Move</strong> relocates files and can't be undone automatically — <strong>Copy</strong> is the safe choice if you're unsure.
+            Either way nothing is ever overwritten: two tracks landing on the same name get a
+            “&nbsp;(2)”, never a replacement.</div>
+        <div class="wz-bar" id="wz-org-bar" style="display:none;"><div class="wz-bar__fill" id="wz-org-fill"></div></div>
+        <div class="wz-status" id="wz-org-status"></div>
+    </div>
+
+    <!-- 6. ANALYSE -->
+    <div class="wz-step" data-step="analyse">
+        <div class="wz-kicker">Let it listen</div>
+        <h1>Analyse your tracks</h1>
+        <p>Analysis listens to each track, here on your Mac (nothing is uploaded), and works out:</p>
+        <ul>
+            <li><strong>BPM &amp; key</strong> — for beatmatching and harmonic mixing (the Camelot wheel).</li>
+            <li><strong>Loudness &amp; dynamics</strong> — so you can match levels across records.</li>
+            <li><strong>A six-band sound fingerprint</strong> — sub / bass / mids / brilliance — so you can
+                <em>see</em> what a track sounds like and find "more like this".</li>
+        </ul>
+        <p>It also fetches <strong>cover art</strong> and works out each cover's colour.
+            All of this powers the visual tools — the room's layouts, the filters, the colour sort.
+            Everything analysis learns goes into Music Room's <strong>own database</strong> — it never
+            writes into your audio files.</p>
+        <div class="wz-field">
+            <button class="wz-btn wz-btn--gold" id="wz-analyse-btn" onclick="startAnalyse()">Analyse everything</button>
+            <button class="wz-btn" id="wz-analyse-stop" onclick="stopJob()" style="display:none;">Stop</button>
+        </div>
+        <div class="wz-hint">Big libraries take a while — leave it running, even overnight. You can also do
+            this any time from <strong>Tools → Analyse</strong>.</div>
+        <div class="wz-bar" id="wz-analyse-bar" style="display:none;"><div class="wz-bar__fill" id="wz-analyse-fill"></div></div>
+        <div class="wz-status" id="wz-analyse-status"></div>
+    </div>
+
+    <!-- FULL-WALKTHROUGH TOUR: the Music Room -->
+    <div class="wz-step" data-step="troom">
+        <div class="wz-kicker">The tour · The Music Room</div>
+        <h1>Playing records</h1>
+        <ul>
+            <li><strong>Click any record</strong> and its panel opens. Press ▶ to play it.</li>
+            <li><strong>The little player in the corner keeps going</strong> wherever you wander.
+                Change page, browse, read — the music doesn't stop.</li>
+            <li><strong>＋ cue</strong> lines a record up next without interrupting anything.
+                <strong>→ player</strong> hands the record you're looking at over to the player.</li>
+            <li>While something plays, <strong>⊙ stamp</strong> pins that exact moment into a note.
+                Handy for marking the bit you love.</li>
+            <li><strong>Tags are whatever words you want.</strong> Add them in the panel; each gets
+                a colour, and the search and filters understand them.</li>
+        </ul>
+    </div>
+
+    <!-- TOUR: the Forest / places -->
+    <div class="wz-step" data-step="tforest">
+        <div class="wz-kicker">The tour · The Forest</div>
+        <h1>Places</h1>
+        <ul>
+            <li>The forest is your map. <strong>The cabin in the middle is the Music Room</strong> —
+                every record you import lives in there.</li>
+            <li><strong>Make a place</strong> for anything that means something to you. A night,
+                a mood, a set you're building. Click one to walk in.</li>
+            <li><strong>Right-click a record</strong> inside any room to add it to a place. A record
+                can belong to many places at once — nothing gets moved or copied.</li>
+        </ul>
+    </div>
+
+    <!-- TOUR: Explore + wishlist -->
+    <div class="wz-step" data-step="texplore">
+        <div class="wz-kicker">The tour · Explore</div>
+        <h1>Finding new music</h1>
+        <ul>
+            <li>Explore is a stream of <strong>articles, mixes and videos from sources you choose</strong> —
+                magazines, radio stations, labels. You can read and listen without leaving.</li>
+            <li>In <strong>✦ tune</strong>, write down what you care about, in your own words.
+                The stream sorts itself around that. No one is watching; it's just word-matching,
+                and you can read exactly how it works in Help.</li>
+            <li><strong>♥ wishlist</strong> holds the records you want. Paste a link to one and it
+                fills in the rest. Buying always goes straight to the artist.</li>
+        </ul>
+    </div>
+
+    <!-- TOUR: Sets + rekordbox -->
+    <div class="wz-step" data-step="tsets">
+        <div class="wz-kicker">The tour · Sets</div>
+        <h1>Building a set, leaving for the decks</h1>
+        <ul>
+            <li>There are <strong>two kinds of set</strong>. A <em>Charted</em> set is sequenced,
+                with transitions. <em>Set prep</em> is a simple ordered list to take to the booth.</li>
+            <li>Add records from anywhere in the app, then <strong>drag them into shape</strong>.</li>
+            <li>When you're ready for the decks: <strong>Tools → Export → Update rekordbox XML</strong>.
+                Your whole collection goes over, and every place and set-prep arrives as a playlist.
+                Your genres and tags come along too.</li>
+            <li>BPM and key are left for rekordbox to work out itself — it's better at it.</li>
+        </ul>
+    </div>
+
+    <!-- TOUR: Settings -->
+    <div class="wz-step" data-step="tsettings">
+        <div class="wz-kicker">The tour · Settings</div>
+        <h1>The dials</h1>
+        <ul>
+            <li><strong>Settings</strong> holds the practical things: where your music lives, where
+                the Library folder and backups go, how the room looks and sounds.</li>
+            <li><strong>Backups</strong> — one button copies the database, artwork and notes to
+                your backup folder. Worth pressing now and then.</li>
+            <li>Nothing you do in here is sent anywhere. It's all on this Mac.</li>
+        </ul>
+        <div class="wz-hint">Everything else you'll need day to day — import, analyse, export,
+            recordings, the map — lives under <strong>Tools</strong>.</div>
+    </div>
+
+    <!-- 7. TOKENS -->
+    <div class="wz-step" data-step="tokens">
+        <div class="wz-kicker">Sharpen it (optional)</div>
+        <h1>Free keys that teach it more</h1>
+        <p>Music Room looks things up from <strong>free, open sources</strong> — MusicBrainz, Discogs, Deezer,
+            iTunes. No AI, no subscriptions. A couple of free keys make it noticeably smarter:</p>
+        <p><strong>Discogs token</strong> — unlocks proper DJ-grade genre suggestions (Deep House, Italo Disco,
+            that level of detail) and better record labels.</p>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-discogs" placeholder="Discogs personal token">
+            <button class="wz-btn" onclick="saveToken('discogs_token','wz-discogs','wz-tok-status')">Save</button>
+        </div>
+        <div class="wz-hint"><a href="#" onclick="ext('https://www.discogs.com/settings/developers');return false;">discogs.com/settings/developers</a> → “Generate new token”. Free, 30 seconds.</div>
+        <p style="margin-top:16px;"><strong>Last.fm key</strong> — adds crowd-tagged genres to the suggestions. Optional.</p>
+        <div class="wz-field">
+            <input type="text" class="wz-input" id="wz-lastfm" placeholder="Last.fm API key">
+            <button class="wz-btn" onclick="saveToken('lastfm_api_key','wz-lastfm','wz-tok-status')">Save</button>
+        </div>
+        <div class="wz-hint"><a href="#" onclick="ext('https://www.last.fm/api/account/create');return false;">last.fm/api/account/create</a>. Also free.</div>
+        <div class="wz-status" id="wz-tok-status"></div>
+    </div>
+
+    <!-- 8. DONE -->
+    <div class="wz-step" data-step="done">
+        <div class="wz-kicker">Críochnaithe · Done</div>
+        <h1>Your forest is filling up</h1>
+        <p class="lead">That's the setup. Everything from here is yours to wander.</p>
+        <p>Head into <strong>the Music Room</strong> to see everything you've brought in. Make a <strong>place</strong>
+            ("Sunset Beach", "4am Warehouse"), give it a colour and a mood, and start dropping records into it.
+            Open a track to write notes, suggest genres, see its sound.</p>
+        <p id="wz-done-mode">Lost? The <strong>Help</strong> tab has the full tour, and you can run this
+            walkthrough again any time.</p>
+        <div class="wz-callout">Tip: keep importing as you get new music — that button never stops being useful.</div>
+    </div>
+
+    <!-- FOOTER NAV -->
+    <div class="wz-foot">
+        <button class="wz-back" id="wz-back" onclick="prevStep()">← Back</button>
+        <div class="wz-foot__right">
+            <button class="wz-skip-step" id="wz-skip-step" onclick="nextStep()">Skip this step</button>
+            <button class="wz-next" id="wz-next" onclick="nextStep()">Next →</button>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Two walks through the same wizard. Both lead with file-trust + backup and
+// the import itself; the FULL walk then tours each area of the app before
+// starting, while LIGHT ends after import — each area then introduces itself
+// once, the first time it's entered (static/js/mr_tips.js).
+const FULL_STEPS  = ['welcome','trust','storage','location','import','organise','analyse',
+                     'troom','tforest','texplore','tsets','tsettings','tokens','done'];
+const LIGHT_STEPS = ['welcome','trust','storage','location','import','organise','analyse','done'];
+let MODE  = 'full';
+let STEPS = FULL_STEPS;
+let cur = 0;
+let _poll = null;
+
+function chooseMode(m) {
+    MODE  = m;
+    STEPS = (m === 'light') ? LIGHT_STEPS : FULL_STEPS;
+    const doneEl = document.getElementById('wz-done-mode');
+    if (doneEl && m === 'light') {
+        doneEl.innerHTML = 'Each part of the app — the room, the forest, Explore, Sets, Export — ' +
+            'introduces itself the <strong>first time you walk in</strong>. The <strong>Help</strong> ' +
+            'tab has the full tour any time.';
+    }
+    showStep(1);
+}
+
+function renderDots() {
+    document.getElementById('wz-dots').innerHTML = STEPS.map((s,i) =>
+        `<div class="wz-dot ${i===cur?'active':(i<cur?'done':'')}"></div>`).join('');
+}
+function showStep(i) {
+    cur = Math.max(0, Math.min(STEPS.length-1, i));
+    document.querySelectorAll('.wz-step').forEach(el =>
+        el.classList.toggle('active', el.dataset.step === STEPS[cur]));
+    document.getElementById('wz-back').style.visibility = cur === 0 ? 'hidden' : 'visible';
+    const last = cur === STEPS.length-1;
+    document.getElementById('wz-next').textContent = last ? 'Enter the Music Room ✦' : 'Next →';
+    document.getElementById('wz-skip-step').style.display = (cur===0||last) ? 'none' : '';
+    renderDots();
+}
+function nextStep() {
+    if (cur === STEPS.length-1) { finishSetup(false); return; }
+    showStep(cur+1);
+}
+function prevStep() { showStep(cur-1); }
+
+async function finishSetup(skipped) {
+    try {
+        // The full walkthrough already toured every area — don't repeat the
+        // first-visit tips. Light/skipped users get each area's tip once.
+        if (MODE === 'full' && !skipped) {
+            const seen = {};
+            ['room','forest','explore','sets','export'].forEach(k => seen[k + '_tour_seen'] = '1');
+            await saveSetting(seen);
+        }
+        await fetch('/api/setup/complete', {method:'POST'});
+    } catch(e){}
+    window.location.href = '/';
+}
+
+// --- storage mode + the Music Room's home -------------------------------
+// One location choice covers both: the Music Room Library folder (tidied
+// copies, IF the user organises) and — through the existing backup system —
+// where the database travels: library on a /Volumes drive ⇒ a full portable
+// copy in "<drive>/Music Room — App Data" + a laptop backup, automatically.
+let _storageMode = null;
+async function chooseStorage(v) {
+    _storageMode = v;
+    await saveSetting({music_location: v});
+    document.querySelectorAll('.wz-store-btn').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    _applyStorageMode(v);
+    nextStep();
+}
+function _applyStorageMode(v) {
+    const ext = (v === 'external');
+    document.getElementById('wz-loc-external').style.display = ext ? '' : 'none';
+    document.getElementById('wz-loc-local').style.display    = ext ? 'none' : '';
+    document.getElementById('wz-loc-mode-hint').textContent  = ext
+        ? '— on the drive, beside your music, is the natural spot'
+        : '— somewhere roomy on this Mac, like inside ~/Music';
+}
+async function saveLibDest() {
+    const v = document.getElementById('wz-lib-dest').value.trim();
+    await saveSetting({library_dest: v});
+    if (v) document.getElementById('wz-org-dest').value = v;
+    document.getElementById('wz-libdest-status').textContent = v ? 'Saved. ✓' : 'Cleared.';
+}
+
+// --- data load ---
+async function loadState() {
+    try {
+        const d = await fetch('/api/setup/state').then(r=>r.json());
+        if (d.music_library_path) {
+            document.getElementById('wz-import-path').value = d.music_library_path;
+            if (!document.getElementById('wz-lib-dest').value)
+                document.getElementById('wz-lib-dest').value =
+                    (d.music_library_path.replace(/\/+$/,'')) + ' Library';
+        }
+        document.getElementById('wz-data-dir').value = d.data_dir || '';
+        if (d.backup_dir) document.getElementById('wz-backup').value = d.backup_dir;
+        if (d.has_discogs) document.getElementById('wz-discogs').placeholder = '✓ already set — paste to replace';
+        if (d.has_lastfm)  document.getElementById('wz-lastfm').placeholder  = '✓ already set — paste to replace';
+    } catch(e){}
+    try {
+        const s = await fetch('/api/settings').then(r=>r.json());
+        if (s.library_dest) {
+            document.getElementById('wz-lib-dest').value = s.library_dest;
+            document.getElementById('wz-org-dest').value = s.library_dest;
+        }
+        const ml = (s.music_location === 'external') ? 'external'
+                 : (s.music_location === 'local') ? 'local' : null;
+        if (ml) {
+            _storageMode = ml;
+            document.querySelectorAll('.wz-store-btn').forEach(b => b.classList.toggle('on', b.dataset.v === ml));
+            _applyStorageMode(ml);
+        } else {
+            _applyStorageMode('local');            // sensible default view until chosen
+        }
+    } catch(e){ _applyStorageMode('local'); }
+}
+
+async function saveSetting(obj) {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj)});
+}
+async function saveBackup() {
+    const v = document.getElementById('wz-backup').value.trim();
+    await saveSetting({backup_dir: v});
+    document.getElementById('wz-backup-status').textContent = v ? 'Backup location saved. ✓' : 'No backup — that\'s fine.';
+}
+async function saveToken(key, inputId, statusId) {
+    const v = document.getElementById(inputId).value.trim();
+    if (!v) return;
+    await saveSetting({[key]: v});
+    document.getElementById(statusId).textContent = 'Saved. ✓';
+}
+async function revealData() {
+    const p = document.getElementById('wz-data-dir').value.trim();
+    if (p) await fetch('/api/reveal-path', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path:p})});
+}
+async function ext(url) {
+    await fetch('/api/open-url', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url})});
+}
+
+// --- import + analyse share the analysis job slot ---
+async function startImport() {
+    const path = document.getElementById('wz-import-path').value.trim();
+    const analyse = document.getElementById('wz-import-analyse').checked;
+    if (!path) { document.getElementById('wz-import-status').textContent = 'Pick the folder your music is in first.'; return; }
+    await saveSetting({music_library_path: path});
+    const r = await fetch('/api/import/start', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path, analyse})});
+    const d = await r.json();
+    if (!d.ok) { document.getElementById('wz-import-status').textContent = d.error || 'Could not start.'; return; }
+    document.getElementById('wz-import-btn').style.display = 'none';
+    document.getElementById('wz-import-stop').style.display = '';
+    document.getElementById('wz-import-bar').style.display = 'block';
+    pollJob('import');
+}
+async function startAnalyse() {
+    const r = await fetch('/api/analysis/start', {method:'POST'});
+    const d = await r.json();
+    if (!d.ok) { document.getElementById('wz-analyse-status').textContent = d.error || 'Could not start.'; return; }
+    document.getElementById('wz-analyse-btn').style.display = 'none';
+    document.getElementById('wz-analyse-stop').style.display = '';
+    document.getElementById('wz-analyse-bar').style.display = 'block';
+    pollJob('analyse');
+}
+async function stopJob() {
+    await fetch('/api/analysis/stop', {method:'POST'});
+}
+function pollJob(kind) {
+    clearInterval(_poll);
+    const statusEl = document.getElementById(`wz-${kind}-status`);
+    const fillEl   = document.getElementById(`wz-${kind}-fill`);
+    _poll = setInterval(async () => {
+        let s;
+        try { s = await fetch('/api/analysis/status').then(r=>r.json()); } catch(e){ return; }
+        const sessionDone = s.session_done || 0;          // processed this run
+        const total = s.total || 0;                        // total primary files
+        const analysed = s.done || 0;                      // files with analysis
+        if (kind === 'analyse') {
+            fillEl.style.width = (total ? Math.min(100, Math.round(100*analysed/total)) : 8) + '%';
+            statusEl.textContent = total ? `Analysed ${analysed} of ${total}…` : 'Listening…';
+        } else {
+            statusEl.textContent = sessionDone ? `Brought in ${sessionDone} track${sessionDone===1?'':'s'}…` : 'Scanning…';
+            fillEl.style.width = sessionDone ? '60%' : '15%';
+        }
+        if (!s.running) {
+            clearInterval(_poll);
+            fillEl.style.width = '100%';
+            document.getElementById(`wz-${kind}-btn`).style.display = '';
+            document.getElementById(`wz-${kind}-stop`).style.display = 'none';
+            if (kind === 'import') {
+                document.getElementById('wz-import-btn').textContent = 'Import more';
+                statusEl.textContent = (sessionDone ? `Done — ${sessionDone} brought in. ` : 'Done. ') + 'Import again any time.';
+            } else {
+                statusEl.textContent = 'Analysis finished. ✓';
+            }
+        }
+    }, 1200);
+}
+
+// --- organise ---
+async function startOrganise() {
+    const dest = document.getElementById('wz-org-dest').value.trim();
+    const mode = document.querySelector('input[name="wz-org-mode"]:checked').value;
+    if (!dest) { document.getElementById('wz-org-status').textContent = 'Pick a destination folder.'; return; }
+    const r = await fetch('/api/organise/start', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({dest, mode})});
+    const d = await r.json();
+    if (!d.ok) { document.getElementById('wz-org-status').textContent = d.error || 'Could not start.'; return; }
+    document.getElementById('wz-org-btn').style.display = 'none';
+    document.getElementById('wz-org-stop').style.display = '';
+    document.getElementById('wz-org-bar').style.display = 'block';
+    clearInterval(_poll);
+    _poll = setInterval(async () => {
+        let s; try { s = await fetch('/api/organise/status').then(r=>r.json()); } catch(e){ return; }
+        const pct = s.total ? Math.round(100*(s.done||0)/s.total) : (s.phase==='done'?100:8);
+        document.getElementById('wz-org-fill').style.width = pct + '%';
+        document.getElementById('wz-org-status').textContent =
+            s.phase === 'planned' ? `Planning… ${s.total} to ${s.mode}` :
+            s.running ? `${s.mode==='copy'?'Copying':'Moving'} ${s.done||0} of ${s.total}…` :
+            (s.error ? ('Error: '+s.error) : `Done — ${s.done||0} ${s.mode==='copy'?'copied':'moved'}, ${s.already||0} already tidy.`);
+        if (!s.running && s.phase !== 'starting') {
+            clearInterval(_poll);
+            document.getElementById('wz-org-btn').style.display = '';
+            document.getElementById('wz-org-btn').textContent = 'Tidy again';
+            document.getElementById('wz-org-stop').style.display = 'none';
+        }
+    }, 1000);
+}
+async function stopOrganise() { await fetch('/api/organise/stop', {method:'POST'}); }
+
+loadState();
+showStep(0);
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

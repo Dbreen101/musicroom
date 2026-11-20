@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <style>
+        /* =============================================================
+           THE LISTENING DESK — the research + note workspace, worn in the
+           EXPLORE register: a dark content surface, Inter type with EB
+           Garamond for the titles and JetBrains Mono for the small labels,
+           white-alpha pill controls, gold as the one accent. Every class name
+           is load-bearing (the JS renders into them) — only the look changed.
+        ============================================================= */
+        .ws, .ws-lensbar, .ws-modal, .listen-player {
+            --bg:        #12100c;                 /* the desk */
+            --panel:     #16130d;                 /* explorer + marginalia panes */
+            --leaf:      #211c14;                 /* the centre reading surface — warm-dim, the calmest panel */
+            --leaf-mid:  #16130d;
+            --leaf-dim:  #141009;
+            --ink:       #efe6cf;
+            --ink-soft:  rgba(239,230,207,0.62);
+            --ink-faint: rgba(255,255,255,0.09);
+            --muted:     #9a8c6c;
+            --muted2:    #71674f;
+            --gold:      #f5e6b0;
+            --gold-soft: rgba(245,230,176,0.14);
+            --orpiment:  #f5e6b0;
+            --ochre:     #e8c98a;
+            --rubric:    #e0a07a;                 /* warm accent (type facet)  */
+            --verdigris: #7bbf86;                 /* genre green               */
+            --woad:      #7ea0cc;                 /* links / tags indigo       */
+            --folium:    #b896b0;                 /* custom fields lilac       */
+            --surface2:  #241b10;                 /* art placeholder bed       */
+            --text:      #efe6cf;
+            --danger:    #d4756a;
+            --oxblood:   #e0a07a;
+            --line:      rgba(255,255,255,0.08);
+            --fill:      rgba(255,255,255,0.06);
+            --ease:      cubic-bezier(.32,.72,.28,1);
+            --spring:    cubic-bezier(.34,1.45,.5,1);
+            --lh:        27px;
+            caret-color: var(--gold);
+        }
+        /* lens bar — names the lenses so the model reads at a glance */
+        .ws-lensbar { display: flex; align-items: center; gap: 14px; height: 39px; padding: 0 18px;
+            background: var(--panel); border-bottom: 1px solid var(--line); }
+        .ws-lensbar__title { font-family: var(--font-celtic, var(--font-serif)); font-size: 1.06rem; color: var(--ink); }
+        .ws-lens { display: flex; gap: 4px; }
+        .ws-lens a { padding: 5px 14px; border-radius: 100px; font-size: 0.8rem; text-decoration: none;
+            color: var(--muted); border: 1px solid transparent; transition: all 0.18s var(--spring); }
+        .ws-lens a.active { background: var(--gold); color: #1d160d; border-color: var(--gold); }
+        .ws-lens a:not(.active):hover { color: var(--ink); border-color: var(--muted2); }
+        .ws-lensbar__hint { font-family: var(--font-serif); font-style: italic; font-size: 0.78rem;
+            color: var(--muted2); margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ws {
+            display: grid;
+            grid-template-columns: 264px 6px minmax(0, 1fr);   /* right pane removed */
+            height: calc(100vh - 95px);
+            background: var(--bg);
+            color: var(--ink);
+            font-family: var(--font-main, 'Inter', sans-serif);
+        }
+        .ws ::selection { background: rgba(245,230,176,0.22); }
+        .ws-pane { overflow-y: auto; min-width: 0; }
+        .ws-left  { display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); }
+        .ws-right { display: flex; flex-direction: column; padding: 0; background: var(--panel); border-left: 1px solid var(--line); }
+        .ws-main  { padding: 0; background: var(--leaf); position: relative; z-index: 1; }
+        /* gutters: a thread of gold appears under the hand */
+        .ws-gutter { background: transparent; cursor: col-resize; transition: background 0.15s; }
+        .ws-gutter:hover, .ws-gutter.dragging { background: rgba(245,230,176,0.4); }
+        .ws-right__top { padding: 18px 18px 24px; overflow-y: auto; flex: 1 1 auto; }
+        body.player-open .ws-right__top { padding-bottom: 84px; }
+        body.player-open .ws-main { padding-bottom: 78px; }
+
+        /* quiet scrollbars */
+        .ws ::-webkit-scrollbar { width: 9px; height: 9px; }
+        .ws ::-webkit-scrollbar-track { background: transparent; }
+        .ws ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 9px;
+            border: 2px solid transparent; background-clip: padding-box; }
+        .ws ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); border: 2px solid transparent; background-clip: padding-box; }
+
+        /* Left — the contents */
+        .ws-left__head { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+        .ws-search {
+            width: 100%;
+            background: rgba(0,0,0,0.28);
+            border: 1px solid var(--line);
+            border-radius: 100px;
+            color: var(--ink);
+            padding: 9px 15px;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.18s var(--ease), background 0.18s var(--ease), box-shadow 0.2s var(--ease);
+            box-sizing: border-box;
+        }
+        .ws-search::placeholder { color: var(--muted2); }
+        .ws-search:focus { border-color: rgba(245,230,176,0.5); background: rgba(0,0,0,0.34);
+            box-shadow: 0 3px 16px rgba(0,0,0,0.3); }
+
+        /* group-by: a soft segmented control */
+        .ws-group { display: flex; gap: 3px; margin-top: 10px; padding: 3px;
+            background: var(--fill); border: 1px solid var(--line); border-radius: 100px; }
+        .ws-group button {
+            flex: 1 1 0;
+            background: none; border: none;
+            border-radius: 100px;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+            padding: 5px 2px;
+            cursor: pointer;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-group button:hover { color: var(--ink); }
+        .ws-group button.active { color: #1d160d; background: var(--gold); }
+
+        .ws-filtertoggle {
+            margin-top: 9px;
+            background: var(--fill);
+            border: 1px solid var(--line);
+            border-radius: 100px;
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.72rem;
+            cursor: pointer;
+            padding: 5px 13px;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-filtertoggle:hover { color: var(--ink); border-color: rgba(245,230,176,0.35);
+            transform: translateY(-1px); }
+
+        .ws-filters { margin-top: 8px; display: flex; flex-direction: column; gap: 9px; }
+        .ws-filters__row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        .ws-filters__label {
+            font-family: var(--font-mono);
+            font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase;
+            color: var(--muted); opacity: 0.8; width: 100%;
+        }
+        .ws-pill {
+            background: var(--fill);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-family: var(--font-main);
+            font-size: 0.73rem;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.22s var(--spring);
+            line-height: 1.4;
+        }
+        .ws-pill:hover { color: var(--ink); border-color: rgba(245,230,176,0.35);
+            transform: translateY(-1px); }
+        .ws-pill:active { transform: scale(0.95); }
+        .ws-pill.active { background: var(--gold); border-color: var(--gold); color: #1d160d; }
+        /* each facet keeps its own pigment when active — informative, on dark */
+        .ws-filters__row--type   .ws-pill.active { background: rgba(224,160,122,0.18); border-color: var(--rubric);    color: var(--ink); }
+        .ws-filters__row--fields .ws-pill.active { background: rgba(184,150,176,0.18); border-color: var(--folium);    color: var(--ink); }
+        .ws-filters__row--genre  .ws-pill.active { background: rgba(123,191,134,0.16); border-color: var(--verdigris); color: var(--ink); }
+        .ws-filters__row--tags   .ws-pill.active { background: rgba(126,160,204,0.16); border-color: var(--woad);      color: var(--ink); }
+        .ws-filters__row--place  .ws-pill.active { background: var(--gold-soft);       border-color: var(--gold);      color: var(--ink); }
+        .ws-count { font-family: var(--font-mono); font-size: 0.58rem; opacity: 0.55; }
+
+        .ws-tree { flex: 1 1 auto; overflow-y: auto; padding: 8px 0 24px; }
+        .ws-group-h {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px 5px;
+            font-family: var(--font-mono);
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--muted);
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.15s var(--ease);
+        }
+        .ws-group-h:hover { color: var(--ink); }
+        .ws-group-h .tw { font-size: 0.6rem; width: 9px; display: inline-block; opacity: 0.55; }
+        .ws-group-h .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ws-group-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.4); }
+
+        /* a moment: a little card led by its record's miniature */
+        .ws-item {
+            display: flex; gap: 10px; align-items: center;
+            padding: 8px 10px;
+            margin: 3px 8px;
+            border-radius: 12px;
+            background: var(--fill);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-item:hover { background: rgba(255,255,255,0.1);
+            transform: translateX(3px); }
+        .ws-item.active { background: rgba(245,230,176,0.1); box-shadow: inset 3px 0 0 var(--gold); }
+        .ws-item__art, .ws-item__art.blank {
+            width: 42px; height: 42px; border-radius: 8px; flex: 0 0 auto;
+            object-fit: cover; background: var(--surface2);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-serif); font-style: italic; font-size: 0.9rem;
+            color: rgba(245,230,176,0.6); overflow: hidden;
+        }
+        .ws-item__body { flex: 1; min-width: 0; }
+        .ws-item__track {
+            font-size: 0.66rem; color: var(--muted2); line-height: 1.3;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ws-item__ts {
+            font-family: var(--font-mono); font-size: 0.64rem; color: var(--gold);
+            flex: 0 0 auto;
+        }
+        .ws-item__txt {
+            font-size: 0.85rem; color: var(--ink); line-height: 1.35;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+        }
+        .ws-item.voice .ws-item__ts { color: var(--ochre); }
+        .ws-group-art { width: 24px; height: 24px; border-radius: 6px; flex: 0 0 auto;
+            object-fit: cover; display: inline-flex; align-items: center; justify-content: center;
+            font-family: var(--font-serif); font-style: italic; font-size: 0.62rem;
+            color: rgba(245,230,176,0.6); overflow: hidden;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.4); }
+
+        .ws-scope { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+        .ws-scope__nav { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 100px;
+            background: var(--fill); color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1;
+            transition: all 0.22s var(--spring); flex: 0 0 auto; }
+        .ws-scope__nav:hover { color: var(--ink); border-color: rgba(245,230,176,0.4);
+            transform: translateY(-1px); }
+        .ws-scope__nav:active { transform: scale(0.92); }
+        .ws-scope__sel { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 100px;
+            background: var(--fill); color: var(--ink); font-family: var(--font-main); font-size: .86rem;
+            padding: 6px 12px; cursor: pointer; transition: border-color 0.15s var(--ease); }
+        .ws-scope__sel:hover { border-color: rgba(245,230,176,0.4); }
+        .ws-scope__sel option { background: #1b1711; color: var(--ink); }
+        .ws-left__foot {
+            flex: 0 0 auto; border-top: 1px solid var(--line);
+            padding: 9px 12px; display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.68rem; color: var(--muted2);
+        }
+        .ws-newthread {
+            background: var(--fill); border: 1px solid var(--line);
+            color: var(--muted); font-family: var(--font-main); font-size: 0.73rem;
+            padding: 6px 13px; border-radius: 100px; cursor: pointer;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-newthread:hover { color: var(--ink); background: rgba(255,255,255,0.1); border-color: rgba(245,230,176,0.35);
+            transform: translateY(-1px); }
+        .ws-newthread:active { transform: scale(0.95); }
+
+        /* Centre — the reading surface */
+        .ws-doc { max-width: 740px; margin: 0 auto; padding: 36px 40px 120px;
+            animation: ws-leaf-in 0.18s var(--ease); }
+        @keyframes ws-leaf-in {
+            from { opacity: 0.4; transform: translateY(5px); }
+            to   { opacity: 1;    transform: none; }
+        }
+        .ws-doc__title {
+            font-family: var(--font-serif); font-style: italic; font-size: 1.95rem;
+            font-weight: 400; line-height: 1.16; margin-bottom: 2px; color: var(--gold);
+        }
+        .ws-doc__title a { color: var(--gold); text-decoration: none; }
+        .ws-doc__title a:hover { color: #fff0c4; }
+        .ws-doc__meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 4px; }
+        .ws-chip {
+            font-family: var(--font-mono); font-size: 0.66rem; color: var(--muted);
+            border: 1px solid var(--line); border-radius: 100px; padding: 2px 9px;
+            background: var(--fill);
+        }
+        .ws-type {
+            font-family: var(--font-mono); font-size: 0.62rem;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            background: rgba(224,160,122,0.12); color: var(--rubric);
+            border: 1px solid rgba(224,160,122,0.45); border-radius: 100px; padding: 4px 11px;
+            cursor: pointer; outline: none; transition: all 0.22s var(--spring);
+        }
+        .ws-type:hover { background: rgba(224,160,122,0.2); }
+        .ws-type.voice { background: rgba(232,201,138,0.12); color: var(--ochre); border-color: rgba(232,201,138,0.5); }
+        .ws-type option { background: #1b1711; color: var(--ink); }
+        .ws-play {
+            font-family: var(--font-main); font-weight: 600; font-size: 0.78rem; color: #1d160d;
+            background: var(--gold); border: 1px solid var(--gold); border-radius: 100px;
+            padding: 6px 15px; cursor: pointer;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-play:hover { transform: translateY(-2px); background: #fff0c4; }
+        .ws-play:active { transform: scale(0.95); }
+        .ws-mini { background: none; border: 1px solid transparent; border-radius: 100px;
+            color: var(--muted); cursor: pointer; font-size: 0.74rem; padding: 4px 10px;
+            transition: all 0.22s var(--spring); }
+        .ws-mini:hover { color: var(--ink); border-color: var(--line);
+            background: var(--fill); }
+
+        .ws-context { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 10px 0 0; font-size: 0.76rem; }
+        .ws-context a { color: var(--woad); text-decoration: none; }
+        .ws-context a:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+        .ws-context .g { color: var(--muted); }
+        .ws-context .t { color: var(--muted2); }
+
+        /* the one band of the page — now a clean gold hairline */
+        .ws-illum-band {
+            height: 1px; margin: 22px 0 24px; border: none;
+            background: linear-gradient(90deg, transparent, rgba(245,230,176,0.4) 12%, rgba(245,230,176,0.4) 88%, transparent);
+        }
+
+        /* Properties — a gloss list (gold keys, ink values) */
+        .ws-props { padding: 12px 0 6px; margin: 20px 0 4px; border-top: 1px solid var(--line); }
+        .ws-prop { display: flex; gap: 12px; align-items: baseline; padding: 3px 0; }
+        .ws-prop__k {
+            flex: 0 0 130px; color: var(--gold); opacity: 0.85; font-size: 0.6rem;
+            font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase;
+            text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .ws-prop__v { flex: 1; color: var(--ink); font-size: 0.92rem; }
+        .ws-prop__x { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 0.74rem; opacity: 0; }
+        .ws-prop:hover .ws-prop__x { opacity: 0.6; }
+        .ws-prop__x:hover { opacity: 1 !important; color: var(--danger); }
+        .ws-addprop {
+            background: none; border: none; color: var(--muted2); cursor: pointer;
+            font-family: var(--font-main); font-size: 0.73rem; padding: 4px 0 0 142px;
+            transition: color 0.14s var(--ease);
+        }
+        .ws-addprop:hover { color: var(--gold); }
+
+        /* Body — the note itself: EB Garamond ITALIC, the reflective/voice register
+           of Listen (the deliberate inverse of Compose's roman authorship). */
+        .ws-body {
+            font-family: var(--font-serif); font-style: italic; font-size: 17.5px; line-height: var(--lh); color: var(--ink);
+            white-space: pre-wrap; cursor: text; min-height: 56px;
+            max-width: 66ch;
+            border-radius: 6px; padding: 6px 10px; margin: 14px -10px 0;
+            transition: background 0.15s var(--ease);
+        }
+        .ws-body:hover { background: rgba(255,255,255,0.04); }
+        .ws-body.has-script::first-line { letter-spacing: 0.005em; }
+
+        /* the detailed-notes "page" beneath the brief note */
+        .ws-page { margin-top: 24px; border: 1px solid var(--line); border-radius: 12px;
+            background: rgba(0,0,0,0.2); overflow: hidden; }
+        .ws-page__bar { display: flex; align-items: baseline; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; }
+        .ws-page__bar:hover { background: rgba(255,255,255,0.04); }
+        .ws-page__bar .tw { font-size: 0.62rem; opacity: 0.6; }
+        .ws-page__label { font-family: var(--font-mono); font-size: 0.6rem;
+            text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold); }
+        .ws-page__hint { font-size: 0.78rem; color: var(--muted2); font-style: italic; font-family: var(--font-serif); }
+        .ws-page__edit { display: block; width: 100%; box-sizing: border-box; border: none; border-top: 1px solid var(--line);
+            background: transparent; color: var(--ink); font-family: var(--font-serif); font-size: 17px; line-height: var(--lh);
+            padding: 14px 18px; outline: none; resize: none; min-height: 200px; }
+        .ws-grp-open { font-size: 0.74rem; color: var(--muted2); cursor: pointer; padding: 0 3px; }
+        .ws-grp-open:hover { color: var(--gold); }
+        .ws-body__edit {
+            width: 100%; box-sizing: border-box;
+            max-width: 68ch; margin-top: 14px;
+            font-family: var(--font-serif); font-size: 17px; line-height: var(--lh); color: var(--ink);
+            background: rgba(0,0,0,0.25); border: 1px solid rgba(245,230,176,0.4); border-radius: 8px;
+            padding: 10px 12px; outline: none; resize: vertical; min-height: 120px;
+        }
+        .ws-body__actions { margin-top: 8px; display: flex; gap: 8px; }
+        .ws-btn {
+            font-family: var(--font-main); font-size: 0.76rem; font-weight: 500; padding: 7px 15px;
+            border-radius: 100px; cursor: pointer; background: var(--fill);
+            border: 1px solid var(--line); color: var(--muted);
+            transition: all 0.22s var(--spring);
+        }
+        .ws-btn--go { border-color: var(--gold); color: #1d160d; background: var(--gold); font-weight: 600; }
+        .ws-btn:hover { color: var(--ink); border-color: rgba(245,230,176,0.35); transform: translateY(-1px); }
+        .ws-btn:active { transform: scale(0.95); }
+        .ws-btn--go:hover { color: #1d160d; background: #fff0c4; }
+
+        /* Sections (threads / links) — mono headers with a hairline */
+        .ws-sec { margin-top: 32px; }
+        .ws-sec__h {
+            font-family: var(--font-mono);
+            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.15em;
+            color: var(--gold); margin-bottom: 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .ws-sec__h::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+        .ws-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .ws-thread {
+            font-size: 0.76rem; border-radius: 100px; padding: 4px 13px; cursor: default;
+            display: inline-flex; gap: 7px; align-items: center;
+            font-family: var(--font-main);
+            transition: transform 0.22s var(--spring);
+        }
+        .ws-thread:hover { transform: translateY(-1px); }
+        .ws-thread .x { cursor: pointer; opacity: 0.55; }
+        .ws-thread .x:hover { opacity: 1; }
+        .ws-add {
+            background: var(--fill); border: 1px solid var(--line); color: var(--muted);
+            font-family: var(--font-main); font-size: 0.74rem; padding: 5px 13px; border-radius: 100px; cursor: pointer;
+            transition: all 0.22s var(--spring);
+        }
+        .ws-add:hover { color: var(--ink); background: rgba(255,255,255,0.1); border-color: rgba(245,230,176,0.35);
+            transform: translateY(-1px); }
+        .ws-add:active { transform: scale(0.95); }
+
+        .ws-link {
+            display: flex; gap: 9px; align-items: baseline; padding: 8px 10px; margin: 3px -10px;
+            border-radius: 12px; background: var(--fill);
+            cursor: pointer; transition: all 0.22s var(--spring);
+        }
+        .ws-link:hover { background: rgba(255,255,255,0.1);
+            transform: translateX(3px); }
+        .ws-link__ts { font-family: var(--font-mono); font-size: 0.66rem; color: var(--gold); flex: 0 0 auto; }
+        .ws-ts-edit { cursor: pointer; border-bottom: 1px dashed transparent; transition: border-color 0.14s; }
+        .ws-ts-edit:hover { border-bottom-color: currentColor; }
+        .ws-link__txt { font-size: 0.85rem; color: var(--ink);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+        .ws-link__sub { font-size: 0.72rem; color: var(--muted); font-style: italic; }
+        .ws-link__main { flex: 1; min-width: 0; }
+        .ws-link__why { font-family: var(--font-serif); font-style: italic;
+            font-size: 0.78rem; color: var(--muted); margin-top: 2px; cursor: pointer; }
+        .ws-link__why.empty { color: var(--muted2); opacity: 0.7; font-style: normal; font-family: var(--font-main); font-size: 0.7rem; }
+        .ws-link__why:hover { color: var(--woad); }
+        .ws-rt-item__main { flex: 1; min-width: 0; }
+        .ws-rt-why { font-family: var(--font-serif); font-size: 0.72rem;
+            color: var(--muted); font-style: italic; margin-top: 1px; cursor: pointer; }
+        .ws-rt-why:hover { color: var(--woad); }
+        .ws-link__x { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 0.72rem; opacity: 0; flex: 0 0 auto; }
+        .ws-link:hover .ws-link__x { opacity: 0.6; }
+        .ws-link__x:hover { opacity: 1 !important; color: var(--danger); }
+        .ws-link__art { width: 34px; height: 34px; border-radius: 7px; flex: 0 0 auto;
+            object-fit: cover; align-self: center; display: flex; align-items: center;
+            justify-content: center; font-family: var(--font-serif); font-style: italic;
+            font-size: 0.7rem; color: rgba(245,230,176,0.6); overflow: hidden;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.4); }
+
+        /* Right pane — the marginalia */
+        .ws-right__h {
+            font-family: var(--font-mono);
+            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.14em;
+            color: var(--gold); margin: 22px 0 9px; display: flex; gap: 8px; align-items: baseline;
+        }
+        .ws-right__h::after { content: ''; flex: 1; height: 1px; background: var(--line); align-self: center; }
+        .ws-right__h:first-child { margin-top: 0; }
+        .ws-rt-item { display: flex; gap: 8px; align-items: baseline; padding: 7px 9px; margin: 2px -9px;
+            border-radius: 10px; background: var(--fill);
+            cursor: pointer; transition: all 0.22s var(--spring); }
+        .ws-rt-item:hover { background: rgba(255,255,255,0.1); transform: translateX(3px); }
+        .ws-rt-item__ts { font-family: var(--font-mono); font-size: 0.64rem; color: var(--gold); flex: 0 0 auto; }
+        .ws-rt-item__txt { font-size: 0.8rem; color: var(--ink);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+        .ws-rt-item__art { font-size: 0.68rem; color: var(--muted); font-style: italic; }
+        .ws-thread-grp { margin-bottom: 12px; }
+        .ws-thread-grp__h { font-size: 0.74rem; margin-bottom: 4px; display: flex; gap: 6px; align-items: center;
+            font-family: var(--font-main); }
+        .ws-muted { color: var(--muted2); font-size: 0.78rem; font-style: italic; font-family: var(--font-serif); }
+
+        /* belongs-to chips: the threads + projects a moment sits in */
+        .ws-belong { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+        .ws-belong-chip { display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.74rem; font-family: var(--font-main); color: var(--ink);
+            background: var(--fill); border: 1px solid var(--line); border-radius: 100px;
+            padding: 3px 11px; }
+        .ws-belong-chip--proj { font-style: italic; }
+        .ws-rt-why { font-size: 0.68rem; color: var(--muted); font-style: italic;
+            font-family: var(--font-serif); margin-top: 1px; cursor: text; }
+        /* the one way to the connection surface */
+        .ws-canvasbtn { display: block; text-align: center; text-decoration: none;
+            margin-top: 22px; padding: 9px 14px; border-radius: 100px;
+            border: 1px solid var(--line); background: var(--fill); color: var(--gold);
+            font-family: var(--font-main); font-size: 0.82rem;
+            transition: all 0.2s var(--spring); }
+        .ws-canvasbtn:hover { border-color: var(--gold); background: rgba(245,230,176,0.12);
+            transform: translateY(-1px); }
+
+        /* empty leaf: one quiet line */
+        .ws-empty { display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+            height: 100%; color: var(--muted2); font-style: italic; font-family: var(--font-serif);
+            font-size: 0.98rem; text-align: center; padding: 40px; }
+        .ws-empty::before {
+            content: '♪'; font-style: normal; font-size: 2rem; color: rgba(245,230,176,0.3);
+        }
+        .ws-empty a { color: var(--woad); text-decoration: none; }
+        .ws-empty a:hover { color: var(--gold); }
+
+        /* Hero — the record, framed clean */
+        .ws-hero { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 4px; }
+        .ws-hero__art, .ws-hero__art.blank {
+            width: 138px; height: 138px; border-radius: 14px; flex: 0 0 auto;
+            object-fit: cover; background: var(--surface2);
+            box-shadow: 0 0 0 1px var(--line), 0 18px 40px rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-serif); font-style: italic; font-size: 2.6rem;
+            color: rgba(245,230,176,0.6); overflow: hidden; cursor: pointer;
+            margin: 6px 4px 4px 0;
+            transition: transform 0.3s var(--spring);
+        }
+        .ws-hero__art:hover { transform: rotate(-1.4deg) scale(1.03); }
+        .ws-hero__body { flex: 1; min-width: 0; }
+
+        /* Modals — small panels over the dimmed desk */
+        .ws-modal { position: fixed; inset: 0; background: rgba(8,7,5,0.62); backdrop-filter: blur(4px); z-index: 400;
+            display: none; align-items: flex-start; justify-content: center; padding-top: 10vh; }
+        .ws-modal.open { display: flex; }
+        .ws-modal__box { background: #1b1711;
+            border-radius: 16px; width: 520px; max-width: 92vw; max-height: 70vh;
+            display: flex; flex-direction: column;
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+            animation: ws-pop-in 0.28s var(--spring); }
+        @keyframes ws-pop-in {
+            from { opacity: 0; transform: scale(0.94) translateY(8px); }
+            to   { opacity: 1; transform: none; }
+        }
+        .ws-modal__head { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+        .ws-modal__head h3 { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.2rem; margin: 0 0 8px; color: var(--gold); }
+        .ws-modal__list { overflow-y: auto; padding: 6px; }
+
+        @media (max-width: 1080px) {
+            .ws { grid-template-columns: 240px minmax(0,1fr) !important; }
+            .ws-gutter, .ws-right { display: none; }
+        }
+
+        /* Mini player — a rounded leaf floating over the desk */
+        .listen-player {
+            position: fixed; bottom: 14px; left: 18px; right: 18px;
+            background: rgba(22,19,13,0.96); backdrop-filter: blur(18px);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+            padding: 11px 18px; display: flex; align-items: center; gap: 14px; z-index: 300;
+            transform: translateY(160%); transition: transform 0.34s var(--spring);
+        }
+        .listen-player.visible { transform: translateY(0); }
+        .listen-player__info { flex: 0 0 auto; max-width: 260px; overflow: hidden; }
+        .listen-player__title { font-family: var(--font-main); font-weight: 600; font-size: 0.86rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .listen-player__artist { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .listen-player__btn { background: var(--gold); border: 1px solid var(--gold); border-radius: 100px; color: #1d160d; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; flex-shrink: 0; transition: all 0.22s var(--spring); }
+        .listen-player__btn:hover { transform: scale(1.08); background: #fff0c4; }
+        .listen-player__btn:active { transform: scale(0.92); }
+        .listen-player__btn.playing { animation: lp-breathe 2.6s ease-in-out infinite; }
+        @keyframes lp-breathe { 0%,100%{ box-shadow:0 0 5px rgba(245,230,176,0.35);} 50%{ box-shadow:0 0 16px rgba(245,230,176,0.6);} }
+        .listen-player__time { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; min-width: 84px; }
+        .listen-player__scrub { flex: 1; -webkit-appearance: none; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.14); outline: none; cursor: pointer; transition: height 0.2s var(--spring); }
+        .listen-player__scrub:hover { height: 7px; }
+        .listen-player__scrub::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--gold); cursor: pointer; transition: transform 0.2s var(--spring); }
+        .listen-player__scrub:hover::-webkit-slider-thumb { transform: scale(1.3); }
+        .listen-player__close { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 1rem; line-height: 1; flex-shrink: 0; padding: 4px; transition: color 0.15s; }
+        .listen-player__close:hover { color: var(--danger); }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen" class="active">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="ws-lensbar">
+    <span class="ws-lensbar__title">Listen</span>
+    <div class="ws-lens">
+        <a class="active" href="/listen">Notes</a>
+        <a href="/listen/canvas" id="ws-lens-canvas">Mind map</a>
+        <a href="/listen/compose">Compose</a>
+        <a href="/research">Research</a>
+    </div>
+    <span class="ws-lensbar__hint">Read &amp; organise your listening notes and references — connect them on the Mind map.</span>
+</div>
+
+<div class="ws" id="ws">
+    <!-- LEFT: explorer -->
+    <aside class="ws-pane ws-left">
+        <div class="ws-left__head">
+            <div class="ws-scope">
+                <button class="ws-scope__nav" onclick="history.back()" title="Back">‹</button>
+                <button class="ws-scope__nav" onclick="history.forward()" title="Forward">›</button>
+                <select class="ws-scope__sel" id="ws-project" onchange="pickProject(this.value)"></select>
+            </div>
+            <input type="text" class="ws-search" id="ws-search" placeholder="Search listening notes…">
+            <div class="ws-group" id="ws-group">
+                <button data-g="track" class="active" onclick="setGroupBy('track')">Tracks</button>
+                <button data-g="type" onclick="setGroupBy('type')">Types</button>
+                <button data-g="date" onclick="setGroupBy('date')">Dates</button>
+            </div>
+            <button class="ws-filtertoggle" id="ws-filtertoggle" onclick="toggleFilters()">▸ Filters</button>
+            <div class="ws-filters" id="ws-filters" style="display:none;"></div>
+        </div>
+        <div class="ws-tree" id="ws-tree"><div class="ws-muted" style="padding:12px;">Loading…</div></div>
+        <div class="ws-left__foot">
+            <button class="ws-newthread" id="ws-addnotes" style="display:none;" onclick="openAddNotes()">＋ Add notes</button>
+            <button class="ws-newthread" id="ws-attachurl" style="display:none;" onclick="attachUrlToProject()" title="Attach a URL to this whole project">🌐 Attach URL</button>
+            <button class="ws-newthread" id="ws-attachfile" style="display:none;" onclick="attachFileToProject()" title="Attach a PDF/photo to this whole project">📎 file</button>
+            <a class="ws-newthread" style="text-decoration:none;" href="/listen/canvas" id="ws-canvaslink" title="Arrange and connect moments on the mind map">✦ Mind map</a>
+            <button class="ws-newthread" id="ws-delproject" style="display:none;" onclick="deleteProject()" title="Delete this project — your notes stay">✕ Delete project</button>
+            <span id="ws-summary"></span>
+        </div>
+    </aside>
+
+    <div class="ws-gutter" data-side="left" title="Drag to resize"></div>
+
+    <!-- CENTER: the open moment -->
+    <main class="ws-pane ws-main" id="ws-main">
+        <div class="ws-empty">Select a listening note from the left.</div>
+    </main>
+</div>
+
+<input type="file" id="ws-attach-file" accept="image/*,.pdf" style="display:none;">
+
+<!-- Link picker -->
+<div class="ws-modal" id="ws-linkpicker">
+    <div class="ws-modal__box">
+        <div class="ws-modal__head">
+            <h3>Link to another note</h3>
+            <input type="text" class="ws-search" id="ws-lp-search" placeholder="Search listening notes to link…">
+        </div>
+        <div class="ws-modal__list" id="ws-lp-list"></div>
+    </div>
+</div>
+
+<div class="ws-modal" id="ws-threadpicker">
+    <div class="ws-modal__box">
+        <div class="ws-modal__head">
+            <h3>Add to a thread</h3>
+            <input type="text" class="ws-search" id="ws-tp-search" placeholder="Find a thread, or type a new name…">
+        </div>
+        <div class="ws-modal__list" id="ws-tp-list"></div>
+    </div>
+</div>
+
+<div class="ws-modal" id="ws-addnotespop">
+    <div class="ws-modal__box">
+        <div class="ws-modal__head">
+            <h3>Add notes to this project</h3>
+            <input type="text" class="ws-search" id="ws-an-search" placeholder="Search all your moments…">
+            <select class="ws-scope__sel" id="ws-an-filter" style="margin-top:6px;"></select>
+        </div>
+        <div class="ws-modal__list" id="ws-an-list"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px 14px;">
+            <button class="ws-newthread" onclick="closeAddNotes()">Cancel</button>
+            <button class="ws-newthread" id="ws-an-add" style="border-style:solid;color:var(--accent);border-color:var(--accent);">Add</button>
+        </div>
+    </div>
+</div>
+
+<div class="ws-modal" id="ws-askpop">
+    <div class="ws-modal__box" style="max-width:420px;">
+        <div class="ws-modal__head">
+            <h3 id="ws-ask-title"></h3>
+            <div id="ws-ask-fields" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 16px 14px;">
+            <button class="ws-newthread" id="ws-ask-cancel">Cancel</button>
+            <button class="ws-newthread" id="ws-ask-save" style="border-style:solid;color:var(--accent);border-color:var(--accent);">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Mini player -->
+<div class="listen-player" id="listen-player">
+    <div class="listen-player__info">
+        <div class="listen-player__title" id="lp-title">—</div>
+        <div class="listen-player__artist" id="lp-artist"></div>
+    </div>
+    <button class="listen-player__btn" id="lp-playpause" onclick="lpTogglePlay()">▶</button>
+    <span class="listen-player__time" id="lp-time">0:00 / 0:00</span>
+    <input type="range" class="listen-player__scrub" id="lp-scrub" min="0" max="100" value="0"
+           oninput="lpScrub(this.value)" onchange="lpScrub(this.value)">
+    <button class="listen-player__close" onclick="lpClose()" title="Close">✕</button>
+</div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let allNotes = [];
+let allProjects = [];        // listening projects (containers for moments)
+let scopeProject = null;     // project id when working inside one, else null
+let notesById = {};
+let allThreads = [];
+let allLinks = [];          // note_links rows {id, from_note_id, to_note_id, label}
+let allCategories = [];     // category names (note types)
+let groupBy = 'track';   // threads removed — default to grouping notes by track
+let openGroups = new Set();
+let selectedId = null;
+let searchText = '';
+let editingBody = false;
+let detailExpanded = false;
+let detailCtx = null;        // {kind:'moment'|'thread', id} — what the Notes page saves to
+let threadViewCache = null;  // {thread, moments} when a thread is open in the centre
+
+// facet filters (kept from the previous tool, tucked into the Filters disclosure)
+let activeCategory = '', activeTags = new Set(), activeGenres = new Set();
+let activePlaceId = null, activeWhen = 'all', activeKind = 'all', activeField = null;
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+function sizeWorkspace() {
+    const ws = document.getElementById('ws');
+    if (ws) ws.style.height = (window.innerHeight - ws.getBoundingClientRect().top) + 'px';
+}
+window.addEventListener('resize', () => { sizeWorkspace(); });
+
+// ── attach material (URL / PDF / photo) onto a note or the whole project ──────
+async function refreshNotesLinks(keepId){
+    const [notesRes, linksRes] = await Promise.all([
+        fetch('/api/listen/notes').then(r=>r.json()).catch(()=>allNotes),
+        fetch('/api/note-links').then(r=>r.json()).catch(()=>[]),
+    ]);
+    allNotes = notesRes || [];
+    allLinks = (linksRes || []).map(l => ({ id: l.id, from: l.from_note_id, to: l.to_note_id, label: l.label }));
+    buildIndexes(); seedGroups(); renderExplorer();
+    if (keepId && notesById[keepId]) selectMoment(keepId); else renderCenter();
+}
+async function linkRefToNote(noteId, ref){
+    if (!ref || !ref.id) return;
+    await fetch('/api/note-links', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ from_note_id: noteId, to_note_id: ref.id }) });
+    await refreshNotesLinks(noteId);
+}
+async function attachUrlToNote(noteId){
+    const url = prompt('Paste a URL — an article, a video, a discogs page…'); if (!url || !url.trim()) return;
+    const title = (prompt('A short title for it:', '') || url).trim();
+    const ref = await fetch('/api/listen/reference', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ url: url.trim(), title: title || url.trim() }) }).then(r=>r.json());
+    await linkRefToNote(noteId, ref);
+}
+let _attachTarget = null;   // {kind:'note'|'project', id}
+function attachFileToNote(noteId){ _attachTarget = { kind:'note', id: noteId }; document.getElementById('ws-attach-file').click(); }
+function attachFileToProject(){ if (!scopeProject) return; _attachTarget = { kind:'project', id: scopeProject }; document.getElementById('ws-attach-file').click(); }
+async function attachUrlToProject(){
+    if (!scopeProject) return;
+    const url = prompt('Paste a URL to attach to this project:'); if (!url || !url.trim()) return;
+    const title = (prompt('A short title:', '') || url).trim();
+    await fetch('/api/listen/reference', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ url: url.trim(), title: title || url.trim(), project_id: scopeProject }) });
+    await refreshNotesLinks();
+}
+document.getElementById('ws-attach-file').addEventListener('change', async ev => {
+    const f = ev.target.files[0]; ev.target.value = ''; if (!f || !_attachTarget) return;
+    const fd = new FormData(); fd.append('file', f); fd.append('title', f.name);
+    const ref = await fetch('/api/listen/reference/upload', { method:'POST', body: fd }).then(r=>r.json());
+    if (_attachTarget.kind === 'note') await linkRefToNote(_attachTarget.id, ref);
+    else if (_attachTarget.kind === 'project' && ref && ref.id){
+        await fetch(`/api/listen/project/${_attachTarget.id}/notes`, { method:'POST',
+            headers:{'Content-Type':'application/json'}, body: JSON.stringify({ note_id: ref.id }) });
+        await refreshNotesLinks();
+    }
+    _attachTarget = null;
+});
+
+async function init() {
+    sizeWorkspace();
+    const [catRes, notesRes, threadsRes, linksRes, projectsRes] = await Promise.all([
+        fetch('/api/listen/categories').then(r => r.json()).catch(() => ({})),
+        fetch('/api/listen/notes').then(r => r.json()).catch(() => []),
+        fetch('/api/threads').then(r => r.json()).catch(() => []),
+        fetch('/api/note-links').then(r => r.json()).catch(() => []),
+        fetch('/api/listen/projects').then(r => r.json()).catch(() => []),
+    ]);
+    allProjects = projectsRes || [];
+    const shortcuts = (catRes && catRes.shortcuts) || {};
+    const used = (catRes && catRes.used_categories) || [];
+    allNotes = notesRes || [];
+    allThreads = threadsRes || [];
+    allLinks = (linksRes || []).map(l => ({ id: l.id, from: l.from_note_id, to: l.to_note_id, label: l.label }));
+    buildIndexes();
+    // category list = configured shortcuts + used + any present on notes
+    const cats = new Set([...Object.values(shortcuts), ...used]);
+    allNotes.forEach(n => { if (n.note_category) cats.add(n.note_category); });
+    allCategories = [...cats].filter(Boolean).sort((a, b) => a.localeCompare(b));
+
+    bindSearch();
+    initGutters();
+    seedGroups();
+    renderFilters();
+    renderExplorer();
+
+    // deep-link ?project=<id>, ?thread=<id> or ?note=<id>
+    const params = new URLSearchParams(location.search);
+    const wantProject = parseInt(params.get('project'));
+    if (wantProject && allProjects.some(p => p.id === wantProject)) scopeProject = wantProject;
+    renderProjectScope();
+    const wantThread = parseInt(params.get('thread'));
+    const want = parseInt(params.get('note'));
+    const first = visibleNotes()[0];
+    if (wantThread) selectThread(wantThread);
+    else if (want && notesById[want]) selectMoment(want);
+    else if (first) selectMoment(first.id);
+    else renderCenter();
+}
+
+// ── Projects: scope the whole workspace to one container of moments ──────────
+function renderProjectScope() {
+    const sel = document.getElementById('ws-project');
+    sel.innerHTML = '<option value="">All notes</option>'
+        + allProjects.map(p => `<option value="${p.id}" ${p.id === scopeProject ? 'selected' : ''}>${escHtml(p.name)} · ${p.note_count}</option>`).join('')
+        + '<option value="__new">＋ New project…</option>';
+    const addBtn = document.getElementById('ws-addnotes');
+    if (addBtn) addBtn.style.display = scopeProject ? '' : 'none';
+    ['ws-attachurl','ws-attachfile'].forEach(id => { const b = document.getElementById(id);
+        if (b) b.style.display = scopeProject ? '' : 'none'; });
+    const delBtn = document.getElementById('ws-delproject');
+    if (delBtn) delBtn.style.display = scopeProject ? '' : 'none';
+    const cvHref = scopeProject ? `/listen/canvas?project=${scopeProject}` : '/listen/canvas';
+    const cv = document.getElementById('ws-canvaslink'); if (cv) cv.href = cvHref;
+    const cv2 = document.getElementById('ws-lens-canvas'); if (cv2) cv2.href = cvHref;
+}
+async function pickProject(v) {
+    if (v === '__new') {
+        const vals = await wsAsk('New project', [{ placeholder: 'project name' }]);
+        renderProjectScope();                       // reset the select either way
+        if (vals === null || !vals[0].trim()) return;
+        const r = await fetch('/api/listen/projects', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: vals[0].trim() }) }).then(x => x.json());
+        allProjects = await fetch('/api/listen/projects').then(x => x.json());
+        if (r && r.id) return enterProject(r.id);
+        renderProjectScope();
+        return;
+    }
+    enterProject(v ? +v : null);
+}
+async function deleteProject() {
+    if (!scopeProject) return;
+    const proj = allProjects.find(p => p.id === scopeProject);
+    const name = proj ? proj.name : 'this project';
+    if (!confirm(`Delete the project “${name}”?\n\nYour notes stay — only the project and its groupings are removed.`)) return;
+    await fetch(`/api/listen/project/${scopeProject}`, { method: 'DELETE' });
+    allProjects = await fetch('/api/listen/projects').then(x => x.json());
+    enterProject(null);   // drop back to All notes
+}
+function enterProject(pid) {
+    scopeProject = pid;
+    const url = pid ? `/listen?project=${pid}` : '/listen';
+    history.pushState({ project: pid }, '', url);
+    renderProjectScope(); seedGroups(); renderExplorer(); renderFilters();
+    const first = visibleNotes()[0];
+    if (first) selectMoment(first.id); else renderCenter();
+}
+addEventListener('popstate', e => {                  // ‹ › travel through project scopes
+    const pid = (e.state && e.state.project) || parseInt(new URLSearchParams(location.search).get('project')) || null;
+    scopeProject = (pid && allProjects.some(p => p.id === pid)) ? pid : null;
+    renderProjectScope(); seedGroups(); renderExplorer(); renderFilters();
+});
+function refreshProjectCounts() {
+    fetch('/api/listen/projects').then(r => r.json()).then(ps => { allProjects = ps; renderProjectScope(); });
+}
+async function removeFromProject(id) {
+    if (!scopeProject) return;
+    await fetch(`/api/listen/project/${scopeProject}/notes/${id}`, { method: 'DELETE' });
+    const n = notesById[id];
+    if (n) n.projects = (n.projects || []).filter(p => p.id !== scopeProject);
+    refreshProjectCounts(); seedGroups(); renderExplorer();
+    const first = visibleNotes()[0];
+    if (first) selectMoment(first.id); else renderCenter();
+}
+
+// "Add notes": browse ALL moments (search + filter by project), tick several,
+// add them to the current project in one go.
+const anPicked = new Set();
+function openAddNotes() {
+    if (!scopeProject) return;
+    anPicked.clear();
+    const modal = document.getElementById('ws-addnotespop');
+    const filter = document.getElementById('ws-an-filter');
+    filter.innerHTML = '<option value="">From: anywhere</option>'
+        + allProjects.filter(p => p.id !== scopeProject)
+            .map(p => `<option value="${p.id}">From: ${escHtml(p.name)}</option>`).join('');
+    const search = document.getElementById('ws-an-search');
+    search.value = '';
+    renderAddNotesList();
+    search.oninput = renderAddNotesList;
+    filter.onchange = renderAddNotesList;
+    modal.classList.add('open');
+    modal.onclick = e => { if (e.target === modal) closeAddNotes(); };
+    search.focus();
+}
+function closeAddNotes() { document.getElementById('ws-addnotespop').classList.remove('open'); }
+function renderAddNotesList() {
+    const q = document.getElementById('ws-an-search').value.trim().toLowerCase();
+    const fromP = parseInt(document.getElementById('ws-an-filter').value) || null;
+    const inProject = new Set(allNotes.filter(n => (n.projects || []).some(p => p.id === scopeProject)).map(n => n.id));
+    const list = allNotes
+        .filter(n => !inProject.has(n.id))
+        .filter(n => !fromP || (n.projects || []).some(p => p.id === fromP))
+        .filter(n => !q || (snippet(n, 200) + ' ' + trackLabel(n) + ' ' + (n.note_category || '')).toLowerCase().includes(q))
+        .slice(0, 120);
+    document.getElementById('ws-an-list').innerHTML = list.length ? list.map(n =>
+        `<div class="ws-link" onclick="anToggle(${n.id}, this)">
+            <span class="ws-link__ts">${anPicked.has(n.id) ? '☑' : '☐'}</span>
+            <span class="ws-link__txt">${escHtml(snippet(n, 70))}
+                <span class="ws-link__sub">— ${escHtml(trackLabel(n))}</span></span>
+        </div>`).join('') : '<div class="ws-muted" style="padding:12px;">Nothing left to add.</div>';
+    document.getElementById('ws-an-add').textContent = anPicked.size ? `Add ${anPicked.size}` : 'Add';
+}
+function anToggle(id, el) {
+    if (anPicked.has(id)) anPicked.delete(id); else anPicked.add(id);
+    el.querySelector('.ws-link__ts').textContent = anPicked.has(id) ? '☑' : '☐';
+    document.getElementById('ws-an-add').textContent = anPicked.size ? `Add ${anPicked.size}` : 'Add';
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('ws-an-add').addEventListener('click', async () => {
+        if (!anPicked.size || !scopeProject) return closeAddNotes();
+        await fetch(`/api/listen/project/${scopeProject}/notes`, { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note_ids: [...anPicked] }) });
+        const pname = (allProjects.find(p => p.id === scopeProject) || {}).name;
+        anPicked.forEach(id => { const n = notesById[id]; if (n) { n.projects = n.projects || []; n.projects.push({ id: scopeProject, name: pname }); } });
+        closeAddNotes(); refreshProjectCounts(); seedGroups(); renderExplorer(); renderFilters();
+    });
+});
+
+function buildIndexes() {
+    notesById = {};
+    allNotes.forEach(n => { notesById[n.id] = n; });
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtTs(sec) {
+    sec = sec || 0;
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+function trackLabel(n) {
+    if (n.kind === 'reference') return n.ref_title || 'Untitled';
+    return [n.artist_name, n.title].filter(Boolean).join(' — ') || 'Unknown track';
+}
+// references show ↗ where moments show their timestamp — they point OUT
+function tsLabel(n) { return n.kind === 'reference' ? '↗' : fmtTs(n.timestamp_sec); }
+// an editable timestamp — references show ↗, year-tagged notes show the year,
+// audio moments show a click-to-edit timestamp (stops the row's own click)
+function tsEdit(m) {
+    if (m.kind === 'reference') return '↗';
+    if (m.year) return String(m.year);
+    return `<span class="ws-ts-edit" onclick="event.stopPropagation();editTimestamp(${m.id})" title="Click to edit the timestamp">${fmtTs(m.timestamp_sec)}</span>`;
+}
+function openRefUrl(id) {
+    const n = notesById[id];
+    if (!n || !n.ref_url) return;
+    fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: n.ref_url }) }).catch(() => {});
+}
+function snippet(n, len = 60) {
+    const t = (n.note_text || '').replace(/\s+/g, ' ').trim();
+    if (n.is_voice && !t) return '🎙 voice note';
+    return t.length > len ? t.slice(0, len - 1) + '…' : (t || '—');
+}
+// the record's cover, wherever a moment shows — the eye remembers sleeves
+// long after it forgets words. Falls back to a coloured initial.
+function artHtml(n, cls, size) {
+    if (n.kind === 'reference') {
+        // the article's own imagery leads; else a woad initial (the pigment
+        // of things that point outward)
+        if (n.ref_image_url)
+            return `<img class="${cls}" loading="lazy" src="${escAttr(n.ref_image_url)}" alt=""
+                         onerror="this.style.display='none'">`;
+        const rinit = ((n.ref_source || n.ref_title || '?').trim()[0] || '?').toUpperCase();
+        return `<span class="${cls} blank" style="background:#34557e;">${escHtml(rinit)}</span>`;
+    }
+    if (n.artwork_path)
+        return `<img class="${cls}" loading="lazy" src="/api/artwork/${n.track_id}?s=${size}" alt=""
+                     onerror="this.style.display='none'">`;
+    const init = ((n.title || n.artist_name || '?').trim()[0] || '?').toUpperCase();
+    const bg = n.colour_code || '#6e5a3a';
+    return `<span class="${cls} blank" style="background:${bg};">${escHtml(init)}</span>`;
+}
+function noteDate(n) {
+    const raw = n.created_at || n.session_started_at;
+    if (!raw) return null;
+    const iso = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+}
+function linksOf(id) { return allLinks.filter(l => l.from === id || l.to === id); }
+function outgoing(id) { return allLinks.filter(l => l.from === id); }
+function backlinks(id) { return allLinks.filter(l => l.to === id); }
+
+// ── Filtering (facets kept from before) ──────────────────────────────────────
+function applyFilters(notes) {
+    return notes.filter(n => {
+        if (activeCategory && n.note_category !== activeCategory) return false;
+        if (activeTags.size)   { const s = new Set(n.tag_list || []);   for (const t of activeTags)   if (!s.has(t)) return false; }
+        if (activeGenres.size) { const s = new Set(n.genre_list || []); for (const g of activeGenres) if (!s.has(g)) return false; }
+        if (activePlaceId !== null && !(n.places || []).some(p => p.id === activePlaceId)) return false;
+        if (activeField !== null && !(n.properties || []).some(p => `${p.name} ${p.value || ''}` === activeField)) return false;
+        if (activeKind === 'voice' && !n.is_voice) return false;
+        if (activeKind === 'typed' && (n.is_voice || n.kind === 'reference')) return false;
+        if (activeKind === 'reference' && n.kind !== 'reference') return false;
+        if (activeWhen !== 'all') {
+            const d = noteDate(n); if (!d) return false;
+            const age = (Date.now() - d) / 86400000;
+            if (activeWhen === 'today' && age > 1)  return false;
+            if (activeWhen === 'week'  && age > 7)  return false;
+            if (activeWhen === 'month' && age > 31) return false;
+        }
+        if (searchText) {
+            const hay = [n.note_text, n.title, n.artist_name, n.ref_title, n.ref_source,
+                (n.tag_list || []).join(' '), (n.genre_list || []).join(' '),
+                (n.places || []).map(p => p.name).join(' ')].join(' ').toLowerCase();
+            if (!hay.includes(searchText)) return false;
+        }
+        return true;
+    });
+}
+function visibleNotes() {
+    let pool = allNotes;
+    if (scopeProject)                                  // inside a project → only its notes
+        pool = pool.filter(n => (n.projects || []).some(p => p.id === scopeProject));
+    return applyFilters(pool);
+}
+function visibleSet() { return new Set(visibleNotes().map(n => n.id)); }
+
+// ── Explorer (left tree) ─────────────────────────────────────────────────────
+function computeGroups(notes) {
+    let groups = [];
+    if (groupBy === 'thread') {
+        const byThread = {};
+        allThreads.forEach(t => { byThread[t.id] = { key: 't' + t.id, label: t.name, colour: t.colour || 'var(--accent)', notes: [] }; });
+        const unthreaded = { key: 'none', label: 'Unthreaded', colour: 'var(--muted2)', notes: [] };
+        notes.forEach(n => {
+            const ts = n.threads || [];
+            if (!ts.length) unthreaded.notes.push(n);
+            else ts.forEach(t => { if (byThread[t.id]) byThread[t.id].notes.push(n); });
+        });
+        groups = allThreads.map(t => byThread[t.id]).filter(g => g.notes.length);
+        if (unthreaded.notes.length) groups.push(unthreaded);
+        groups.forEach(g => g.notes.sort((a, b) => (a.year || 9999) - (b.year || 9999) || (a.timestamp_sec || 0) - (b.timestamp_sec || 0)));
+    } else if (groupBy === 'track') {
+        const m = {};
+        notes.forEach(n => {
+            // saved articles group under their SOURCE, the way moments group
+            // under their record
+            const isRef = n.kind === 'reference';
+            const k = isRef ? ('r' + (n.ref_source || 'saved')) : ('k' + n.track_id);
+            const label = isRef ? (n.ref_source || 'Saved') : trackLabel(n);
+            (m[k] = m[k] || { key: k, label, colour: 'var(--accent)', note0: n, notes: [] }).notes.push(n);
+        });
+        groups = Object.values(m).sort((a, b) => a.label.localeCompare(b.label));
+        groups.forEach(g => g.notes.sort((a, b) => (a.timestamp_sec || 0) - (b.timestamp_sec || 0)));
+    } else if (groupBy === 'type') {
+        const m = {};
+        notes.forEach(n => {
+            const c = n.is_voice ? '🎙 voice' : (n.note_category || '—');
+            const k = 'c' + c;
+            (m[k] = m[k] || { key: k, label: c, colour: 'var(--accent)', notes: [] }).notes.push(n);
+        });
+        groups = Object.values(m).sort((a, b) => a.label.localeCompare(b.label));
+        groups.forEach(g => g.notes.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
+    } else { // date
+        const m = {};
+        notes.forEach(n => {
+            const d = (n.created_at || n.session_started_at || '').split('T')[0].split(' ')[0] || 'undated';
+            const k = 'd' + d;
+            (m[k] = m[k] || { key: k, label: d, colour: 'var(--accent)', notes: [] }).notes.push(n);
+        });
+        groups = Object.values(m).sort((a, b) => b.label.localeCompare(a.label));
+        groups.forEach(g => g.notes.sort((a, b) => (a.timestamp_sec || 0) - (b.timestamp_sec || 0)));
+    }
+    return groups;
+}
+
+function seedGroups() {
+    openGroups = new Set();
+    const groups = computeGroups(visibleNotes());
+    if (groupBy === 'thread') groups.forEach(g => openGroups.add(g.key));
+    else {
+        // open only the group holding the selection (or the first group)
+        const selGroup = groups.find(g => g.notes.some(n => n.id === selectedId));
+        if (selGroup) openGroups.add(selGroup.key);
+        else if (groups[0]) openGroups.add(groups[0].key);
+    }
+}
+
+function renderExplorer() {
+    const tree = document.getElementById('ws-tree');
+    const notes = visibleNotes();
+    const groups = computeGroups(notes);
+    document.getElementById('ws-summary').textContent =
+        notes.length === allNotes.length ? `${allNotes.length} notes` : `${notes.length} of ${allNotes.length}`;
+    if (!allNotes.length) {
+        tree.innerHTML = `<div class="ws-muted" style="padding:14px;">No listening notes yet. Use the <strong>Deep Listening</strong> tool in any Place to capture notes while listening.</div>`;
+        return;
+    }
+    if (!groups.length) {
+        tree.innerHTML = `<div class="ws-muted" style="padding:14px;">Nothing matches. <a href="#" onclick="resetFilters();return false;" style="color:var(--accent);">Reset filters</a>.</div>`;
+        return;
+    }
+    tree.innerHTML = groups.map(g => {
+        const open = openGroups.has(g.key);
+        const dot = groupBy === 'thread'
+            ? `<span class="ws-group-dot" style="background:${g.colour};"></span>` : '';
+        const items = open ? g.notes.map(n => {
+            const active = n.id === selectedId ? ' active' : '';
+            const voice = n.is_voice ? ' voice' : '';
+            // grouped by track the cover lives on the header; in every other
+            // grouping each moment carries its record's cover + name
+            const trackLine = groupBy === 'track' ? ''
+                : `<div class="ws-item__track">${escHtml(trackLabel(n))}</div>`;
+            return `<div class="ws-item${active}${voice}" onclick="selectMoment(${n.id})">
+                ${groupBy === 'track' ? '' : artHtml(n, 'ws-item__art', 192)}
+                <div class="ws-item__body">
+                    ${trackLine}
+                    <div class="ws-item__txt">${escHtml(snippet(n))}</div>
+                </div>
+                <span class="ws-item__ts">${tsLabel(n)}</span>
+            </div>`;
+        }).join('') : '';
+        const headArt = (groupBy === 'track' && g.note0) ? artHtml(g.note0, 'ws-group-art', 192) : '';
+        return `<div class="ws-grp">
+            <div class="ws-group-h" onclick="toggleGroup('${g.key}')">
+                <span class="tw">${open ? '▾' : '▸'}</span>${dot}${headArt}
+                <span class="nm">${escHtml(g.label)}</span>
+                ${groupBy === 'thread' && g.key[0] === 't'
+                    ? `<span class="ws-grp-open" onclick="event.stopPropagation();selectThread(${g.key.slice(1)})" title="Open thread notes">✎</span>` : ''}
+                <span class="ws-count">${g.notes.length}</span>
+            </div>${items}</div>`;
+    }).join('');
+}
+
+function toggleGroup(key) {
+    if (openGroups.has(key)) openGroups.delete(key); else openGroups.add(key);
+    renderExplorer();
+}
+function setGroupBy(g) {
+    groupBy = g;
+    document.querySelectorAll('#ws-group button').forEach(b => b.classList.toggle('active', b.dataset.g === g));
+    seedGroups();
+    renderExplorer();
+}
+
+// ── Center (the open moment) ─────────────────────────────────────────────────
+function selectMoment(id) {
+    selectedId = id;
+    editingBody = false;
+    threadViewCache = null;
+    detailCtx = { kind: 'moment', id };
+    detailExpanded = !!((notesById[id] && notesById[id].detail_text || '').trim());
+    // make sure its group is open
+    const groups = computeGroups(visibleNotes());
+    const grp = groups.find(g => g.notes.some(n => n.id === id));
+    if (grp) openGroups.add(grp.key);
+    renderExplorer();
+    renderCenter();
+    renderRight();
+    history.replaceState(null, '', `/listen?${scopeProject ? `project=${scopeProject}&` : ''}note=${id}`);
+    const row = document.querySelector('.ws-item.active');
+    if (row) row.scrollIntoView({ block: 'nearest' });
+}
+
+function renderCenter() {
+    const main = document.getElementById('ws-main');
+    const n = notesById[selectedId];
+    if (!n) { main.innerHTML = `<div class="ws-empty">Select a listening note from the left.</div>`; return; }
+
+    const typeCtl = n.is_voice
+        ? `<span class="ws-type voice">🎙 voice</span>`
+        : `<select class="ws-type" onchange="setType(${n.id}, this.value)">
+              ${[''].concat(allCategories).map(c =>
+                `<option value="${escAttr(c)}" ${c === (n.note_category || '') ? 'selected' : ''}>${c ? escHtml(c) : '— type —'}</option>`).join('')}
+           </select>`;
+
+    const metaChips = [];
+    if (n.year) metaChips.push(`<span class="ws-chip">${n.year}</span>`);
+    if (n.bpm)  metaChips.push(`<span class="ws-chip">${Math.round(n.bpm)} BPM</span>`);
+    if (n.key_note) metaChips.push(`<span class="ws-chip">${escHtml(n.key_note)}${n.key_scale ? ' ' + escHtml(n.key_scale) : ''}</span>`);
+
+    const isRef = n.kind === 'reference';
+    const playBtn = isRef
+        ? `<button class="ws-play" onclick="openRefUrl(${n.id})" title="Open the original">↗ open</button>`
+        : (n.file_id
+            ? `<button class="ws-play" onclick="lpPlay(${n.file_id}, ${jsAttr(n.title)}, ${jsAttr(n.artist_name)}, ${n.timestamp_sec || 0})" title="Play from this moment">▶ ${fmtTs(n.timestamp_sec)}</button>`
+            : `<span class="ws-chip">${fmtTs(n.timestamp_sec)}</span>`);
+
+    const context = [];
+    if (isRef && n.ref_source) context.push(`<span class="g">${escHtml(n.ref_source)}</span>`);
+    (n.genre_list || []).slice(0, 4).forEach(g => context.push(`<span class="g">${escHtml(g)}</span>`));
+    (n.places || []).slice(0, 3).forEach(p => context.push(`<a href="/place/${p.id}">@${escHtml(p.name)}</a>`));
+    (n.tag_list || []).slice(0, 6).forEach(t => context.push(`<span class="t">#${escHtml(t)}</span>`));
+
+    // properties (custom fields = Obsidian frontmatter)
+    const props = (n.properties || []).map(p =>
+        `<div class="ws-prop">
+            <span class="ws-prop__k">${escHtml(p.name)}</span>
+            <span class="ws-prop__v">${p.value ? escHtml(p.value) : '<span class="ws-muted">—</span>'}</span>
+            <button class="ws-prop__x" onclick="removeProperty(${n.id}, ${p.id})" title="Remove">✕</button>
+        </div>`).join('');
+
+    // threads
+    const threadChips = (n.threads || []).map(t => {
+        const col = t.colour || 'var(--accent)';
+        return `<span class="ws-thread" style="border:1px solid ${col};color:${col};background:color-mix(in srgb, ${col} 11%, transparent);">
+            ${escHtml(t.name)} <span class="x" onclick="removeThreadFrom(${n.id}, ${t.id})" title="Remove from thread">×</span></span>`;
+    }).join('');
+
+    // outgoing links
+    const outs = outgoing(n.id);
+    const linkRows = outs.map(l => {
+        const o = notesById[l.to];
+        if (!o) return '';
+        const why = l.label
+            ? `<div class="ws-link__why" onclick="event.stopPropagation();editLinkLabel(${l.id})" title="Edit why">“${escHtml(l.label)}”</div>`
+            : `<div class="ws-link__why empty" onclick="event.stopPropagation();editLinkLabel(${l.id})">＋ why this link?</div>`;
+        return `<div class="ws-link" onclick="selectMoment(${o.id})">
+            ${artHtml(o, 'ws-link__art', 192)}
+            <span class="ws-link__ts">${tsLabel(o)}</span>
+            <div class="ws-link__main">
+                <div class="ws-link__txt">${escHtml(snippet(o, 70))} <span class="ws-link__sub">— ${escHtml(trackLabel(o))}</span></div>
+                ${why}
+            </div>
+            <button class="ws-link__x" onclick="event.stopPropagation();removeLink(${l.id})" title="Unlink">✕</button>
+        </div>`;
+    }).join('');
+
+    const dateStr = (n.session_started_at || n.created_at || '').split('T')[0].split(' ')[0] || '';
+
+    // the record leads: its cover anchors the moment in memory; clicking it
+    // plays from the captured timestamp (sound-first)
+    const heroArt = isRef
+        ? `<span onclick="openRefUrl(${n.id})" title="Open the original">${artHtml(n, 'ws-hero__art', 384)}</span>`
+        : (n.file_id
+            ? `<span onclick="lpPlay(${n.file_id}, ${jsAttr(n.title)}, ${jsAttr(n.artist_name)}, ${n.timestamp_sec || 0})"
+                     title="Play from this moment">${artHtml(n, 'ws-hero__art', 384)}</span>`
+            : artHtml(n, 'ws-hero__art', 384));
+    const docTitle = isRef
+        ? `<a href="#" onclick="openRefUrl(${n.id});return false;" title="Open the original">${escHtml(trackLabel(n))}</a>`
+        : `<a href="/track/${n.track_id}">${escHtml(trackLabel(n))}</a>`;
+    main.innerHTML = `<div class="ws-doc">
+        <div class="ws-hero">
+            ${heroArt}
+            <div class="ws-hero__body">
+                <div class="ws-doc__title">${docTitle}</div>
+                <div class="ws-doc__meta">
+                    ${typeCtl} ${playBtn}
+                    ${isRef ? '' : `<button class="ws-mini" onclick="editTimestamp(${n.id})" title="Edit timestamp">edit&nbsp;time</button>`}
+                    ${metaChips.join(' ')}
+                </div>
+                <div class="ws-doc__meta">
+                    <span class="ws-muted" style="font-size:0.7rem;">${escHtml(dateStr)}</span>
+                    <button class="ws-mini" onclick="location.href='/listen/canvas?focus='+${n.id}" title="See this note on the mind map">→ mind map</button>
+                    ${scopeProject ? `<button class="ws-mini" onclick="removeFromProject(${n.id})" title="Take this note out of the project (the note stays)">− project</button>` : ''}
+                    <button class="ws-mini" onclick="deleteNote(${n.id})" title="Delete moment">delete</button>
+                </div>
+                ${context.length ? `<div class="ws-context">${context.join('')}</div>` : ''}
+            </div>
+        </div>
+
+        <div class="ws-illum-band" aria-hidden="true"></div>
+
+        <div class="ws-body${n.note_text ? ' has-script' : ''}" id="ws-body" onclick="editBody()">${n.note_text ? escHtml(n.note_text) : '<span class="ws-muted">Empty — click to write.</span>'}</div>
+
+        <div class="ws-props">
+            ${props || '<div class="ws-muted" style="padding:2px 0 2px 142px;">No properties.</div>'}
+            <button class="ws-addprop" onclick="addProperty(${n.id})">＋ add property</button>
+        </div>
+
+        ${detailSectionHtml(n.detail_text)}
+
+        <div class="ws-sec">
+            <div class="ws-sec__h">Links</div>
+            ${linkRows || '<div class="ws-muted">No links yet.</div>'}
+            <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                <button class="ws-add" onclick="openLinkPicker(${n.id})">🔗 link a note</button>
+                <button class="ws-add" onclick="attachUrlToNote(${n.id})">🌐 attach a URL</button>
+                <button class="ws-add" onclick="attachFileToNote(${n.id})">📎 attach a file</button></div>
+        </div>
+    </div>`;
+    if (detailExpanded) { const ta = document.getElementById('ws-detail-edit'); if (ta) autoGrowDetail(ta); }
+}
+
+// ── The detailed-notes "page" (shared by moments + threads) ──────────────────
+function detailSectionHtml(text) {
+    const has = (text || '').trim();
+    const wc = has ? has.split(/\s+/).length : 0;
+    const hint = detailExpanded ? ''
+        : (has ? `${wc} word${wc === 1 ? '' : 's'} — click to open` : 'open a page for longer thoughts');
+    return `<div class="ws-page">
+        <div class="ws-page__bar" onclick="toggleDetail()">
+            <span class="tw">${detailExpanded ? '▾' : '▸'}</span>
+            <span class="ws-page__label">Notes</span>
+            <span class="ws-page__hint">${escHtml(hint)}</span>
+        </div>
+        ${detailExpanded ? `<textarea class="ws-page__edit" id="ws-detail-edit" placeholder="Write longer thoughts here…"
+            oninput="autoGrowDetail(this)" onblur="saveDetail()">${escHtml(text || '')}</textarea>` : ''}
+    </div>`;
+}
+function toggleDetail() {
+    detailExpanded = !detailExpanded;
+    if (detailCtx && detailCtx.kind === 'thread') renderThreadCenter(); else renderCenter();
+    if (detailExpanded) {
+        const ta = document.getElementById('ws-detail-edit');
+        if (ta) { autoGrowDetail(ta); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+}
+function autoGrowDetail(ta) { ta.style.height = 'auto'; ta.style.height = Math.max(200, ta.scrollHeight + 4) + 'px'; }
+function saveDetail() {
+    const ta = document.getElementById('ws-detail-edit');
+    if (!ta || !detailCtx) return;
+    const text = ta.value;
+    if (detailCtx.kind === 'thread') {
+        if (threadViewCache && threadViewCache.thread) threadViewCache.thread.detail_text = text;  // optimistic
+        fetch(`/api/thread/${detailCtx.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detail_text: text }) });
+    } else {
+        if (notesById[detailCtx.id]) notesById[detailCtx.id].detail_text = text;
+        fetch(`/api/listen/note/${detailCtx.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detail_text: text }) });
+    }
+}
+
+// ── Thread view (open a thread → its own Notes page + ordered moments) ────────
+async function selectThread(tid) {
+    selectedId = null;
+    let data;
+    try { data = await fetch(`/api/thread/${tid}`).then(r => r.json()); } catch (e) { return; }
+    if (!data || data.error) return;
+    threadViewCache = data;
+    detailCtx = { kind: 'thread', id: tid };
+    detailExpanded = !!((data.thread.detail_text || '').trim());
+    renderExplorer();
+    renderThreadCenter();
+    renderThreadRight(data);
+    history.replaceState(null, '', `/listen?${scopeProject ? `project=${scopeProject}&` : ''}thread=${tid}`);
+}
+function renderThreadCenter() {
+    const main = document.getElementById('ws-main');
+    if (!threadViewCache) return;
+    const th = threadViewCache.thread, moments = threadViewCache.moments || [];
+    const col = th.colour || 'var(--accent)';
+    const list = moments.length ? moments.map(m => {
+        const nn = notesById[m.id] || m;          // the full note carries the artwork
+        return `<div class="ws-link" onclick="selectMoment(${m.id})">
+            ${artHtml(nn, 'ws-link__art', 192)}
+            <span class="ws-link__ts">${tsEdit(m)}</span>
+            <span class="ws-link__txt">${escHtml(snippet(m, 70))}
+                <span class="ws-link__sub">— ${escHtml(trackLabel(m))}</span></span>
+        </div>`;
+    }).join('') : '<div class="ws-muted">No moments in this thread yet.</div>';
+    main.innerHTML = `<div class="ws-doc">
+        <div class="ws-doc__title" style="display:flex; align-items:center; gap:10px;">
+            <span class="ws-group-dot" style="background:${col}; width:13px; height:13px;"></span>
+            <span contenteditable="true" id="ws-thread-name" spellcheck="false"
+                onblur="renameThread(${th.id}, this.innerText)" style="outline:none;">${escHtml(th.name)}</span>
+        </div>
+        <div class="ws-doc__meta">
+            <span class="ws-chip">thread · ${moments.length} moment${moments.length === 1 ? '' : 's'}</span>
+            <span style="flex:1"></span>
+            <button class="ws-mini" onclick="threadToSet(${th.id})" title="Make a Set from this thread's tracks, in order">→ make a set</button>
+            <button class="ws-mini" onclick="deleteThreadFromView(${th.id})" title="Delete thread (moments stay)">delete thread</button>
+        </div>
+        <div class="ws-illum-band" aria-hidden="true"></div>
+        ${detailSectionHtml(th.detail_text)}
+        <div class="ws-sec">
+            <div class="ws-sec__h">Moments in this thread</div>
+            ${list}
+        </div>
+    </div>`;
+    if (detailExpanded) { const ta = document.getElementById('ws-detail-edit'); if (ta) autoGrowDetail(ta); }
+}
+function renderThreadRight(data) {
+    const el = document.getElementById('ws-right');
+    const moments = data.moments || [];
+    el.innerHTML = `<div class="ws-right__top">
+        <div class="ws-right__h">Thread</div>
+        <div class="ws-muted" style="margin-bottom:10px;">${escHtml(data.thread.name)} — ${moments.length} moment${moments.length === 1 ? '' : 's'}, in order.</div>
+        ${moments.map(m => `<div class="ws-rt-item" onclick="selectMoment(${m.id})">
+            <span class="ws-rt-item__ts">${tsEdit(m)}</span>
+            <span class="ws-rt-item__txt">${escHtml(snippet(m, 50))}
+                <span class="ws-rt-item__art">— ${escHtml(trackLabel(m))}</span></span>
+        </div>`).join('')}
+    </div>`;
+}
+async function renameThread(tid, name) {
+    name = (name || '').trim();
+    if (!name) return;
+    await fetch(`/api/thread/${tid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const t = allThreads.find(x => x.id === tid); if (t) t.name = name;
+    if (threadViewCache && threadViewCache.thread) threadViewCache.thread.name = name;
+    allNotes.forEach(n => (n.threads || []).forEach(tt => { if (tt.id === tid) tt.name = name; }));
+    renderExplorer();
+}
+async function deleteThreadFromView(tid) {
+    if (!confirm('Delete this thread? The moments stay; only the line through them goes.')) return;
+    await fetch(`/api/thread/${tid}`, { method: 'DELETE' });
+    allThreads = allThreads.filter(t => t.id !== tid);
+    allNotes.forEach(n => { if (n.threads) n.threads = n.threads.filter(t => t.id !== tid); });
+    threadViewCache = null; detailCtx = null;
+    const first = visibleNotes()[0];
+    renderExplorer(); renderFilters();
+    if (first) selectMoment(first.id); else { renderCenter(); renderRight(); }
+}
+
+// ── Body editing ─────────────────────────────────────────────────────────────
+function editBody() {
+    if (editingBody) return;
+    editingBody = true;
+    const n = notesById[selectedId];
+    const box = document.getElementById('ws-body');
+    if (!box) return;
+    box.outerHTML = `<div>
+        <textarea class="ws-body__edit" id="ws-body-edit">${escHtml(n.note_text || '')}</textarea>
+        <div class="ws-body__actions">
+            <button class="ws-btn ws-btn--go" onclick="saveBody()">Save</button>
+            <button class="ws-btn" onclick="cancelBody()">Cancel</button>
+            <span class="ws-muted" style="align-self:center;">⌘↵ to save</span>
+        </div></div>`;
+    const ta = document.getElementById('ws-body-edit');
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    ta.addEventListener('keydown', e => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveBody(); }
+        if (e.key === 'Escape') { e.preventDefault(); cancelBody(); }
+    });
+}
+async function saveBody() {
+    const ta = document.getElementById('ws-body-edit');
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) { cancelBody(); return; }
+    const n = notesById[selectedId];
+    await fetch(`/api/listen/note/${n.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note_text: text }) });
+    n.note_text = text;
+    editingBody = false;
+    renderCenter(); renderExplorer();
+}
+function cancelBody() { editingBody = false; renderCenter(); }
+
+async function setType(id, value) {
+    const n = notesById[id];
+    await fetch(`/api/listen/note/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note_category: value }) });
+    n.note_category = value;
+    if (value && !allCategories.includes(value)) { allCategories.push(value); allCategories.sort((a, b) => a.localeCompare(b)); }
+    renderExplorer(); renderFilters();
+}
+// one small ask-modal for everything that used to be a prompt(). fields:
+// [{label?, placeholder?, value?}] → resolves to an array of values, or null.
+function wsAsk(title, fields) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('ws-askpop');
+        document.getElementById('ws-ask-title').textContent = title;
+        const box = document.getElementById('ws-ask-fields');
+        box.innerHTML = '';
+        const inputs = fields.map(f => {
+            const i = document.createElement('input');
+            i.type = 'text'; i.className = 'ws-search';
+            i.placeholder = f.placeholder || ''; i.value = f.value || '';
+            box.appendChild(i); return i;
+        });
+        modal.classList.add('open');
+        setTimeout(() => { inputs[0].focus(); inputs[0].select(); }, 30);
+        function done(vals) { modal.classList.remove('open'); modal.onclick = null; resolve(vals); }
+        document.getElementById('ws-ask-save').onclick = () => done(inputs.map(i => i.value));
+        document.getElementById('ws-ask-cancel').onclick = () => done(null);
+        modal.onclick = e => { if (e.target === modal) done(null); };
+        inputs.forEach((inp, k) => inp.onkeydown = e => {
+            if (e.key === 'Escape') done(null);
+            if (e.key === 'Enter') {
+                if (k < inputs.length - 1) inputs[k + 1].focus();
+                else done(inputs.map(i => i.value));
+            }
+        });
+    });
+}
+
+async function editTimestamp(id) {
+    // the moment can live in notesById OR in the open thread's cache
+    const n = notesById[id] || (threadViewCache && (threadViewCache.moments || []).find(m => m.id === id));
+    if (!n) return;
+    const cur = fmtTs(n.timestamp_sec);
+    const vals = await wsAsk('Timestamp in this track', [{ placeholder: 'mm:ss or seconds', value: cur }]);
+    if (vals === null) return;
+    let sec = 0;
+    const s = vals[0].trim();
+    if (s.includes(':')) { const p = s.split(':'); sec = (parseInt(p[0]) || 0) * 60 + (parseFloat(p[1]) || 0); }
+    else sec = parseFloat(s) || 0;
+    if (!isFinite(sec) || sec < 0) return;
+    await fetch(`/api/listen/note/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp_sec: sec }) });
+    n.timestamp_sec = sec;
+    if (notesById[id]) notesById[id].timestamp_sec = sec;
+    if (threadViewCache && (threadViewCache.moments || []).some(m => m.id === id)) m_syncThreadMoment(id, sec);
+    // re-render whatever view is showing
+    if (threadViewCache) { renderThreadCenter(); renderThreadRight(threadViewCache); }
+    else { renderCenter(); }
+    renderExplorer();
+}
+function m_syncThreadMoment(id, sec) {
+    const mm = (threadViewCache.moments || []).find(m => m.id === id);
+    if (mm) mm.timestamp_sec = sec;
+}
+
+// ── Properties (custom fields) ───────────────────────────────────────────────
+async function addProperty(id) {
+    const vals = await wsAsk('Add a field (you invent it)', [
+        { placeholder: 'field name — e.g. instrument, decade, mood' },
+        { placeholder: 'value' },
+    ]);
+    if (vals === null) return;
+    const name = vals[0].trim(), value = vals[1].trim();
+    if (!name) return;
+    const r = await fetch(`/api/note/${id}/property`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, value }) }).then(r => r.json());
+    const n = notesById[id];
+    if (r && r.id) { n.properties = n.properties || []; n.properties.push({ id: r.id, name: r.name, value: r.value }); }
+    renderCenter(); renderFilters();
+}
+async function removeProperty(id, pid) {
+    await fetch(`/api/note/property/${pid}`, { method: 'DELETE' });
+    const n = notesById[id];
+    n.properties = (n.properties || []).filter(p => p.id !== pid);
+    renderCenter(); renderFilters();
+}
+
+// ── Threads ──────────────────────────────────────────────────────────────────
+async function newThread() {
+    const vals = await wsAsk('New thread — a line of enquiry to trace', [
+        { placeholder: 'e.g. highlife guitar tone' }]);
+    if (vals === null) return;
+    const name = vals[0].trim();
+    if (!name) return;
+    const r = await fetch('/api/threads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }).then(r => r.json());
+    allThreads = await fetch('/api/threads').then(r => r.json());
+    renderExplorer(); renderFilters();
+}
+function addThreadTo(id) {
+    // inline picker (was a prompt()): existing threads listed; typing filters,
+    // and an unmatched name offers "create"
+    const modal = document.getElementById('ws-threadpicker');
+    modal.classList.add('open');
+    const search = document.getElementById('ws-tp-search');
+    search.value = '';
+    renderThreadPickerList(id, '');
+    search.oninput = () => renderThreadPickerList(id, search.value.trim());
+    search.onkeydown = e => {
+        if (e.key === 'Escape') closeThreadPicker();
+        if (e.key === 'Enter') {
+            const first = document.querySelector('#ws-tp-list .ws-link');
+            if (first) first.click();
+        }
+    };
+    search.focus();
+    modal.onclick = e => { if (e.target === modal) closeThreadPicker(); };
+}
+function closeThreadPicker() { document.getElementById('ws-threadpicker').classList.remove('open'); }
+function renderThreadPickerList(noteId, q) {
+    const n = notesById[noteId];
+    const inThreads = new Set((n.threads || []).map(t => t.id));
+    const ql = q.toLowerCase();
+    const list = allThreads.filter(t => !inThreads.has(t.id))
+        .filter(t => !ql || (t.name || '').toLowerCase().includes(ql));
+    const exact = allThreads.some(t => (t.name || '').toLowerCase() === ql);
+    const el = document.getElementById('ws-tp-list');
+    let html = list.map(t =>
+        `<div class="ws-link" onclick="pickThread(${noteId}, ${t.id})">
+            <span class="ws-link__ts" style="color:${escHtml(t.colour || 'var(--muted)')}">●</span>
+            <span class="ws-link__txt">${escHtml(t.name)}
+                <span class="ws-link__sub">— ${t.moment_count || 0} moment${(t.moment_count || 0) === 1 ? '' : 's'}</span></span>
+        </div>`).join('');
+    if (q && !exact)
+        html += `<div class="ws-link" onclick="pickThread(${noteId}, null, ${JSON.stringify(q).replace(/"/g, '&quot;')})">
+            <span class="ws-link__ts">＋</span>
+            <span class="ws-link__txt">Create “${escHtml(q)}”</span>
+        </div>`;
+    el.innerHTML = html || '<div class="ws-muted" style="padding:12px;">Type a name to start a thread.</div>';
+}
+async function pickThread(noteId, threadId, newName) {
+    let thread = allThreads.find(t => t.id === threadId);
+    if (!thread && newName) {
+        const r = await fetch('/api/threads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName }) }).then(r => r.json());
+        allThreads = await fetch('/api/threads').then(r => r.json());
+        thread = allThreads.find(t => t.id === r.id) || { id: r.id, name: newName, colour: null };
+    }
+    if (!thread) return;
+    await fetch(`/api/thread/${thread.id}/moments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note_id: noteId }) });
+    const n = notesById[noteId];
+    n.threads = n.threads || [];
+    if (!n.threads.some(t => t.id === thread.id)) n.threads.push({ id: thread.id, name: thread.name, colour: thread.colour || null });
+    closeThreadPicker();
+    renderCenter(); renderExplorer(); renderRight();
+}
+async function threadToSet(tid) {
+    const r = await fetch(`/api/thread/${tid}/to-set`, { method: 'POST' }).then(x => x.json());
+    if (r && r.set_id) location.href = `/set/${r.set_id}`;
+}
+async function removeThreadFrom(id, tid) {
+    await fetch(`/api/thread/${tid}/moments/${id}`, { method: 'DELETE' });
+    const n = notesById[id];
+    n.threads = (n.threads || []).filter(t => t.id !== tid);
+    renderCenter(); renderExplorer(); renderRight();
+}
+
+// ── Links (note_links — moment ↔ moment) ─────────────────────────────────────
+function openLinkPicker(id) {
+    const modal = document.getElementById('ws-linkpicker');
+    modal.classList.add('open');
+    const search = document.getElementById('ws-lp-search');
+    search.value = '';
+    renderLinkPickerList(id, '');
+    search.oninput = () => renderLinkPickerList(id, search.value.trim().toLowerCase());
+    search.focus();
+    modal.onclick = e => { if (e.target === modal) closeLinkPicker(); };
+}
+function closeLinkPicker() { document.getElementById('ws-linkpicker').classList.remove('open'); }
+function renderLinkPickerList(fromId, q) {
+    const already = new Set(linksOf(fromId).map(l => l.from === fromId ? l.to : l.from));
+    const list = allNotes.filter(n => n.id !== fromId && !already.has(n.id))
+        .filter(n => !q || (snippet(n, 200) + ' ' + trackLabel(n)).toLowerCase().includes(q))
+        .slice(0, 80);
+    const el = document.getElementById('ws-lp-list');
+    el.innerHTML = list.length ? list.map(n =>
+        `<div class="ws-link" onclick="createLink(${fromId}, ${n.id})">
+            <span class="ws-link__ts">${fmtTs(n.timestamp_sec)}</span>
+            <span class="ws-link__txt">${escHtml(snippet(n, 70))}
+                <span class="ws-link__sub">— ${escHtml(trackLabel(n))}</span></span>
+        </div>`).join('') : '<div class="ws-muted" style="padding:12px;">No moments to link.</div>';
+}
+async function createLink(fromId, toId) {
+    closeLinkPicker();
+    // the link was already chosen — cancelling the "why" still links (no label),
+    // matching the old behaviour
+    const vals = await wsAsk('Why this link?', [{ placeholder: 'a note on the connection (optional)' }]);
+    const why = vals === null ? '' : vals[0].trim();
+    await fetch('/api/note-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_note_id: fromId, to_note_id: toId, label: why }) });
+    allLinks = (await fetch('/api/note-links').then(r => r.json())).map(l => ({ id: l.id, from: l.from_note_id, to: l.to_note_id, label: l.label }));
+    closeLinkPicker();
+    renderCenter(); renderRight();
+}
+async function editLinkLabel(linkId) {
+    const l = allLinks.find(x => x.id === linkId);
+    if (!l) return;
+    const vals = await wsAsk('Why this link?', [{ placeholder: 'a note on the connection', value: l.label || '' }]);
+    if (vals === null) return;
+    const label = vals[0].trim();
+    await fetch(`/api/note-link/${linkId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label }) });
+    l.label = label || null;
+    renderCenter(); renderRight();
+}
+async function removeLink(linkId) {
+    await fetch(`/api/note-link/${linkId}`, { method: 'DELETE' });
+    allLinks = allLinks.filter(l => l.id !== linkId);
+    renderCenter(); renderRight();
+}
+
+// ── Right pane: what this moment BELONGS TO + CONNECTS TO ────────────────────
+// (the spatial connection surface itself is the Mind map — one click away)
+function renderRight() {
+    const el = document.getElementById('ws-right');
+    if (!el) return;                       // right pane removed — callers are harmless no-ops
+    const n = notesById[selectedId];
+    if (!n) {
+        el.innerHTML = '<div class="ws-right__top"><div class="ws-muted">Select a moment to see what it belongs to and connects to.</div></div>';
+        return;
+    }
+    const vis = visibleSet();   // the active filters reshape the neighbourhood
+
+    // belongs to — the threads + projects this moment sits in
+    const threadChips = (n.threads || []).map(t =>
+        `<span class="ws-belong-chip"><span class="ws-group-dot" style="background:${t.colour || 'var(--accent)'};"></span>${escHtml(t.name)}</span>`).join('');
+    const projChips = (n.projects || []).map(p =>
+        `<span class="ws-belong-chip ws-belong-chip--proj">${escHtml(p.name)}</span>`).join('');
+    const belongHtml = (threadChips || projChips)
+        ? `<div class="ws-belong">${threadChips}${projChips}</div>`
+        : '<div class="ws-muted">Not in a thread or project yet.</div>';
+
+    // connects to — every linked moment (both directions), with the why
+    const links = linksOf(n.id).filter(l => {
+        const oid = l.from === n.id ? l.to : l.from;
+        return notesById[oid] && vis.has(oid);
+    });
+    const connHtml = links.length ? links.map(l => {
+        const oid = l.from === n.id ? l.to : l.from;
+        const o = notesById[oid];
+        const dir = l.from === n.id ? '→' : '←';
+        const why = l.label
+            ? `<div class="ws-rt-why" onclick="event.stopPropagation();editLinkLabel(${l.id})" title="Edit why">“${escHtml(l.label)}”</div>` : '';
+        return `<div class="ws-rt-item" onclick="selectMoment(${o.id})">
+            <span class="ws-rt-item__ts">${dir} ${tsLabel(o)}</span>
+            <div class="ws-rt-item__main">
+                <div class="ws-rt-item__txt">${escHtml(snippet(o, 48))} <span class="ws-rt-item__art">— ${escHtml(trackLabel(o))}</span></div>
+                ${why}
+            </div>
+        </div>`;
+    }).join('') : '<div class="ws-muted">No connections yet — draw them on the Mind map.</div>';
+
+    el.innerHTML =
+        `<div class="ws-right__top">
+            <div class="ws-right__h">Belongs to</div>${belongHtml}
+            <div class="ws-right__h">Connects to <span class="ws-count">${links.length}</span></div>${connHtml}
+            <a class="ws-canvasbtn" href="/listen/canvas?focus=${n.id}">✦ Open in Mind map</a>
+         </div>`;
+}
+
+// ── Facet filters (collapsible) ──────────────────────────────────────────────
+function toggleFilters() {
+    const f = document.getElementById('ws-filters');
+    const open = f.style.display === 'none';
+    f.style.display = open ? 'flex' : 'none';
+    document.getElementById('ws-filtertoggle').textContent = (open ? '▾' : '▸') + ' Filters';
+}
+function renderFilters() {
+    const el = document.getElementById('ws-filters');
+    if (!el) return;
+    const rows = [];
+
+    // Category
+    const catCounts = {};
+    allNotes.forEach(n => { const c = n.note_category || ''; if (c) catCounts[c] = (catCounts[c] || 0) + 1; });
+    const cats = allCategories.filter(c => catCounts[c]);
+    if (cats.length) rows.push(`<div class="ws-filters__row ws-filters__row--type"><span class="ws-filters__label">Type</span>
+        <span class="ws-pill ${activeCategory === '' ? 'active' : ''}" onclick="setCatFilter('')">All</span>
+        ${cats.map(c => `<span class="ws-pill ${activeCategory === c ? 'active' : ''}" onclick="setCatFilter(${jsAttr(c)})">${escHtml(c)} <span class="ws-count">${catCounts[c]}</span></span>`).join('')}</div>`);
+
+    // Fields
+    const fieldCounts = {};
+    allNotes.forEach(n => (n.properties || []).forEach(p => { const k = `${p.name} ${p.value || ''}`; fieldCounts[k] = (fieldCounts[k] || 0) + 1; }));
+    const fkeys = Object.keys(fieldCounts).sort();
+    if (fkeys.length) rows.push(`<div class="ws-filters__row ws-filters__row--fields"><span class="ws-filters__label">Fields</span>
+        ${fkeys.map(k => { const [nm, ...v] = k.split(' '); const val = v.join(' '); return `<span class="ws-pill ${activeField === k ? 'active' : ''}" onclick="setFieldFilter(${jsAttr(k)})">${escHtml(nm)}${val ? ': ' + escHtml(val) : ''} <span class="ws-count">${fieldCounts[k]}</span></span>`; }).join('')}</div>`);
+
+    // Genres
+    const gc = {}; allNotes.forEach(n => (n.genre_list || []).forEach(g => gc[g] = (gc[g] || 0) + 1));
+    const genres = Object.entries(gc).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    if (genres.length) rows.push(`<div class="ws-filters__row ws-filters__row--genre"><span class="ws-filters__label">Genre</span>
+        ${genres.map(([g, c]) => `<span class="ws-pill ${activeGenres.has(g) ? 'active' : ''}" onclick="toggleGenre(${jsAttr(g)})">${escHtml(g)} <span class="ws-count">${c}</span></span>`).join('')}</div>`);
+
+    // Tags
+    const tc = {}; allNotes.forEach(n => (n.tag_list || []).forEach(t => tc[t] = (tc[t] || 0) + 1));
+    const tags = Object.entries(tc).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    if (tags.length) rows.push(`<div class="ws-filters__row ws-filters__row--tags"><span class="ws-filters__label">Tags</span>
+        ${tags.map(([t, c]) => `<span class="ws-pill ${activeTags.has(t) ? 'active' : ''}" onclick="toggleTag(${jsAttr(t)})">#${escHtml(t)} <span class="ws-count">${c}</span></span>`).join('')}</div>`);
+
+    // Places
+    const pc = {}, pn = {}; allNotes.forEach(n => (n.places || []).forEach(p => { pc[p.id] = (pc[p.id] || 0) + 1; pn[p.id] = p.name; }));
+    const places = Object.entries(pc).sort((a, b) => b[1] - a[1]);
+    if (places.length) rows.push(`<div class="ws-filters__row ws-filters__row--place"><span class="ws-filters__label">Place</span>
+        <span class="ws-pill ${activePlaceId === null ? 'active' : ''}" onclick="setPlace(null)">All</span>
+        ${places.map(([pid, c]) => `<span class="ws-pill ${activePlaceId === +pid ? 'active' : ''}" onclick="setPlace(${pid})">${escHtml(pn[pid])} <span class="ws-count">${c}</span></span>`).join('')}</div>`);
+
+    // When + Kind
+    rows.push(`<div class="ws-filters__row"><span class="ws-filters__label">When · Kind</span>
+        ${[['all', 'All time'], ['today', 'Today'], ['week', 'Week'], ['month', 'Month']].map(([k, l]) => `<span class="ws-pill ${activeWhen === k ? 'active' : ''}" onclick="setWhen('${k}')">${l}</span>`).join('')}
+        ${[['all', 'All'], ['typed', 'Typed'], ['voice', '🎙'], ['reference', '↗ saved']].map(([k, l]) => `<span class="ws-pill ${activeKind === k ? 'active' : ''}" onclick="setKind('${k}')">${l}</span>`).join('')}
+        <span class="ws-pill" onclick="resetFilters()" style="border-style:dashed;">Reset</span></div>`);
+
+    el.innerHTML = rows.join('');
+}
+function afterFilter() { seedGroups(); renderExplorer(); renderFilters(); if (selectedId) renderRight(); }
+function setCatFilter(c) { activeCategory = c; afterFilter(); }
+function toggleTag(t) { activeTags.has(t) ? activeTags.delete(t) : activeTags.add(t); afterFilter(); }
+function toggleGenre(g) { activeGenres.has(g) ? activeGenres.delete(g) : activeGenres.add(g); afterFilter(); }
+function setPlace(pid) { activePlaceId = pid === null ? null : +pid; afterFilter(); }
+function setWhen(w) { activeWhen = w; afterFilter(); }
+function setKind(k) { activeKind = k; afterFilter(); }
+function setFieldFilter(k) { activeField = activeField === k ? null : k; afterFilter(); }
+function resetFilters() {
+    activeCategory = ''; activeTags = new Set(); activeGenres = new Set();
+    activePlaceId = null; activeWhen = 'all'; activeKind = 'all'; activeField = null;
+    searchText = ''; document.getElementById('ws-search').value = '';
+    afterFilter();
+}
+
+// Draggable pane dividers — resize the explorer / graph panes; remembered per browser.
+function initGutters() {
+    const ws = document.getElementById('ws');
+    if (!ws) return;
+    let leftW  = parseInt(localStorage.getItem('mr_listen_leftW'))  || 260;
+    let rightW = 0;                        // right pane removed
+    const apply = () => { ws.style.gridTemplateColumns = `${leftW}px 6px minmax(0,1fr)`; };
+    apply();
+    let drag = null;
+    document.querySelectorAll('.ws-gutter').forEach(g => {
+        g.addEventListener('pointerdown', e => {
+            drag = { side: g.dataset.side, startX: e.clientX, leftW, rightW };
+            g.classList.add('dragging');
+            try { g.setPointerCapture(e.pointerId); } catch (er) {}
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+        g.addEventListener('pointermove', e => {
+            if (!drag) return;
+            const wsW = ws.clientWidth, minCenter = 320, minSide = 180;
+            if (drag.side === 'left')
+                leftW = Math.max(minSide, Math.min(drag.leftW + (e.clientX - drag.startX), wsW - rightW - minCenter - 12));
+            else
+                rightW = Math.max(220, Math.min(drag.rightW - (e.clientX - drag.startX), wsW - leftW - minCenter - 12));
+            apply();
+        });
+        const end = e => {
+            if (!drag) return;
+            try { g.releasePointerCapture(e.pointerId); } catch (er) {}
+            g.classList.remove('dragging');
+            document.body.style.userSelect = '';
+            localStorage.setItem('mr_listen_leftW', leftW);
+            localStorage.setItem('mr_listen_rightW', rightW);
+            drag = null;
+        };
+        g.addEventListener('pointerup', end);
+        g.addEventListener('pointercancel', end);
+    });
+}
+
+let searchTimer = null;
+function bindSearch() {
+    const el = document.getElementById('ws-search');
+    el.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { searchText = el.value.trim().toLowerCase(); seedGroups(); renderExplorer(); if (selectedId) renderRight(); }, 150);
+    });
+}
+
+async function deleteNote(id) {
+    if (!confirm('Delete this moment?')) return;
+    await fetch(`/api/listen/note/${id}`, { method: 'DELETE' });
+    allNotes = allNotes.filter(n => n.id !== id);
+    allLinks = allLinks.filter(l => l.from !== id && l.to !== id);
+    buildIndexes();
+    if (selectedId === id) selectedId = null;
+    const next = visibleNotes()[0];
+    if (next) selectMoment(next.id); else { renderCenter(); renderRight(); }
+    renderExplorer(); renderFilters();
+}
+
+// ── Mini player ──────────────────────────────────────────────────────────────
+const lpAudio = new Audio();
+let lpSeeking = false;
+lpAudio.addEventListener('timeupdate', () => {
+    if (lpSeeking) return;
+    const cur = lpAudio.currentTime, dur = lpAudio.duration || 0;
+    document.getElementById('lp-time').textContent = `${fmt(cur)} / ${fmt(dur)}`;
+    const scrub = document.getElementById('lp-scrub');
+    if (scrub && dur) scrub.value = (cur / dur) * 100;
+});
+lpAudio.addEventListener('play',  () => { const b = document.getElementById('lp-playpause'); if (b) { b.textContent = '⏸'; b.classList.add('playing'); } });
+lpAudio.addEventListener('pause', () => { const b = document.getElementById('lp-playpause'); if (b) { b.textContent = '▶'; b.classList.remove('playing'); } });
+lpAudio.addEventListener('ended', () => { const b = document.getElementById('lp-playpause'); if (b) { b.textContent = '▶'; b.classList.remove('playing'); } });
+function fmt(sec) { if (!isFinite(sec)) return '0:00'; const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; }
+function lpPlay(fileId, title, artist, seekSec) {
+    const src = `/audio/${fileId}`;
+    if (lpAudio.dataset.fileId !== String(fileId)) {
+        lpAudio.src = src; lpAudio.dataset.fileId = fileId;
+        document.getElementById('lp-title').textContent = title || '—';
+        document.getElementById('lp-artist').textContent = artist || '';
+        document.getElementById('lp-scrub').value = 0;
+    }
+    document.getElementById('listen-player').classList.add('visible');
+    document.body.classList.add('player-open');
+    if (seekSec != null) {
+        lpAudio.addEventListener('loadedmetadata', function seek() { lpAudio.currentTime = seekSec; lpAudio.removeEventListener('loadedmetadata', seek); });
+        if (lpAudio.readyState >= 1) lpAudio.currentTime = seekSec;
+    }
+    lpAudio.play().catch(() => {});
+}
+function lpTogglePlay() { if (lpAudio.paused) lpAudio.play().catch(() => {}); else lpAudio.pause(); }
+function lpScrub(val) { const dur = lpAudio.duration; if (!dur) return; lpSeeking = true; lpAudio.currentTime = (val / 100) * dur; lpSeeking = false; }
+function lpClose() { lpAudio.pause(); document.getElementById('listen-player').classList.remove('visible'); document.body.classList.remove('player-open'); }
+
+// ── utils ────────────────────────────────────────────────────────────────────
+function escHtml(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function escAttr(s) { return escHtml(s); }
+function jsAttr(s) { return JSON.stringify(s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLinkPicker(); });
+init();
+</script>
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/feedback.js"></script>
+
+<!-- ── Listen guided tour ──────────────────────────────────────────────────────
+     Spotlights each control with a short explanation. Runs once the first time
+     you open /listen; the ? button (bottom-right) replays it any time. -->
+<style>
+  #listen-tour-help{ position:fixed; bottom:60px; right:16px; z-index:90;
+    width:34px; height:34px; border-radius:50%; cursor:pointer;
+    background:rgba(26,22,16,.92); border:1px solid rgba(245,230,176,.32); color:#f5e6b0;
+    font-family:var(--font-serif,'EB Garamond',serif); font-size:1.05rem; font-style:italic;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(0,0,0,.5);
+    transition:all .18s cubic-bezier(.34,1.45,.5,1); }
+  #listen-tour-help:hover{ background:#f5e6b0; color:#1d160d; border-color:#f5e6b0;
+    transform:translateY(-2px) scale(1.07); }
+  body.player-open #listen-tour-help{ bottom:134px; }
+  body.player-open #mr-fb{ bottom:90px; }
+  #lt-block{ position:fixed; inset:0; z-index:8999; display:none; }
+  #lt-spot{ position:fixed; z-index:9000; border-radius:10px; pointer-events:none; display:none;
+    box-shadow:0 0 0 9999px rgba(8,6,4,.74); border:2px solid rgba(245,230,176,.55);
+    transition:left .28s cubic-bezier(.4,1.1,.5,1), top .28s cubic-bezier(.4,1.1,.5,1),
+               width .28s cubic-bezier(.4,1.1,.5,1), height .28s cubic-bezier(.4,1.1,.5,1); }
+  #lt-card{ position:fixed; z-index:9001; max-width:316px; display:none;
+    background:#1a1610; border:1px solid rgba(245,230,176,.22); border-radius:14px;
+    padding:16px 18px; color:#efe6cf; box-shadow:0 16px 48px rgba(0,0,0,.62);
+    font-family:var(--font-main,Inter,sans-serif); }
+  #lt-card.center{ left:50% !important; top:50% !important; transform:translate(-50%,-50%); max-width:392px; }
+  #lt-card h4{ margin:0 0 7px; font-family:var(--font-serif,'EB Garamond',serif); font-style:italic;
+    font-weight:400; font-size:1.2rem; color:#f5e6b0; }
+  #lt-card p{ margin:0; font-size:.9rem; line-height:1.56; color:#cdc3a8; }
+  #lt-card .lt-nav{ display:flex; align-items:center; gap:8px; margin-top:16px; }
+  #lt-card .lt-step{ font-family:var(--font-mono,monospace); font-size:.7rem; color:#7d7257; margin-right:auto; letter-spacing:.04em; }
+  #lt-card button{ cursor:pointer; font-family:inherit; font-size:.82rem; border-radius:100px;
+    padding:5px 14px; border:1px solid rgba(245,230,176,.28); background:none; color:#cdc3a8; transition:all .15s; }
+  #lt-card button:hover{ color:#efe6cf; border-color:rgba(245,230,176,.5); }
+  #lt-card button.lt-primary{ background:#f5e6b0; color:#1d160d; border-color:#f5e6b0; font-weight:500; }
+  #lt-card button.lt-primary:hover{ background:#fff0c4; }
+  #lt-card button.lt-skip{ border:none; padding:5px 6px; color:#7d7257; }
+</style>
+<button id="listen-tour-help" title="How does Listen work? — run the tour">?</button>
+<div id="lt-block"></div>
+<div id="lt-spot"></div>
+<div id="lt-card">
+  <h4 id="lt-title"></h4>
+  <p id="lt-body"></p>
+  <div class="lt-nav">
+    <span class="lt-step" id="lt-step"></span>
+    <button class="lt-skip" id="lt-skip">Skip</button>
+    <button id="lt-back">Back</button>
+    <button class="lt-primary" id="lt-next">Next</button>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var KEY = 'mr_listen_tour_v1';
+  var STEPS = [
+    { center:true, title:'Welcome to Listen',
+      body:"Everything you note down while listening lives here — each note pinned to a track and a moment in time. Here's a quick tour of what the buttons do." },
+    { sel:'#ws-tree', pos:'right', title:'Your listening notes',
+      body:'Every listening note you’ve captured shows up in this list. Click one to open it in the middle.' },
+    { sel:'#ws-search', pos:'right', title:'Search everything',
+      body:'Find any note fast — it searches the note text, track, artist, tags, genres and places all at once.' },
+    { sel:'#ws-group', pos:'right', title:'Group the list',
+      body:'Switch how the list is organised — grouped by track, by type, or as a flat timeline of dates.' },
+    { sel:'#ws-filtertoggle', pos:'right', title:'Filter it down',
+      body:'Open this to narrow the list — by category, tag, genre, place, when it was made, or typed vs voice note.' },
+    { sel:'.ws-scope', pos:'bottom', title:'Projects',
+      body:'A project is a working set of notes. Pick one here to focus on it, start a new one, or step between them with ‹ ›. "Delete project" (down below) clears the set — your notes stay.' },
+    { sel:'#ws-canvaslink', pos:'top', title:'The mind map',
+      body:'Open the mind map to spread your listening notes out in space and draw the connections between them.' },
+    { sel:'#ws-main', pos:'left', title:'The open note',
+      body:'When you click a note it opens here — play the track at its exact timestamp, edit the note, and tag it with your own fields.' },
+    { sel:'#listen-tour-help', pos:'left', title:'Run it again any time',
+      body:'That’s the tour. Press this ? button whenever you want to see it again.' }
+  ];
+  var i = 0;
+  var block = document.getElementById('lt-block'),
+      spot  = document.getElementById('lt-spot'),
+      card  = document.getElementById('lt-card');
+  var running = function(){ return block.style.display === 'block'; };
+
+  function start(){ i = 0; block.style.display = 'block'; render(); }
+  function end(){ block.style.display='none'; spot.style.display='none'; card.style.display='none';
+    try{ localStorage.setItem(KEY,'done'); }catch(e){}
+    // persist on the server too — the desktop shell's localStorage doesn't
+    // reliably survive a relaunch, which is what made the tour reappear.
+    fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({listen_tour_seen:'1'})}).catch(function(){}); }
+  function go(d){ i += d; if (i < 0) i = 0; if (i >= STEPS.length){ end(); return; } render(); }
+
+  function placeCard(r, pos){
+    var cw = card.offsetWidth, ch = card.offsetHeight, gap = 16, t, l;
+    if (pos === 'right'){ l = r.right + gap; t = r.top; }
+    else if (pos === 'left'){ l = r.left - cw - gap; t = r.top; }
+    else if (pos === 'top'){ t = r.top - ch - gap; l = r.left; }
+    else { t = r.bottom + gap; l = r.left; }              // bottom
+    l = Math.max(12, Math.min(l, window.innerWidth - cw - 12));
+    t = Math.max(60, Math.min(t, window.innerHeight - ch - 12));
+    card.style.left = l + 'px'; card.style.top = t + 'px';
+  }
+  function render(){
+    var s = STEPS[i];
+    document.getElementById('lt-title').textContent = s.title;
+    document.getElementById('lt-body').textContent  = s.body;
+    document.getElementById('lt-step').textContent  = (i+1) + ' / ' + STEPS.length;
+    document.getElementById('lt-back').style.visibility = i === 0 ? 'hidden' : 'visible';
+    document.getElementById('lt-next').textContent = i === STEPS.length - 1 ? 'Done' : 'Next';
+    card.style.display = 'block';
+    var el = s.sel ? document.querySelector(s.sel) : null;
+    if (s.center || !el || !el.getClientRects().length){
+      card.classList.add('center'); spot.style.display = 'none'; block.style.background = 'rgba(8,6,4,.74)';
+      card.style.left = ''; card.style.top = '';
+    } else {
+      card.classList.remove('center'); block.style.background = 'transparent';
+      try{ el.scrollIntoView({ block:'nearest' }); }catch(e){}
+      var r = el.getBoundingClientRect(), pad = 6;
+      spot.style.display = 'block';
+      spot.style.left = (r.left - pad) + 'px'; spot.style.top = (r.top - pad) + 'px';
+      spot.style.width = (r.width + pad*2) + 'px'; spot.style.height = (r.height + pad*2) + 'px';
+      placeCard(r, s.pos || 'right');
+    }
+  }
+
+  document.getElementById('lt-next').onclick = function(){ go(1); };
+  document.getElementById('lt-back').onclick = function(){ go(-1); };
+  document.getElementById('lt-skip').onclick = end;
+  document.getElementById('listen-tour-help').onclick = start;
+  window.addEventListener('keydown', function(e){
+    if (!running()) return;
+    if (e.key === 'Escape') end();
+    else if (e.key === 'ArrowRight') go(1);
+    else if (e.key === 'ArrowLeft') go(-1);
+  });
+  window.addEventListener('resize', function(){ if (running()) render(); });
+
+  // first visit → run it once. "Seen" is persisted SERVER-SIDE (the settings
+  // table) because the desktop shell's localStorage doesn't reliably survive a
+  // relaunch — that bug made the tour open every single time. localStorage is
+  // just a fast same-session guard; the server setting is the source of truth.
+  function maybeStart(){ setTimeout(function(){
+    if (!running() && !document.querySelector('.ws-modal.open')) start(); }, 1400); }
+  var seenLocal; try{ seenLocal = localStorage.getItem(KEY); }catch(e){}
+  if (!seenLocal){
+    fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d){
+      if (d && d.listen_tour_seen === '1'){ try{ localStorage.setItem(KEY,'done'); }catch(e){} return; }
+      maybeStart();
+    }).catch(maybeStart);
+  }
+})();
+</script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Removed from Music Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+<style>
+  .rm-wrap{max-width:840px;margin:42px auto;padding:30px 34px;}
+  .rm-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;}
+  .rm-title{font-family:var(--font-celtic,'EB Garamond',serif);font-size:2rem;color:var(--text);}
+  .rm-sub{color:var(--muted);margin:6px 0 20px;line-height:1.55;}
+  .rm-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;}
+  .rm-btn{all:unset;cursor:pointer;padding:8px 16px;border-radius:8px;background:var(--accent,#4a7242);color:#fff;font-size:0.9rem;}
+  .rm-btn[disabled]{opacity:.4;cursor:default;}
+  .rm-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+  .rm-list{list-style:none;margin:0;padding:0;}
+  .rm-item{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border);}
+  .rm-item label{flex:1;cursor:pointer;}
+  .rm-item .t{color:var(--text);}
+  .rm-item .a{color:var(--muted);font-style:italic;}
+  .rm-empty{color:var(--muted);padding:32px 0;}
+  a.rm-link{color:var(--muted);text-decoration:none;}
+  a.rm-link:hover{color:var(--text);}
+</style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="study-scene">
+<div class="floor-sheet rm-wrap">
+  <div class="rm-head">
+    <div class="rm-title">Removed from Music Room</div>
+    <a class="rm-link" href="/tools">← Tools</a>
+  </div>
+  <p class="rm-sub">Files you removed from the Music Room are parked here, not imported again.
+     Tick any you've changed your mind about and restore them — the track returns to the Music Room
+     and its file moves into your Library's <code>Restored</code> folder.</p>
+  <div class="rm-bar">
+    <button class="rm-btn rm-ghost" onclick="toggleAll()">Select all</button>
+    <button class="rm-btn" id="restoreBtn" onclick="restore()" disabled>Restore selected</button>
+    <span id="status" style="color:var(--muted);"></span>
+  </div>
+  <ul class="rm-list" id="list"><li class="rm-empty">Loading…</li></ul>
+</div>
+<script>
+function esc(s){const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
+function checked(){return [...document.querySelectorAll('#list input:checked')].map(c=>+c.value);}
+function updateBtn(){document.getElementById('restoreBtn').disabled = checked().length===0;}
+function toggleAll(){const cbs=[...document.querySelectorAll('#list input')];const all=cbs.length&&cbs.every(c=>c.checked);cbs.forEach(c=>c.checked=!all);updateBtn();}
+async function load(){
+  let d; try{ d = await fetch('/api/removed').then(r=>r.json()); }catch(e){ d={removed:[]}; }
+  const items = d.removed || [];
+  const ul = document.getElementById('list');
+  if(!items.length){ ul.innerHTML='<li class="rm-empty">Nothing removed.</li>'; updateBtn(); return; }
+  ul.innerHTML = items.map(r=>`<li class="rm-item">
+     <input type="checkbox" value="${r.track_id}" onchange="updateBtn()">
+     <label><span class="t">${esc(r.title)}</span>${r.artist?` <span class="a">— ${esc(r.artist)}</span>`:''}</label>
+   </li>`).join('');
+  updateBtn();
+}
+async function restore(){
+  const ids = checked(); if(!ids.length) return;
+  document.getElementById('restoreBtn').disabled = true;
+  document.getElementById('status').textContent = 'Restoring…';
+  let d; try{ d = await fetch('/api/removed/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({track_ids:ids})}).then(r=>r.json()); }
+  catch(e){ document.getElementById('status').textContent='Failed.'; return; }
+  document.getElementById('status').textContent = `Restored ${d.count||0} — back in the Music Room.`;
+  load();
+}
+load();
+</script>
+<script src="/static/js/theme.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+</body>
+</html>

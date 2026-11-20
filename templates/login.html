@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <style>
+        body.gr-page.lg { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 520px); }
+        .lg-side { position: relative; overflow: hidden; background: #0a0907; display: flex; align-items: flex-end; padding: var(--gr-s5); }
+        .lg-side::before { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(1200px 600px at 20% 110%, rgba(230,201,122,.10), transparent 60%); }
+        .lg-side__wordmark { position: absolute; top: var(--gr-s4); left: var(--gr-s5); font-family: var(--font-celtic, var(--gr-serif)); font-size: 1.4rem; color: var(--gr-ink); }
+        .lg-side__line { position: relative; font-family: var(--gr-serif); font-size: clamp(2rem, 4.2vw, 3.4rem); line-height: 1.04; letter-spacing: -.01em; max-width: 16ch; color: var(--gr-ink); }
+        .lg-side__line em { font-style: italic; color: var(--gr-accent); }
+        .lg-side__fine { position: relative; margin-top: var(--gr-s3); font-size: var(--gr-t5); color: var(--gr-muted); max-width: 44ch; line-height: 1.6; }
+        .lg-pane { display: flex; flex-direction: column; justify-content: center; padding: var(--gr-s5) var(--gr-s5); border-left: 1px solid var(--gr-line); }
+        .lg-tabs { display: inline-flex; gap: 4px; border: 1px solid var(--gr-line); border-radius: 999px; padding: 3px; margin-bottom: var(--gr-s4); align-self: flex-start; }
+        .lg-tabs button { appearance: none; border: none; background: none; color: var(--gr-muted); font-family: var(--gr-sans); font-size: var(--gr-t5); padding: 7px 16px; border-radius: 999px; cursor: pointer; }
+        .lg-tabs button.on { background: var(--gr-accent); color: var(--gr-accent-ink); }
+        .lg-form label { display: block; font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .12em; text-transform: uppercase; color: var(--gr-muted); margin: var(--gr-s3) 0 var(--gr-s1); }
+        .lg-form input, .lg-form select { width: 100%; padding: 12px 14px; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: rgba(255,255,255,.04); color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t3); outline: none; transition: border-color .2s; }
+        .lg-form input:focus, .lg-form select:focus { border-color: rgba(230,201,122,.6); }
+        .lg-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .lg-kind { appearance: none; cursor: pointer; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: none; color: var(--gr-muted); font-family: var(--gr-sans); font-size: var(--gr-t5); padding: 10px 6px; transition: border-color .2s, color .2s; }
+        .lg-kind.on { border-color: var(--gr-accent); color: var(--gr-ink); }
+        .lg-go { margin-top: var(--gr-s4); display: flex; align-items: center; gap: var(--gr-s3); }
+        .lg-err { color: #d48080; font-size: var(--gr-t5); min-height: 1.3em; }
+        .lg-server { font-size: var(--gr-t6); color: var(--gr-faint); margin-top: var(--gr-s4); font-family: var(--gr-mono); }
+        @media (max-width: 860px) { body.gr-page.lg { grid-template-columns: 1fr; } .lg-side { min-height: 38vh; } .lg-pane { border-left: none; border-top: 1px solid var(--gr-line); } }
+        .lg-asked { margin-top: 10px; font-size: var(--gr-t6); line-height: 1.6; color: var(--gr-muted); }
+        .lg-asked b { font-weight: 400; color: var(--gr-ink); }
+        .lg-agree { display: flex !important; align-items: flex-start; gap: 9px; margin-top: 18px; font-size: var(--gr-t6); line-height: 1.6; color: var(--gr-ink);
+            text-transform: none !important; letter-spacing: 0 !important; cursor: pointer; }
+        .lg-agree input { flex: none; width: auto !important; height: auto; margin: 3px 0 0; padding: 0; accent-color: var(--gr-accent); }
+        .lg-agree span { flex: 1; }
+        .lg-agree a { color: var(--gr-ink); text-underline-offset: 3px; }
+        .lg-change { appearance: none; padding: 0; border: 0; background: none; color: var(--gr-muted); font: inherit; text-decoration: underline;
+            text-underline-offset: 3px; cursor: pointer; }
+        .lg-change:hover { color: var(--gr-ink); }
+        .lg-rules { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(22, 21, 19, .45); }
+        .lg-rules[hidden] { display: none; }
+        .lg-rules__box { position: relative; width: min(720px, 100%); height: min(82vh, 900px); background: var(--gr-bg); border: 1px solid var(--gr-ink); }
+        .lg-rules__box iframe { width: 100%; height: 100%; border: 0; display: block; }
+        .lg-rules__x { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; padding: 0; border: 1px solid var(--gr-line); border-radius: 0;
+            background: var(--gr-bg); color: var(--gr-ink); cursor: pointer; z-index: 1; }
+    </style>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page lg">
+<section class="lg-side">
+    <div class="lg-side__wordmark">Music Room</div>
+    <div>
+        <div class="lg-side__line">A room for your records, and a way into <em>everyone else's</em>.</div>
+        <div class="lg-side__fine">Your music stays yours, on your machine. Borrow and buy from the people who made it. Make a room others can walk into.</div>
+    </div>
+</section>
+<section class="lg-pane">
+    <div class="lg-tabs">
+        <button class="on" data-tab="new" onclick="tab('new')">New here</button>
+        <button data-tab="back" onclick="tab('back')">I have an account</button>
+    </div>
+
+    <form class="lg-form" id="f-new" onsubmit="return go(event, 'new')">
+        <label>Your name</label>
+        <input id="n-name" placeholder="What people will see" autocomplete="off" autofocus>
+        <label>I'm here as</label>
+        <div class="lg-kinds" id="n-kinds">
+            <button type="button" class="lg-kind on" data-kind="listener">a listener</button>
+            <button type="button" class="lg-kind" data-kind="artist">an artist</button>
+            <button type="button" class="lg-kind" data-kind="label">a label</button>
+            <button type="button" class="lg-kind" data-kind="shop">a record shop</button>
+            <button type="button" class="lg-kind" data-kind="venue">a venue</button>
+            <button type="button" class="lg-kind" data-kind="business">a business</button>
+        </div>
+        <div class="lg-asked" id="n-asked" hidden>Everyone starts as a listener. Your request to be <b id="n-asked-kind"></b> goes to the Music Room, and it is switched on once it has been looked at.</div>
+        <label class="lg-agree"><input type="checkbox" id="n-agree"><span>I have read the <a href="/house-rules" target="_blank" rel="noopener" id="n-rules">house rules</a> and agree to them.</span></label>
+        <div id="n-server-row" style="display:none">
+            <label>Server address</label>
+            <input id="n-server" placeholder="http://…:5301">
+        </div>
+        <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Make my room</button><span class="lg-err" id="n-err"></span></div>
+    </form>
+
+    <form class="lg-form" id="f-back" style="display:none" onsubmit="return go(event, 'back')">
+        <label>Your account code</label>
+        <input id="b-code" placeholder="gr-xxxxxx (it's in Settings on your other device)" autocomplete="off">
+        <div id="b-server-row" style="display:none">
+            <label>Server address</label>
+            <input id="b-server" placeholder="http://…:5301">
+        </div>
+        <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Sign in on this device</button><span class="lg-err" id="b-err"></span></div>
+    </form>
+
+    <div class="lg-server"><span id="server-note"></span> <button type="button" class="lg-change" id="server-change" hidden>change</button></div>
+</section>
+
+<div class="lg-rules" id="lg-rules" hidden role="dialog" aria-label="House rules">
+    <div class="lg-rules__box"><button type="button" class="lg-rules__x" onclick="document.getElementById('lg-rules').hidden = true" aria-label="Close">✕</button>
+        <iframe title="House rules"></iframe></div>
+</div>
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script>
+let KIND = 'listener', DEFAULT_SERVER = '';
+function tab(t){
+    document.querySelectorAll('.lg-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    document.getElementById('f-new').style.display = t === 'new' ? '' : 'none';
+    document.getElementById('f-back').style.display = t === 'back' ? '' : 'none';
+}
+document.getElementById('n-kinds').addEventListener('click', e => {
+    const b = e.target.closest('.lg-kind'); if (!b) return;
+    KIND = b.dataset.kind;
+    document.querySelectorAll('.lg-kind').forEach(x => x.classList.toggle('on', x === b));
+    const asked = document.getElementById('n-asked');
+    asked.hidden = KIND === 'listener';
+    document.getElementById('n-asked-kind').textContent = b.textContent;
+});
+// the house rules open over this page, not instead of it
+document.getElementById('n-rules').addEventListener('click', e => {
+    e.preventDefault();
+    const w = document.getElementById('lg-rules');
+    w.hidden = false; w.querySelector('iframe').src = '/house-rules?bare=1';
+});
+document.getElementById('server-change').addEventListener('click', () => {
+    document.getElementById('n-server-row').style.display = '';
+    document.getElementById('b-server-row').style.display = '';
+    document.getElementById('n-server').value = document.getElementById('b-server').value = DEFAULT_SERVER;
+    document.getElementById('server-change').hidden = true;
+});
+async function init(){
+    const st = await (await fetch('/api/gr/status')).json();
+    DEFAULT_SERVER = st.default_server || st.server_url || '';
+    const show = !DEFAULT_SERVER;
+    document.getElementById('n-server-row').style.display = show ? '' : 'none';
+    document.getElementById('b-server-row').style.display = show ? '' : 'none';
+    document.getElementById('server-note').textContent = DEFAULT_SERVER ? 'server · ' + DEFAULT_SERVER : '';
+    document.getElementById('server-change').hidden = !DEFAULT_SERVER;
+    if (window.gsap && !document.hidden) {
+        gsap.from('.lg-side__line, .lg-side__fine', { y: 18, opacity: 0, duration: .9, stagger: .12, ease: 'power3.out' });
+        gsap.from('.lg-pane > *', { y: 12, opacity: 0, duration: .6, stagger: .06, ease: 'power3.out', delay: .2 });
+    }
+}
+async function go(e, which){
+    e.preventDefault();
+    const err = document.getElementById(which === 'new' ? 'n-err' : 'b-err');
+    err.textContent = '';
+    if (which === 'new' && !document.getElementById('n-agree').checked) { err.textContent = 'Please read the house rules and tick the box first.'; return false; }
+    const body = which === 'new'
+        ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform }
+        : { server_url: document.getElementById('b-server').value || DEFAULT_SERVER, invite_code: document.getElementById('b-code').value, device_name: navigator.platform };
+    const r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error || 'that did not work'; return false; }
+    location.href = which === 'new' ? '/intro' : '/room';
+    return false;
+}
+init();
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

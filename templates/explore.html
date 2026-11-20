@@ -1,0 +1,1629 @@
+{# -- Explore --
+   Two layers: ongoing Sources (magazines, stations, blogs, labels)
+   and one-off Articles (saved-for-later links). Articles can be
+   tagged and attached to places.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <style>
+        body {
+            margin: 0;
+            background: #e7d9ba;
+            min-height: 100vh;
+        }
+        .explore-scene {
+            min-height: calc(100vh - 53px);
+            background: transparent;
+            padding: 50px 24px 100px;
+        }
+        .explore-wrap { max-width: 1080px; margin: 0 auto; padding: 32px 30px 44px; }
+
+        .explore-header { text-align: center; margin-bottom: 30px; }
+        .explore-header h1 {
+            font-family: var(--font-celtic);
+            font-size: 2.2rem;
+            font-weight: 400;
+            color: #2e2718;
+            margin: 0 0 8px;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 24px rgba(170,140,90,0.18);
+        }
+
+        /* Layer toggle: Sources / Articles */
+        .layer-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            margin-bottom: 22px;
+            border-bottom: 1px solid rgba(176,150,95,0.30);
+        }
+        .layer-tab {
+            background: none;
+            border: none;
+            color: var(--muted);
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-family: var(--font-serif);
+            font-style: italic;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.2s ease;
+        }
+        .layer-tab:hover { color: var(--text); }
+        .layer-tab.active { color: #2e2718; }
+        .layer-tab.active::after {
+            content: '';
+            position: absolute; left: 20%; right: 20%; bottom: -1px;
+            height: 2px;
+            background: rgba(168,130,44,0.85);
+            border-radius: 2px;
+        }
+
+        .explore-toolbar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .pill {
+            background: rgba(250,244,225,0.72);
+            border: 1px solid rgba(176,150,95,0.30);
+            color: var(--muted);
+            padding: 5px 14px;
+            border-radius: 100px;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-main);
+            letter-spacing: 0.02em;
+        }
+        .pill:hover { color: var(--text); border-color: #a8822c; }
+        .pill.active {
+            color: var(--text);
+            border-color: rgba(74,114,66,0.5);
+            background: rgba(74,114,66,0.18);
+        }
+
+        /* Section heading */
+        .kind-section { margin-bottom: 36px; }
+        .kind-section__heading {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.2rem;
+            color: var(--text);
+            margin: 0 0 14px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(176,150,95,0.16);
+            display: flex; align-items: baseline; gap: 12px;
+        }
+        .kind-section__count {
+            font-size: 0.74rem; font-style: normal;
+            color: var(--muted2); letter-spacing: 0.06em;
+        }
+
+        /* Source cards (recurring publications) */
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+        .source-card {
+            background: rgba(250,244,225,0.72);
+            border: 1px solid rgba(176,150,95,0.20);
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.2s ease;
+            position: relative;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+        }
+        .source-card:hover {
+            border-color: #a8822c;
+            background: rgba(255,250,236,0.96);
+            transform: translateY(-1px);
+        }
+        .source-card__name {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.08rem;
+            color: var(--text);
+            margin: 0 0 4px;
+        }
+        .source-card__url {
+            font-size: 0.72rem;
+            color: var(--muted2);
+            font-family: var(--font-mono);
+            margin-bottom: 8px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .source-card__desc {
+            font-size: 0.84rem;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+        .source-card__last {
+            margin-top: 10px;
+            font-size: 0.7rem;
+            color: var(--muted2);
+            font-style: italic;
+        }
+        .source-card__menu {
+            position: absolute; top: 6px; right: 6px;
+            background: none; border: none;
+            color: var(--muted2);
+            font-size: 1rem; cursor: pointer;
+            padding: 4px 8px; border-radius: 6px;
+            line-height: 1; opacity: 0;
+            transition: opacity 0.2s ease, color 0.2s ease;
+        }
+        .source-card:hover .source-card__menu { opacity: 1; }
+        .source-card__menu:hover { color: var(--text); }
+
+        /* ── Latest — the living magazine rack ───────────────── */
+        .feed-toolbar {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; flex-wrap: wrap; margin-bottom: 22px;
+        }
+        .feed-modes {
+            display: flex; border: 1px solid rgba(190,160,100,0.22);
+            border-radius: 100px; overflow: hidden;
+        }
+        .feed-mode {
+            background: none; border: none; color: var(--muted);
+            padding: 6px 16px; font-size: 0.8rem; cursor: pointer;
+            font-family: var(--font-main); letter-spacing: 0.02em;
+            transition: all 0.18s ease;
+        }
+        .feed-mode:hover { color: var(--gold); }
+        .feed-mode.active { background: rgba(190,160,100,0.16); color: var(--gold); }
+        .feed-refresh {
+            background: rgba(250,244,225,0.78); border: 1px solid rgba(190,160,100,0.22);
+            color: var(--muted); padding: 6px 15px; border-radius: 100px;
+            font-size: 0.8rem; cursor: pointer; font-family: var(--font-main);
+            transition: all 0.18s ease;
+        }
+        .feed-refresh:hover { border-color: rgba(176,150,95,0.5); color: var(--gold); }
+        .feed-refresh:disabled { opacity: 0.5; cursor: default; }
+        .feed-status {
+            width: 100%; text-align: center; font-size: 0.72rem;
+            color: var(--muted2); font-family: var(--font-mono);
+            letter-spacing: 0.03em;
+        }
+
+        .feed-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .feed-card {
+            background: rgba(250,244,225,0.72); border: 1px solid rgba(150,125,75,0.18);
+            border-radius: 12px; overflow: hidden; cursor: pointer;
+            display: flex; flex-direction: column; position: relative;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .feed-card:hover {
+            transform: translateY(-2px); border-color: rgba(176,150,95,0.45);
+            background: rgba(255,250,236,0.96);
+        }
+        .feed-card__img {
+            width: 100%; aspect-ratio: 16/10; object-fit: cover;
+            background: rgba(176,150,95,0.12); display: block;
+        }
+        .feed-card__noimg {
+            width: 100%; aspect-ratio: 16/10; display: flex; align-items: center;
+            justify-content: center; text-align: center; padding: 14px;
+            background: linear-gradient(135deg, rgba(176,150,95,0.5), rgba(221,204,164,0.5));
+            color: var(--muted2); font-family: var(--font-serif);
+            font-style: italic; font-size: 1.05rem;
+        }
+        .feed-card__body { padding: 13px 15px 14px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+        .feed-card__src {
+            display: flex; align-items: center; gap: 7px; font-size: 0.68rem;
+            letter-spacing: 0.05em; text-transform: uppercase;
+            color: var(--muted); font-family: var(--font-mono);
+        }
+        .feed-card__dot { width: 7px; height: 7px; border-radius: 50%; background: #caa45a; flex-shrink: 0; }
+        .feed-card__title { font-family: var(--font-serif); font-size: 1.04rem; line-height: 1.3; color: var(--text); }
+        .feed-card__excerpt { font-size: 0.83rem; line-height: 1.5; color: var(--muted); }
+        .feed-card__foot {
+            margin-top: auto; padding-top: 4px; display: flex; justify-content: space-between;
+            align-items: center; font-size: 0.7rem; color: var(--muted2);
+            font-family: var(--font-mono);
+        }
+        .feed-card__save {
+            border: 1px solid var(--border); background: none; color: var(--muted2);
+            border-radius: 100px; padding: 2px 10px; font-size: 0.72rem; cursor: pointer;
+            font-family: var(--font-main); opacity: 0; transition: all 0.18s ease;
+        }
+        .feed-card:hover .feed-card__save { opacity: 1; }
+        .feed-card__save:hover { color: #34557e; border-color: #34557e; }
+        .feed-card__save.done { opacity: 1; background: #34557e; border-color: #34557e; color: #fff; }
+        .feed-card__hide {
+            background: none; border: none; color: transparent; cursor: pointer;
+            font-size: 0.85rem; padding: 2px 6px; transition: color 0.18s ease;
+        }
+        .feed-card:hover .feed-card__hide { color: var(--muted2); }
+        .feed-card__hide:hover { color: var(--danger); }
+
+        /* One-at-a-time */
+        .feed-one-wrap { max-width: 660px; margin: 0 auto; }
+        .feed-one .feed-card { cursor: pointer; }
+        .feed-one .feed-card__img, .feed-one .feed-card__noimg { aspect-ratio: 16/9; }
+        .feed-one .feed-card__title { font-size: 1.5rem; }
+        .feed-one .feed-card__excerpt { font-size: 0.95rem; }
+        .feed-one-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; gap: 12px; }
+        .feed-one-nav button {
+            background: rgba(250,244,225,0.78); border: 1px solid rgba(190,160,100,0.25);
+            color: var(--muted); padding: 10px 22px; border-radius: 100px;
+            font-size: 0.9rem; cursor: pointer; font-family: var(--font-serif);
+            font-style: italic; transition: all 0.18s ease;
+        }
+        .feed-one-nav button:hover:not(:disabled) { border-color: rgba(176,150,95,0.55); color: var(--gold); }
+        .feed-one-nav button:disabled { opacity: 0.3; cursor: default; }
+        .feed-one-count { font-size: 0.78rem; color: var(--muted2); font-family: var(--font-mono); }
+
+        /* curation: interest filter chips, why-it-surfaced, serendipity, tune */
+        .feed-interests { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 22px; }
+        .feed-int-chip {
+            background: rgba(250,244,225,0.72); border: 1px solid rgba(150,125,75,0.22);
+            color: var(--muted); padding: 4px 12px; border-radius: 100px;
+            font-size: 0.74rem; cursor: pointer; transition: all 0.16s ease; font-family: var(--font-main);
+        }
+        .feed-int-chip:hover { color: var(--gold); border-color: rgba(176,150,95,0.45); }
+        .feed-int-chip.active { background: rgba(190,160,100,0.18); color: var(--gold); border-color: rgba(176,150,95,0.5); }
+        .feed-int-chip.off { opacity: 0.4; }
+
+        .feed-card__why { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+        .feed-why-tag {
+            font-size: 0.62rem; letter-spacing: 0.03em; color: var(--muted);
+            background: rgba(150,125,75,0.14); border-radius: 100px; padding: 2px 8px;
+        }
+        .feed-why-tag.serendipity { color: #1a140c; background: var(--accent, #e6c97a); font-weight: 600; }
+        .feed-card.is-serendipity { border-color: rgba(230,201,122,0.5); }
+
+        /* Tune panel */
+        .tune-help { font-size: 0.84rem; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
+        .tune-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(150,125,75,0.12); }
+        .tune-row__toggle { cursor: pointer; font-size: 1.05rem; width: 22px; text-align: center; background: none; border: none; color: var(--muted); }
+        .tune-row__main { flex: 1; min-width: 0; }
+        .tune-row__name { font-family: var(--font-serif); font-size: 1rem; color: var(--text); }
+        .tune-row__kw { font-size: 0.72rem; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tune-row.off .tune-row__name, .tune-row.off .tune-row__kw { opacity: 0.4; }
+        .tune-row__w { display: flex; gap: 3px; }
+        .tune-w-dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(190,160,100,0.4); cursor: pointer; }
+        .tune-w-dot.on { background: var(--accent, #e6c97a); border-color: var(--accent, #e6c97a); }
+        .tune-row__del { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 0.85rem; }
+        .tune-row__del:hover { color: var(--danger); }
+        .tune-add { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+        .tune-add input { flex: 1; min-width: 130px; background: var(--surface2); border: 1px solid rgba(150,125,75,0.25); color: var(--text); padding: 8px 10px; border-radius: 8px; font-size: 0.82rem; }
+        .tune-serendipity { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(150,125,75,0.14); }
+        .tune-serendipity label { display: block; font-family: var(--font-serif); color: var(--text); margin-bottom: 8px; }
+        .tune-serendipity input[type=range] { width: 100%; accent-color: var(--accent, #e6c97a); }
+        .tune-ser-help { font-size: 0.74rem; color: var(--muted2); margin-top: 4px; }
+
+        /* Article rows (one-off saves) */
+        .article-list { display: flex; flex-direction: column; gap: 0; }
+        .article-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 14px;
+            padding: 14px 8px;
+            border-bottom: 1px solid rgba(176,150,95,0.32);
+            cursor: pointer;
+            transition: background 0.15s ease;
+            position: relative;
+        }
+        .article-row:hover { background: rgba(74,114,66,0.10); }
+        .article-row__main { min-width: 0; }
+        .article-row__title {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: 1.05rem;
+            color: var(--text);
+            line-height: 1.35;
+            margin-bottom: 3px;
+        }
+        .article-row.is-read .article-row__title { color: var(--muted); }
+        .article-row__meta {
+            font-size: 0.74rem;
+            color: var(--muted2);
+            display: flex; gap: 8px; flex-wrap: wrap;
+        }
+        .article-row__meta a { color: inherit; text-decoration: none; }
+        .article-row__meta a:hover { color: var(--accent); }
+        .article-row__tag {
+            background: rgba(176,150,95,0.16);
+            color: var(--muted);
+            border-radius: 100px;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            font-style: normal;
+            cursor: pointer;
+        }
+        /* listen + buy-direct deep-links under a wishlist item */
+        .wish-go { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .wish-go__lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--muted2, var(--muted)); margin-right: 2px; }
+        .wish-go__sep { width: 1px; height: 13px; background: var(--border); margin: 0 4px; }
+        .wish-go__a { background: rgba(176,150,95,0.10); border: 1px solid var(--border); color: var(--text);
+            border-radius: 100px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; font-family: inherit;
+            transition: all 0.15s ease; }
+        .wish-go__a:hover { border-color: var(--accent); color: var(--accent); }
+        .wish-go__a:first-of-type { color: var(--accent); border-color: rgba(212,184,122,0.35); }  /* Bandcamp leads */
+        /* import modal */
+        .import-modes { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .import-mode { background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+            border-radius: 100px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; font-family: inherit;
+            transition: all 0.15s ease; }
+        .import-mode:hover { color: var(--text); }
+        .import-mode.on { background: var(--accent, #e6c97a); color: #1a140c; border-color: var(--accent); }
+        .import-in textarea, .import-in input[type=text] { width: 100%; box-sizing: border-box;
+            background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+            border-radius: 10px; padding: 11px 13px; font-family: inherit; font-size: 0.88rem; line-height: 1.5; }
+        .import-in textarea { resize: vertical; }
+        .import-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px;
+            cursor: pointer; }
+        .import-row:hover { background: rgba(255,255,255,0.03); }
+        .import-row__main { flex: 1; min-width: 0; font-size: 0.88rem; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #import-list { max-height: 320px; overflow-y: auto; border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border); padding: 4px 0; }
+        .import-badge { font-size: 0.64rem; color: var(--muted); border: 1px solid var(--border);
+            border-radius: 100px; padding: 1px 7px; flex: 0 0 auto; }
+        .import-badge--lib { color: var(--accent); border-color: rgba(212,184,122,0.35); }
+        .article-row__actions {
+            display: flex; gap: 4px; align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .article-row:hover .article-row__actions { opacity: 1; }
+        .article-row__btn {
+            background: none; border: none;
+            color: var(--muted2);
+            cursor: pointer; padding: 4px 8px; font-size: 0.85rem;
+            border-radius: 4px;
+        }
+        .article-row__btn:hover { color: var(--text); background: rgba(176,150,95,0.12); }
+
+        .empty-state {
+            padding: 60px 20px; text-align: center;
+            font-family: var(--font-serif); font-style: italic;
+            color: var(--muted2);
+        }
+
+        .add-btn {
+            position: fixed;
+            bottom: 32px; right: 32px;
+            background: rgba(74,114,66,0.20);
+            border: 1px solid rgba(74,114,66,0.6);
+            color: #2a4a22;
+            padding: 11px 20px;
+            border-radius: 100px;
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            z-index: 50;
+        }
+        .add-btn:hover {
+            background: rgba(74,114,66,0.32);
+            border-color: rgba(74,114,66,0.7);
+        }
+        /* in-context add bar at the top of a managed section */
+        .explore-section-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 14px; flex-wrap: wrap; margin: 0 0 14px;
+        }
+        .explore-section-bar__hint { font-size: 0.82rem; color: var(--muted); }
+        .empty-state .btn { margin-top: 12px; }
+        .source-card__feed {
+            display: inline-block; font-family: var(--font-mono); font-size: 0.62rem;
+            color: var(--accent); border: 1px solid var(--accent); border-radius: 4px;
+            padding: 1px 6px; margin-top: 8px;
+        }
+
+        textarea.settings-input { min-height: 64px; resize: vertical; }
+    </style>
+<script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body>
+
+<nav class="nav">
+    <a href="/room" class="nav__logo">Music Room</a>
+    {% if is_gr %}
+    <ul class="nav__links">
+        <li><a href="/room" class="active">My Room</a></li>
+        <li><a href="/myroom">My Public Room</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+    <li><a href="/basket" class="nav__basket">Basket<span class="nav__count" data-gr-basket-count></span></a></li>
+    <li class="nav__icons">
+        <a href="/tools" class="nav__icon" title="Tools and settings" aria-label="Tools and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+        <a href="/help" class="nav__icon" title="Help" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.3 9.6a2.8 2.8 0 1 1 4 2.5c-.8.4-1.3 1-1.3 1.9v.4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></svg></a>
+    </li>
+    </ul>
+    {% else %}
+    <ul class="nav__links">
+        <li><a href="/forest3d">The Forest</a></li>
+        <li><a href="/sets">Sets</a></li>
+        <li><a href="/explore3d">Explore</a></li>
+        <li><a href="/listen">Listen</a></li>
+        <li><a href="/tools">Tools</a></li>
+        <li><a href="/help">Help</a></li>
+    </ul>
+    {% endif %}
+</nav>
+
+<div class="explore-scene">
+    <div class="explore-wrap floor-sheet">
+        <header class="explore-header">
+            <h1>Explore</h1>
+        </header>
+
+        <div class="layer-toggle">
+            <button class="layer-tab active" data-layer="latest">Latest</button>
+            <button class="layer-tab" data-layer="sources">Sources</button>
+            <button class="layer-tab" data-layer="articles">Articles</button>
+            <button class="layer-tab" data-layer="wishlist">Wishlist</button>
+        </div>
+
+        <div id="latest-view">
+            <div class="feed-toolbar">
+                <div class="feed-modes" id="feed-order">
+                    <button class="feed-mode active" data-order="foryou">For you</button>
+                    <button class="feed-mode" data-order="newest">Newest</button>
+                </div>
+                <div class="feed-modes" id="feed-views">
+                    <button class="feed-mode active" data-mode="river">River</button>
+                    <button class="feed-mode" data-mode="one">One</button>
+                    <button class="feed-mode" data-mode="ritual">Ritual</button>
+                </div>
+                <button class="feed-refresh" onclick="openTune()">⚙ Tune</button>
+                <button class="feed-refresh" id="feed-refresh-btn" onclick="refreshFeed()">↻ Refresh</button>
+                <div class="feed-status" id="feed-status"></div>
+            </div>
+            <div id="feed-interests" class="feed-interests"></div>
+            <div id="feed-container"><div class="empty-state">Loading…</div></div>
+        </div>
+
+        <div id="sources-view" style="display:none;">
+            <div class="explore-section-bar">
+                <span class="explore-section-bar__hint">Magazines, stations, blogs, labels and mailing lists you follow.</span>
+                <button class="btn btn--primary btn--small" onclick="openAddSource()">＋ Add a source</button>
+            </div>
+            <div class="explore-toolbar" id="kind-pills"></div>
+            <div id="sources-by-kind">
+                <div class="empty-state">Loading…</div>
+            </div>
+        </div>
+
+        <div id="articles-view" style="display:none;">
+            <div class="explore-section-bar">
+                <span class="explore-section-bar__hint">Saved articles and links — tag them and attach them to a place.</span>
+                <button class="btn btn--primary btn--small" onclick="openAddArticle()">＋ Add article</button>
+            </div>
+            <div class="explore-toolbar" id="tag-pills"></div>
+            <div class="article-list" id="article-list">
+                <div class="empty-state">Loading…</div>
+            </div>
+        </div>
+
+        <div id="wishlist-view" style="display:none;">
+            <div class="explore-toolbar" style="justify-content:flex-end;">
+                <button class="btn btn--ghost btn--small" onclick="openImport()" title="Import Shazams or a mix tracklist">⇪ Import tracks</button>
+            </div>
+            <div class="explore-toolbar" id="wish-status-pills"></div>
+            <div class="explore-toolbar" id="wish-tag-pills"></div>
+            <div class="article-list" id="wishlist-list">
+                <div class="empty-state">Loading…</div>
+            </div>
+        </div>
+    </div>
+
+    <button class="add-btn" id="add-btn" onclick="openAdd()">＋ Add a source</button>
+</div>
+
+<!-- Tune your feed (your own algorithm) -->
+<div class="modal-overlay" id="tune-modal">
+    <div class="modal" style="max-width: 580px;">
+        <h2>Tune your feed</h2>
+        <p class="tune-help">Your feed is ranked by these interests — higher weight pulls harder, toggle one off to ignore it. The serendipity dial keeps room for things <em>outside</em> your interests so you don't end up in a bubble.</p>
+        <div id="tune-interests"></div>
+        <div class="tune-add">
+            <input id="tune-new-name" placeholder="new interest, e.g. Field recordings">
+            <input id="tune-new-kw" placeholder="keywords, comma-separated">
+            <button class="btn btn--primary" onclick="addInterest()" style="font-size:0.82rem;">Add</button>
+        </div>
+        <div class="tune-serendipity">
+            <label>Serendipity — <span id="tune-ser-val">12%</span></label>
+            <input type="range" id="tune-ser" min="0" max="40" value="12" oninput="onSerInput(this.value)" onchange="saveSerendipity(this.value)">
+            <div class="tune-ser-help">share of the feed kept for outside-your-interests discovery</div>
+        </div>
+        <div class="modal-actions" style="margin-top:18px; text-align:right;">
+            <button class="btn" onclick="closeTune()">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Source Modal -->
+<div class="modal-overlay" id="source-modal">
+    <div class="modal" style="max-width: 520px;">
+        <h2 id="source-modal-title">Add a source</h2>
+        <div class="form-field"><label>Name</label>
+            <input type="text" id="src-name" placeholder="e.g. Resident Advisor"></div>
+        <div class="form-field"><label>URL</label>
+            <input type="text" id="src-url" placeholder="https://..."></div>
+        <div class="form-field">
+            <label>Feed — new posts show up in your Latest feed automatically (optional)</label>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="src-feed" placeholder="found automatically — or paste an RSS link" style="flex:1;">
+                <button type="button" class="btn btn--ghost btn--small" onclick="findFeed()">Find feed</button>
+            </div>
+            <div id="src-feed-status" style="font-size:0.78rem; color:var(--muted); margin-top:6px; line-height:1.5;"></div>
+        </div>
+        <div class="form-field"><label>What is it?</label>
+            <select id="src-kind">
+                <option value="magazine">Magazine</option>
+                <option value="station">Station / Radio</option>
+                <option value="blog">Blog</option>
+                <option value="mailing_list">Mailing list / newsletter</option>
+                <option value="label">Label</option>
+                <option value="store">Store</option>
+                <option value="other">Other</option>
+            </select></div>
+        <div class="form-field"><label>What does it mean to you?</label>
+            <textarea id="src-desc" rows="2"></textarea></div>
+        <div class="form-actions">
+            <button class="btn btn--ghost btn--small" id="src-delete-btn" onclick="deleteSource()" style="margin-right:auto; display:none;">Delete</button>
+            <button class="btn btn--ghost" onclick="closeSourceModal()">Cancel</button>
+            <button class="btn btn--primary" onclick="saveSource()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Wishlist Modal -->
+<div class="modal-overlay" id="wish-modal">
+    <div class="modal" style="max-width: 540px;">
+        <h2 id="wish-modal-title">Add to wishlist</h2>
+        <div class="form-field"><label>URL</label>
+            <input type="text" id="wish-url" placeholder="bandcamp / spotify / youtube / discogs..."></div>
+        <div class="form-row">
+            <div class="form-field"><label>Title</label>
+                <input type="text" id="wish-title" placeholder="track or release name"></div>
+            <div class="form-field"><label>Artist</label>
+                <input type="text" id="wish-artist" placeholder="artist"></div>
+        </div>
+        <div class="form-field"><label>Notes</label>
+            <textarea id="wish-notes" rows="3" placeholder="why you want it / where it might fit"></textarea></div>
+        <div class="form-row">
+            <div class="form-field"><label>Attached to a place?</label>
+                <select id="wish-place"><option value="">—</option></select></div>
+            <div class="form-field"><label>Status</label>
+                <select id="wish-status">
+                    <option value="wishing">Wishing</option>
+                    <option value="supported">Supported the artist</option>
+                    <option value="passed">Passed</option>
+                </select></div>
+        </div>
+        <div class="form-field"><label>Tags (comma-separated)</label>
+            <input type="text" id="wish-tags" placeholder="hard-to-find, vinyl, jam-test"></div>
+        <div class="form-actions">
+            <button class="btn btn--ghost btn--small" id="wish-delete-btn" onclick="deleteWish()" style="margin-right:auto; display:none;">Delete</button>
+            <button class="btn btn--ghost" onclick="closeWishModal()">Cancel</button>
+            <button class="btn btn--primary" onclick="saveWish()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Import tracks → review → wishlist (Shazam / a mix tracklist / Mixcloud) -->
+<div class="modal-overlay" id="import-modal">
+    <div class="modal" style="max-width: 660px;">
+        <h2>Import tracks</h2>
+        <p style="color:var(--muted); font-size:.9rem; margin:-6px 0 14px;">Bring in songs you found, then tick the ones to save. The Music Room remembers where each came from, and gives you links to listen and buy direct.</p>
+        <div class="import-modes">
+            <button class="import-mode on" data-mode="paste" onclick="setImportMode('paste')">Paste a tracklist</button>
+            <button class="import-mode" data-mode="shazam" onclick="setImportMode('shazam')">Shazam CSV</button>
+            <button class="import-mode" data-mode="mixcloud" onclick="setImportMode('mixcloud')">Mixcloud URL</button>
+        </div>
+        <div id="import-in-paste" class="import-in">
+            <textarea id="import-text" rows="7" placeholder="Paste a tracklist — one 'Artist - Title' per line. Track numbers, timestamps and [labels] are handled. Works with 1001tracklists, a SoundCloud/YouTube description, your own setlists…"></textarea>
+        </div>
+        <div id="import-in-shazam" class="import-in" style="display:none;">
+            <input type="file" id="import-file" accept=".csv,text/csv">
+            <p style="color:var(--muted); font-size:.82rem; margin-top:8px;">Get the file at <b>shazam.com/myshazam → Download CSV</b>, or from your Apple “Download Your Data” archive (SyncedShazams.csv).</p>
+        </div>
+        <div id="import-in-mixcloud" class="import-in" style="display:none;">
+            <input type="text" id="import-url" placeholder="https://www.mixcloud.com/user/show/">
+            <p style="color:var(--muted); font-size:.82rem; margin-top:8px;">Works when the uploader typed a tracklist. If there's none, paste it instead.</p>
+        </div>
+        <div class="form-actions" style="justify-content:flex-start; margin-top:12px;">
+            <button class="btn btn--ghost" onclick="runImportParse()">Find tracks</button>
+            <span id="import-status" style="color:var(--muted); font-size:.85rem;"></span>
+        </div>
+        <div id="import-review" style="display:none; margin-top:6px;">
+            <div style="display:flex; align-items:center; gap:10px; margin:6px 0;">
+                <strong id="import-count" style="font-size:.9rem;"></strong>
+                <button class="btn btn--ghost btn--small" onclick="importTickAll()">Tick all</button>
+                <button class="btn btn--ghost btn--small" onclick="importTickNone()">None</button>
+            </div>
+            <div id="import-list"></div>
+            <div class="form-field" style="margin-top:12px;"><label>Where did these come from?</label>
+                <input type="text" id="import-prov" placeholder="e.g. Axel Boman — NTS Innervisions"></div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--ghost" onclick="closeImport()">Cancel</button>
+            <button class="btn btn--primary" id="import-add-btn" onclick="runImportAdd()" style="display:none;">Add to wishlist</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Article Modal -->
+<div class="modal-overlay" id="article-modal">
+    <div class="modal" style="max-width: 540px;">
+        <h2 id="article-modal-title">Save an article</h2>
+        <div class="form-field"><label>URL</label>
+            <input type="text" id="art-url" placeholder="https://..."></div>
+        <div class="form-field"><label>Title</label>
+            <input type="text" id="art-title" placeholder="optional — paste the article's title"></div>
+        <div class="form-field"><label>Why it's worth keeping</label>
+            <textarea id="art-desc" rows="2"></textarea></div>
+        <div class="form-row">
+            <div class="form-field"><label>Source</label>
+                <input type="text" id="art-source" placeholder="e.g. FACT, NTS, RA"></div>
+            <div class="form-field"><label>Attached to a place?</label>
+                <select id="art-place"><option value="">—</option></select></div>
+        </div>
+        <div class="form-field"><label>Tags (comma-separated)</label>
+            <input type="text" id="art-tags" placeholder="mix, interview, irish, inspo"></div>
+        <div class="form-actions">
+            <button class="btn btn--ghost btn--small" id="art-delete-btn" onclick="deleteArticle()" style="margin-right:auto; display:none;">Delete</button>
+            <button class="btn btn--ghost" onclick="closeArticleModal()">Cancel</button>
+            <button class="btn btn--primary" onclick="saveArticle()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const KIND_LABELS = {
+    magazine: 'Magazines', station: 'Stations', blog: 'Blogs',
+    mailing_list: 'Mailing lists', label: 'Labels', store: 'Stores', other: 'Other',
+};
+const KIND_ORDER = ['magazine','station','blog','mailing_list','label','store','other'];
+
+let sources     = [];
+let articles    = [];
+let wishes      = [];
+let places      = [];
+let tags        = [];
+let wishTags    = [];
+let activeLayer    = 'latest';
+let activeKind     = 'all';
+let activeTag      = 'all';
+let activeWishTag  = 'all';
+let activeWishStatus = 'wishing';
+let editingSrcId  = null;
+let editingArtId  = null;
+let editingWishId = null;
+
+// 'bought' is the pre-v23 status name — kept here as a label fallback only,
+// so any old cached data still renders cleanly. New writes always use 'supported'.
+const WISH_STATUS_LABELS = { wishing: 'Wishing', supported: 'Supported', passed: 'Passed', bought: 'Supported' };
+const WISH_STATUSES = ['wishing', 'supported', 'passed'];
+
+const SOURCE_LABELS = {
+    bandcamp: 'Bandcamp', spotify: 'Spotify', youtube: 'YouTube',
+    soundcloud: 'SoundCloud', discogs: 'Discogs', beatport: 'Beatport',
+    apple: 'Apple Music', tidal: 'Tidal', other: 'Link',
+    mix: 'From a mix', shazam: 'Shazam', import: 'Imported',
+};
+
+async function init() {
+    [sources, articles, wishes, places, tags, wishTags] = await Promise.all([
+        fetch('/api/sources').then(r => r.json()),
+        fetch('/api/articles').then(r => r.json()),
+        fetch('/api/wishlist').then(r => r.json()),
+        fetch('/api/places').then(r => r.json()),
+        fetch('/api/article/tags').then(r => r.json()),
+        fetch('/api/wishlist/tags').then(r => r.json()),
+    ]);
+    renderPills();
+    renderSources();
+    renderArticles();
+    renderWishlist();
+    renderPlacesInArticleForm();
+    renderPlacesInWishForm();
+    loadInterests();         // interest chips + Tune data
+    loadFeed(true);          // Latest is the default layer
+    updateFeedStatus();
+    updateAddBtn();          // always show a clearly-labelled add button
+}
+
+// =============================================================
+// Latest — living magazine rack (RSS from your sources)
+// =============================================================
+let feedItems = [];
+let feedMode = 'river';
+let feedOrder = 'foryou';
+let activeInterestId = null;
+let interestsCache = [];
+let serendipityPct = 12;
+let feedTotal = 0;
+let feedOffset = 0;
+let oneIndex = 0;
+let feedLoading = false;
+let feedRefreshing = false;
+let feedAutoTried = false;
+
+async function loadFeed(reset = true) {
+    if (feedLoading) return;
+    if (reset) { feedOffset = 0; oneIndex = 0; }
+    feedLoading = true;
+    const p = new URLSearchParams({ mode: feedMode, order: feedOrder });
+    if (activeInterestId) p.set('interest', activeInterestId);
+    if (feedMode === 'ritual') p.set('count', '6');
+    else { p.set('limit', '30'); p.set('offset', feedOffset); }
+    let data;
+    try { data = await fetch('/api/feed?' + p.toString()).then(r => r.json()); }
+    catch (_) { feedLoading = false; return; }
+    feedTotal = data.total || 0;
+    if (feedMode === 'ritual' || reset) feedItems = data.items || [];
+    else feedItems = feedItems.concat(data.items || []);
+    feedLoading = false;
+    // First-ever visit with an empty store → pull once automatically.
+    if (feedTotal === 0 && !feedAutoTried && !feedRefreshing) {
+        feedAutoTried = true;
+        refreshFeed();
+        return;
+    }
+    renderFeed();
+}
+
+function renderFeed() {
+    const c = document.getElementById('feed-container');
+    if (!c) return;
+    if (!feedItems.length) {
+        c.innerHTML = `<div class="empty-state">${feedRefreshing
+            ? 'Gathering the latest from your sources…'
+            : 'Nothing here yet — hit Refresh to pull from your sources.'}</div>`;
+        return;
+    }
+    if (feedMode === 'one') return renderFeedOne(c);
+    if (feedMode === 'ritual') {
+        c.innerHTML = `<div class="feed-one-wrap">
+            <div class="feed-grid">${feedItems.map(feedCard).join('')}</div>
+            <div style="text-align:center;margin-top:24px;">
+                <button class="feed-refresh" onclick="loadFeed(true)">New selection</button>
+            </div></div>`;
+        return;
+    }
+    // river
+    const more = feedItems.length < feedTotal
+        ? `<div style="text-align:center;margin-top:26px;"><button class="feed-refresh" onclick="loadMoreFeed()">Show more</button></div>`
+        : '';
+    c.innerHTML = `<div class="feed-grid">${feedItems.map(feedCard).join('')}</div>${more}`;
+}
+
+function feedCard(it) {
+    const img = it.image_url
+        ? `<img class="feed-card__img" src="${escAttr(it.image_url)}" loading="lazy" onerror="this.style.display='none'">`
+        : `<div class="feed-card__noimg">${escHtml(it.source_name || '')}</div>`;
+    const colour = it.source_colour || '#caa45a';
+    const when = it.published_at ? formatRelative(it.published_at) : '';
+    const tags = (it.matched || []).slice(0, 3)
+        .map(m => `<span class="feed-why-tag">${escHtml(m)}</span>`).join('');
+    const ser = it.serendipity ? `<span class="feed-why-tag serendipity">✦ outside your usual</span>` : '';
+    const why = (tags || ser) ? `<div class="feed-card__why">${tags}${ser}</div>` : '';
+    return `<div class="feed-card ${it.serendipity ? 'is-serendipity' : ''}" onclick="openFeedItem('${escAttr(it.url || '')}')">
+        ${img}
+        <div class="feed-card__body">
+            <div class="feed-card__src"><span class="feed-card__dot" style="background:${escAttr(colour)}"></span>${escHtml(it.source_name || '')}</div>
+            <div class="feed-card__title">${escHtml(it.title || '')}</div>
+            ${it.summary ? `<div class="feed-card__excerpt">${escHtml(it.summary)}</div>` : ''}
+            ${why}
+            <div class="feed-card__foot">
+                <span>${when}</span>
+                <span style="flex:1"></span>
+                <button class="feed-card__save" data-feed-id="${it.id}" title="Save into Listen — a research note you can thread, link and place on the canvas" onclick="event.stopPropagation(); saveFeedToListen(${it.id}, this)">♪ Listen</button>
+                <button class="feed-card__hide" title="Not interested — hide this" onclick="event.stopPropagation(); hideFeedItem(${it.id}, this)">✕</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderFeedOne(c) {
+    if (oneIndex >= feedItems.length) oneIndex = feedItems.length - 1;
+    if (oneIndex < 0) oneIndex = 0;
+    const it = feedItems[oneIndex];
+    const atEnd = oneIndex >= feedItems.length - 1 && feedItems.length >= feedTotal;
+    c.innerHTML = `<div class="feed-one-wrap">
+        <div class="feed-one">${feedCard(it)}</div>
+        <div class="feed-one-nav">
+            <button onclick="feedPrev()" ${oneIndex === 0 ? 'disabled' : ''}>← Back</button>
+            <span class="feed-one-count">${oneIndex + 1} / ${feedTotal}</span>
+            <button onclick="feedNext()" ${atEnd ? 'disabled' : ''}>Next →</button>
+        </div></div>`;
+}
+
+function feedPrev() {
+    if (oneIndex > 0) { oneIndex--; renderFeedOne(document.getElementById('feed-container')); }
+}
+async function feedNext() {
+    if (oneIndex >= feedItems.length - 1 && feedItems.length < feedTotal) {
+        feedOffset += 30;
+        await loadFeed(false);
+    }
+    if (oneIndex < feedItems.length - 1) oneIndex++;
+    renderFeedOne(document.getElementById('feed-container'));
+}
+
+async function loadMoreFeed() {
+    feedOffset += 30;
+    await loadFeed(false);
+}
+
+function openFeedItem(url) {
+    if (url) openExternal(url);
+}
+
+async function saveFeedToListen(id, el) {
+    const it = feedItems.find(x => x.id === id);
+    if (!it) return;
+    if (it._refId) { location.href = '/listen?note=' + it._refId; return; }   // second click → into the research
+    const r = await fetch('/api/listen/reference', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: it.url, title: it.title, source: it.source_name,
+                               image_url: it.image_url, summary: (it.summary || '').slice(0, 500) }) })
+        .then(x => x.json()).catch(() => null);
+    if (!r || !r.id) return;
+    it._refId = r.id;
+    if (el) { el.classList.add('done'); el.textContent = '♪ in Listen — open'; }
+}
+
+async function hideFeedItem(id, el) {
+    fetch(`/api/feed/item/${id}/hide`, { method: 'POST' }).catch(() => {});
+    feedItems = feedItems.filter(x => x.id !== id);
+    feedTotal = Math.max(0, feedTotal - 1);
+    const card = el.closest('.feed-card');
+    if (feedMode === 'one') renderFeedOne(document.getElementById('feed-container'));
+    else if (card) card.remove();
+}
+
+async function refreshFeed() {
+    if (feedRefreshing) return;
+    feedRefreshing = true;
+    const btn = document.getElementById('feed-refresh-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '↻ Refreshing…'; }
+    if (!feedItems.length) renderFeed();   // show "gathering…" message
+    await fetch('/api/feed/refresh', { method: 'POST' }).catch(() => {});
+    pollFeedRefresh();
+}
+
+async function pollFeedRefresh() {
+    let d = {};
+    try { d = await fetch('/api/feed/refresh-status').then(r => r.json()); } catch (_) {}
+    updateFeedStatusFrom(d);
+    if (d.running) { setTimeout(pollFeedRefresh, 1300); return; }
+    feedRefreshing = false;
+    const btn = document.getElementById('feed-refresh-btn');
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+    loadFeed(true);
+}
+
+async function updateFeedStatus() {
+    let d = {};
+    try { d = await fetch('/api/feed/refresh-status').then(r => r.json()); } catch (_) {}
+    updateFeedStatusFrom(d);
+}
+function updateFeedStatusFrom(d) {
+    const el = document.getElementById('feed-status');
+    if (!el) return;
+    if (d.running) {
+        el.textContent = `gathering… ${d.done || 0}/${d.total || 0} sources` +
+            (d.new_items ? ` · ${d.new_items} new` : '');
+        return;
+    }
+    const bits = [];
+    if (d.total_items != null) bits.push(`${d.total_items} pieces`);
+    if (d.sources_with_feed != null) bits.push(`${d.sources_with_feed}/${d.total_sources} sources with a feed`);
+    if (d.last_refresh_at) bits.push(`updated ${formatRelative(d.last_refresh_at)}`);
+    el.textContent = bits.join('  ·  ');
+}
+
+// View (River/One/Ritual) + ordering (For you/Newest) toggles, scoped so
+// they don't fight each other (both use the .feed-mode class).
+document.querySelectorAll('#feed-views .feed-mode').forEach(b => b.addEventListener('click', () => {
+    feedMode = b.dataset.mode;
+    document.querySelectorAll('#feed-views .feed-mode').forEach(x => x.classList.toggle('active', x === b));
+    loadFeed(true);
+}));
+document.querySelectorAll('#feed-order .feed-mode').forEach(b => b.addEventListener('click', () => {
+    feedOrder = b.dataset.order;
+    document.querySelectorAll('#feed-order .feed-mode').forEach(x => x.classList.toggle('active', x === b));
+    loadFeed(true);
+}));
+
+// ── Interests: filter chips + the Tune panel (your own algorithm) ──
+async function loadInterests() {
+    try {
+        const d = await fetch('/api/interests').then(r => r.json());
+        interestsCache = d.interests || [];
+        if (d.serendipity_pct != null) serendipityPct = d.serendipity_pct;
+    } catch (_) { interestsCache = []; }
+    renderInterestChips();
+}
+function renderInterestChips() {
+    const el = document.getElementById('feed-interests');
+    if (!el) return;
+    const active = interestsCache.filter(i => i.is_active && !i.is_wildcard);
+    el.innerHTML =
+        `<button class="feed-int-chip ${activeInterestId === null ? 'active' : ''}" onclick="filterInterest(null)">All</button>` +
+        active.map(i => `<button class="feed-int-chip ${activeInterestId === i.id ? 'active' : ''}" onclick="filterInterest(${i.id})">${escHtml(i.name)}</button>`).join('');
+}
+function filterInterest(id) { activeInterestId = id; renderInterestChips(); loadFeed(true); }
+
+function openTune() { renderTuneList(); document.getElementById('tune-modal').classList.add('open'); }
+function closeTune() {
+    document.getElementById('tune-modal').classList.remove('open');
+    renderInterestChips();
+    loadFeed(true);   // reflect any tuning
+}
+function renderTuneList() {
+    const el = document.getElementById('tune-interests');
+    if (!el) return;
+    el.innerHTML = interestsCache.filter(i => !i.is_wildcard).map(i => {
+        const dots = [1,2,3,4,5].map(n =>
+            `<span class="tune-w-dot ${n <= i.weight ? 'on' : ''}" onclick="setWeight(${i.id}, ${n})"></span>`).join('');
+        return `<div class="tune-row ${i.is_active ? '' : 'off'}">
+            <button class="tune-row__toggle" onclick="toggleInterest(${i.id}, ${i.is_active ? 0 : 1})">${i.is_active ? '◉' : '○'}</button>
+            <div class="tune-row__main">
+                <div class="tune-row__name">${escHtml(i.name)}</div>
+                <div class="tune-row__kw">${escHtml(i.keywords || '')}</div>
+            </div>
+            <div class="tune-row__w" title="weight">${dots}</div>
+            <button class="tune-row__del" title="remove" onclick="deleteInterest(${i.id})">✕</button>
+        </div>`;
+    }).join('');
+    const ser = document.getElementById('tune-ser');
+    if (ser) { ser.value = serendipityPct; document.getElementById('tune-ser-val').textContent = serendipityPct + '%'; }
+}
+async function toggleInterest(id, active) {
+    await fetch(`/api/interest/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ is_active: !!active }) });
+    await loadInterests(); renderTuneList();
+}
+async function setWeight(id, w) {
+    await fetch(`/api/interest/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ weight: w }) });
+    await loadInterests(); renderTuneList();
+}
+async function deleteInterest(id) {
+    await fetch(`/api/interest/${id}`, { method: 'DELETE' });
+    await loadInterests(); renderTuneList();
+}
+async function addInterest() {
+    const name = document.getElementById('tune-new-name').value.trim();
+    const kw   = document.getElementById('tune-new-kw').value.trim();
+    if (!name) return;
+    await fetch('/api/interests', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, keywords: kw }) });
+    document.getElementById('tune-new-name').value = '';
+    document.getElementById('tune-new-kw').value = '';
+    await loadInterests(); renderTuneList();
+}
+function onSerInput(v) { document.getElementById('tune-ser-val').textContent = v + '%'; }
+async function saveSerendipity(v) {
+    serendipityPct = parseInt(v) || 0;
+    await fetch('/api/feed/serendipity', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pct: serendipityPct }) });
+}
+document.addEventListener('keydown', (e) => {
+    if (activeLayer !== 'latest' || feedMode !== 'one') return;
+    if (e.target.matches('input, textarea')) return;
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); feedNext(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); feedPrev(); }
+});
+
+function renderPills() {
+    const kp = document.getElementById('kind-pills');
+    kp.innerHTML = ['all', ...KIND_ORDER].map(k => `
+        <button class="pill ${activeKind === k ? 'active' : ''}" data-kind="${k}">
+            ${k === 'all' ? 'All' : KIND_LABELS[k]}
+        </button>
+    `).join('');
+    kp.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => {
+        activeKind = b.dataset.kind;
+        renderPills(); renderSources();
+    }));
+
+    const tp = document.getElementById('tag-pills');
+    const tagOptions = ['all', ...tags.slice(0, 16).map(t => t.tag)];
+    tp.innerHTML = tagOptions.map(t => `
+        <button class="pill ${activeTag === t ? 'active' : ''}" data-tag="${escAttr(t)}">
+            ${t === 'all' ? 'All' : escHtml(t)}
+        </button>
+    `).join('');
+    tp.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => {
+        activeTag = b.dataset.tag;
+        renderPills(); renderArticles();
+    }));
+
+    // Wishlist status pills
+    const wsp = document.getElementById('wish-status-pills');
+    if (wsp) {
+        wsp.innerHTML = ['all', ...WISH_STATUSES].map(s => `
+            <button class="pill ${activeWishStatus === s ? 'active' : ''}" data-status="${s}">
+                ${s === 'all' ? 'All' : WISH_STATUS_LABELS[s]}
+            </button>
+        `).join('');
+        wsp.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => {
+            activeWishStatus = b.dataset.status;
+            renderPills(); renderWishlist();
+        }));
+    }
+
+    // Wishlist tag pills
+    const wtp = document.getElementById('wish-tag-pills');
+    if (wtp) {
+        const wishTagOptions = ['all', ...wishTags.slice(0, 16).map(t => t.tag)];
+        wtp.innerHTML = wishTagOptions.map(t => `
+            <button class="pill ${activeWishTag === t ? 'active' : ''}" data-tag="${escAttr(t)}">
+                ${t === 'all' ? 'All' : escHtml(t)}
+            </button>
+        `).join('');
+        wtp.querySelectorAll('.pill').forEach(b => b.addEventListener('click', () => {
+            activeWishTag = b.dataset.tag;
+            renderPills(); renderWishlist();
+        }));
+    }
+}
+
+function renderSources() {
+    const container = document.getElementById('sources-by-kind');
+    const kindsToShow = activeKind === 'all' ? KIND_ORDER : [activeKind];
+    const html = kindsToShow.map(kind => {
+        const items = sources.filter(s => (s.kind || 'other') === kind);
+        if (!items.length) return '';
+        return `
+            <section class="kind-section">
+                <h2 class="kind-section__heading">
+                    ${KIND_LABELS[kind] || kind}
+                    <span class="kind-section__count">${items.length}</span>
+                </h2>
+                <div class="source-grid">${items.map(sourceCard).join('')}</div>
+            </section>`;
+    }).join('');
+    container.innerHTML = html || `<div class="empty-state">No ${activeKind === 'all' ? 'sources' : KIND_LABELS[activeKind]} yet.<br><button class="btn btn--primary btn--small" onclick="openAddSource(${activeKind === 'all' ? "'magazine'" : "'" + activeKind + "'"})">＋ Add a source</button></div>`;
+}
+
+function sourceCard(s) {
+    const lastSeen = s.last_visited_at ? `last visited ${formatRelative(s.last_visited_at)}` : '';
+    const host = (() => { try { return new URL(s.url).hostname.replace(/^www\./, ''); } catch (_) { return s.url; } })();
+    return `
+        <div class="source-card" onclick="visitSource(${s.id}, '${escAttr(s.url)}')">
+            <button class="source-card__menu" onclick="event.stopPropagation(); openEditSource(${s.id})" title="Edit">⋯</button>
+            <div class="source-card__name">${escHtml(s.name)}</div>
+            <div class="source-card__url">${escHtml(host)}</div>
+            <div class="source-card__desc">${escHtml(s.description || '')}</div>
+            ${s.feed_url ? `<span class="source-card__feed" title="Live feed — new posts appear in your Latest feed">↻ feed</span>` : ''}
+            ${lastSeen ? `<div class="source-card__last">${lastSeen}</div>` : ''}
+        </div>`;
+}
+
+function renderArticles() {
+    const list = document.getElementById('article-list');
+    const filtered = activeTag === 'all'
+        ? articles
+        : articles.filter(a => (a.tag_list || []).includes(activeTag));
+    if (!filtered.length) {
+        list.innerHTML = `<div class="empty-state">No saved articles${activeTag === 'all' ? '' : ` tagged "${activeTag}"`} yet.<br><button class="btn btn--primary btn--small" onclick="openAddArticle()">＋ Add article</button></div>`;
+        return;
+    }
+    list.innerHTML = filtered.map(articleRow).join('');
+}
+
+function articleRow(a) {
+    const host = (() => { try { return new URL(a.url).hostname.replace(/^www\./, ''); } catch (_) { return a.url; } })();
+    const title = a.title || a.url;
+    const tags = (a.tag_list || []).map(t => `<span class="article-row__tag" onclick="event.stopPropagation(); activeTag='${escAttr(t)}'; renderPills(); renderArticles();">${escHtml(t)}</span>`).join('');
+    const placePart = a.place_name
+        ? `<a href="/place/${a.place_id}" onclick="event.stopPropagation();">${escHtml(a.place_name)}</a>`
+        : '';
+    const saved = formatRelative(a.created_at);
+    return `
+        <div class="article-row ${a.is_read ? 'is-read' : ''}" onclick="visitArticle(${a.id}, '${escAttr(a.url)}')">
+            <div class="article-row__main">
+                <div class="article-row__title">${escHtml(title)}</div>
+                <div class="article-row__meta">
+                    <span>${escHtml(a.source_name || host)}</span>
+                    ${placePart ? `<span>·</span><span>${placePart}</span>` : ''}
+                    <span>·</span><span>saved ${saved}</span>
+                    ${tags ? `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${tags}</span>` : ''}
+                </div>
+                ${a.description ? `<div style="font-size:0.84rem;color:var(--muted);margin-top:4px;">${escHtml(a.description)}</div>` : ''}
+            </div>
+            <div class="article-row__actions">
+                <button class="article-row__btn" onclick="event.stopPropagation(); openEditArticle(${a.id});" title="Edit">⋯</button>
+            </div>
+        </div>`;
+}
+
+function renderPlacesInArticleForm() {
+    const sel = document.getElementById('art-place');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">—</option>' + places.map(p =>
+        `<option value="${p.id}">${escHtml(p.name)}</option>`
+    ).join('');
+}
+
+function renderPlacesInWishForm() {
+    const sel = document.getElementById('wish-place');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">—</option>' + places.map(p =>
+        `<option value="${p.id}">${escHtml(p.name)}</option>`
+    ).join('');
+}
+
+// =============================================================
+// Wishlist render
+// =============================================================
+function renderWishlist() {
+    const list = document.getElementById('wishlist-list');
+    if (!list) return;
+    let filtered = wishes;
+    if (activeWishStatus !== 'all') {
+        filtered = filtered.filter(w => w.status === activeWishStatus);
+    }
+    if (activeWishTag !== 'all') {
+        filtered = filtered.filter(w => (w.tag_list || []).includes(activeWishTag));
+    }
+    if (!filtered.length) {
+        list.innerHTML = `<div class="empty-state">Nothing on the wishlist${activeWishStatus === 'all' ? '' : ` in "${WISH_STATUS_LABELS[activeWishStatus] || activeWishStatus}"`} yet.</div>`;
+        return;
+    }
+    list.innerHTML = filtered.map(wishRow).join('');
+}
+
+function wishRow(w) {
+    const host = (() => { try { return new URL(w.url).hostname.replace(/^www\./, ''); } catch (_) { return w.url; } })();
+    const sourceLabel = SOURCE_LABELS[w.source] || w.source || host;
+    const main = (w.artist && w.title) ? `${w.artist} — ${w.title}` : (w.title || w.artist || w.url);
+    const tagChips = (w.tag_list || []).map(t =>
+        `<span class="article-row__tag" onclick="event.stopPropagation(); activeWishTag='${escAttr(t)}'; renderPills(); renderWishlist();">${escHtml(t)}</span>`
+    ).join('');
+    const placePart = w.place_name
+        ? `<a href="/place/${w.place_id}" onclick="event.stopPropagation();">${escHtml(w.place_name)}</a>`
+        : '';
+    const saved = formatRelative(w.created_at);
+    // Status pill — warm gold for 'supported' (positive, pro-artist), neutral for the rest.
+    const isSupported = w.status === 'supported' || w.status === 'bought';
+    let statusBadge = '';
+    if (w.status && w.status !== 'wishing') {
+        const style = isSupported
+            ? 'background:rgba(245,230,176,0.10);color:#d4b87a;border:1px solid rgba(212,184,122,0.35);'
+            : 'background:rgba(168,130,44,0.16);color:var(--text);';
+        statusBadge = `<span class="article-row__tag" style="${style}">${WISH_STATUS_LABELS[w.status] || w.status}</span>`;
+    }
+    // If this wishlist row got fulfilled by a local import, show the link.
+    let fulfilledLink = '';
+    if (w.fulfilled_track_id) {
+        const lbl = w.fulfilled_artist && w.fulfilled_title
+            ? `${w.fulfilled_artist} — ${w.fulfilled_title}`
+            : 'in your library';
+        const wellId = (places.find(p => p.is_well) || places[0] || { id: 1 }).id;
+        fulfilledLink = `<a class="article-row__tag" style="background:rgba(120,188,150,0.08);color:var(--accent);text-decoration:none;"
+                            href="/place/${wellId}?track=${w.fulfilled_track_id}"
+                            onclick="event.stopPropagation();"
+                            title="Open this track in The Well">→ ${escHtml(lbl)}</a>`;
+    }
+    // Mute 'passed'. 'supported' stays full-strength — it's a positive state.
+    const isMuted = w.status === 'passed';
+    // provenance — where you found it ("Axel Boman — NTS mix"), the memory hook
+    const provPart = w.provenance
+        ? `<span>·</span><span title="where you found it" style="font-style:italic;">${escHtml(w.provenance)}</span>` : '';
+    // listen + buy-direct deep-links (Bandcamp leads both — artist-direct); not for 'passed'
+    const goRow = (label, arr) => (arr && arr.length)
+        ? `<span class="wish-go__lbl">${label}</span>` + arr.map(l =>
+            `<button class="wish-go__a" onclick="event.stopPropagation(); openExternal('${escAttr(l.url)}')">${escHtml(l.label)}</button>`).join('')
+        : '';
+    const links = (w.links && !isMuted)
+        ? `<div class="wish-go">${goRow('listen', w.links.listen)}<span class="wish-go__sep"></span>${goRow('buy', w.links.buy)}</div>` : '';
+    return `
+        <div class="article-row ${isMuted ? 'is-read' : ''}">
+            <div class="article-row__main">
+                <div class="article-row__title" onclick="visitWish(${w.id}, '${escAttr(w.url)}')" style="cursor:pointer;">${escHtml(main)}</div>
+                <div class="article-row__meta">
+                    <span>${escHtml(sourceLabel)}</span>
+                    ${provPart}
+                    ${placePart ? `<span>·</span><span>${placePart}</span>` : ''}
+                    <span>·</span><span>${saved}</span>
+                    ${statusBadge ? `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${statusBadge}</span>` : ''}
+                    ${fulfilledLink ? `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${fulfilledLink}</span>` : ''}
+                    ${tagChips ? `<span style="display:inline-flex;gap:4px;flex-wrap:wrap;">${tagChips}</span>` : ''}
+                </div>
+                ${w.notes ? `<div style="font-size:0.84rem;color:var(--muted);margin-top:4px;">${escHtml(w.notes)}</div>` : ''}
+                ${links}
+            </div>
+            <div class="article-row__actions">
+                <button class="article-row__btn" onclick="event.stopPropagation(); openEditWish(${w.id});" title="Edit">⋯</button>
+            </div>
+        </div>`;
+}
+
+// =============================================================
+// Open external links (uses preferred browser)
+// =============================================================
+async function openExternal(url) {
+    await fetch('/api/open-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ url }),
+    });
+}
+async function visitSource(id, url) {
+    fetch(`/api/source/${id}/visit`, { method: 'POST' }).catch(()=>{});
+    openExternal(url);
+}
+async function visitArticle(id, url) {
+    fetch(`/api/article/${id}/visit`, { method: 'POST' }).then(() => init()).catch(()=>{});
+    openExternal(url);
+}
+async function visitWish(id, url) {
+    fetch(`/api/wishlist/${id}/visit`, { method: 'POST' }).catch(()=>{});
+    openExternal(url);
+}
+
+// =============================================================
+// Layer toggle
+// =============================================================
+document.querySelectorAll('.layer-tab').forEach(t => t.addEventListener('click', () => {
+    activeLayer = t.dataset.layer;
+    document.querySelectorAll('.layer-tab').forEach(b => b.classList.toggle('active', b === t));
+    document.getElementById('latest-view').style.display   = activeLayer === 'latest'   ? '' : 'none';
+    document.getElementById('sources-view').style.display  = activeLayer === 'sources'  ? '' : 'none';
+    document.getElementById('articles-view').style.display = activeLayer === 'articles' ? '' : 'none';
+    document.getElementById('wishlist-view').style.display = activeLayer === 'wishlist' ? '' : 'none';
+    updateAddBtn();
+    if (activeLayer === 'latest' && !feedItems.length) loadFeed(true);
+}));
+
+// The floating add button is always available and says what it adds. On the
+// Latest feed it adds a source (the feed is built from your sources).
+function updateAddBtn() {
+    const b = document.getElementById('add-btn');
+    if (!b) return;
+    b.style.display = '';
+    b.textContent = activeLayer === 'articles' ? '＋ Add article'
+                  : activeLayer === 'wishlist' ? '＋ Add to wishlist'
+                  : '＋ Add a source';
+}
+function openAdd() {
+    if (activeLayer === 'articles') return openAddArticle();
+    if (activeLayer === 'wishlist') return openAddWish();
+    return openAddSource();   // latest + sources
+}
+updateAddBtn();
+
+// =============================================================
+// Source modal
+// =============================================================
+function openAddSource(kind = 'magazine') {
+    editingSrcId = null;
+    document.getElementById('source-modal-title').textContent = 'Add a source';
+    document.getElementById('src-name').value = '';
+    document.getElementById('src-url').value  = '';
+    document.getElementById('src-feed').value = '';
+    setFeedStatus('');
+    document.getElementById('src-kind').value = kind;
+    document.getElementById('src-desc').value = '';
+    document.getElementById('src-delete-btn').style.display = 'none';
+    document.getElementById('source-modal').classList.add('open');
+    document.getElementById('src-name').focus();
+}
+function openEditSource(id) {
+    const s = sources.find(s => s.id === id);
+    if (!s) return;
+    editingSrcId = id;
+    document.getElementById('source-modal-title').textContent = 'Edit source';
+    document.getElementById('src-name').value = s.name || '';
+    document.getElementById('src-url').value  = s.url  || '';
+    document.getElementById('src-feed').value = s.feed_url || '';
+    setFeedStatus(s.feed_url ? '✓ Has a feed — new posts arrive in Latest.' : '', s.feed_url ? 'good' : '');
+    document.getElementById('src-kind').value = s.kind || 'magazine';
+    document.getElementById('src-desc').value = s.description || '';
+    document.getElementById('src-delete-btn').style.display = 'inline-block';
+    document.getElementById('source-modal').classList.add('open');
+}
+function setFeedStatus(msg, tone) {
+    const el = document.getElementById('src-feed-status');
+    if (!el) return;
+    el.innerHTML = msg;
+    el.style.color = tone === 'good' ? 'var(--accent)' : 'var(--muted)';
+}
+async function findFeed() {
+    const url = document.getElementById('src-url').value.trim();
+    if (!url) { setFeedStatus('Type the website address above first, then tap Find feed.'); return; }
+    setFeedStatus('Looking for a feed…');
+    try {
+        const r = await fetch('/api/source/find-feed', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        }).then(r => r.json());
+        if (r.ok && r.feed_url) {
+            document.getElementById('src-feed').value = r.feed_url;
+            setFeedStatus(`✓ Found a feed${r.count ? ` (${r.count} recent posts)` : ''} — new posts will appear in your Latest feed.`, 'good');
+        } else {
+            setFeedStatus("No automatic feed found — that's fine, it stays as a link to visit. (Substack/Ghost newsletters and most blogs have one; some sites, like NTS, don't.)");
+        }
+    } catch (e) {
+        setFeedStatus('Could not check just now — you can still save it as a link.');
+    }
+}
+function closeSourceModal() { document.getElementById('source-modal').classList.remove('open'); editingSrcId = null; }
+async function saveSource() {
+    const name = document.getElementById('src-name').value.trim();
+    const url  = document.getElementById('src-url').value.trim();
+    if (!name || !url) { alert('Name and URL are required.'); return; }
+    const body = {
+        name, url,
+        kind:        document.getElementById('src-kind').value,
+        description: document.getElementById('src-desc').value.trim(),
+        feed_url:    document.getElementById('src-feed').value.trim(),
+    };
+    const isEdit = !!editingSrcId;
+    const res = await fetch(isEdit ? `/api/source/${editingSrcId}` : '/api/sources', {
+        method:  isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+    });
+    if (res.ok) { closeSourceModal(); init(); }
+    else { const d = await res.json().catch(() => ({})); alert(d.error || 'Could not save'); }
+}
+async function deleteSource() {
+    if (!editingSrcId) return;
+    if (!confirm('Remove this source?')) return;
+    const res = await fetch(`/api/source/${editingSrcId}`, { method: 'DELETE' });
+    if (res.ok) { closeSourceModal(); init(); }
+}
+
+// =============================================================
+// Article modal
+// =============================================================
+function openAddArticle() {
+    editingArtId = null;
+    document.getElementById('article-modal-title').textContent = 'Save an article';
+    ['art-url','art-title','art-desc','art-source','art-tags'].forEach(id =>
+        (document.getElementById(id).value = '')
+    );
+    document.getElementById('art-place').value = '';
+    document.getElementById('art-delete-btn').style.display = 'none';
+    document.getElementById('article-modal').classList.add('open');
+    document.getElementById('art-url').focus();
+}
+function openEditArticle(id) {
+    const a = articles.find(a => a.id === id);
+    if (!a) return;
+    editingArtId = id;
+    document.getElementById('article-modal-title').textContent = 'Edit article';
+    document.getElementById('art-url').value    = a.url         || '';
+    document.getElementById('art-title').value  = a.title       || '';
+    document.getElementById('art-desc').value   = a.description || '';
+    document.getElementById('art-source').value = a.source_name || '';
+    document.getElementById('art-place').value  = a.place_id    || '';
+    document.getElementById('art-tags').value   = (a.tag_list || []).join(', ');
+    document.getElementById('art-delete-btn').style.display = 'inline-block';
+    document.getElementById('article-modal').classList.add('open');
+}
+function closeArticleModal() { document.getElementById('article-modal').classList.remove('open'); editingArtId = null; }
+async function saveArticle() {
+    const url = document.getElementById('art-url').value.trim();
+    if (!url) { alert('URL required.'); return; }
+    const placeVal = document.getElementById('art-place').value;
+    const body = {
+        url,
+        title:       document.getElementById('art-title').value.trim(),
+        description: document.getElementById('art-desc').value.trim(),
+        source_name: document.getElementById('art-source').value.trim(),
+        place_id:    placeVal ? parseInt(placeVal, 10) : null,
+        tags:        document.getElementById('art-tags').value,
+    };
+    const isEdit = !!editingArtId;
+    const res = await fetch(isEdit ? `/api/article/${editingArtId}` : '/api/articles', {
+        method:  isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+    });
+    if (res.ok) { closeArticleModal(); init(); }
+    else { const d = await res.json().catch(() => ({})); alert(d.error || 'Could not save'); }
+}
+async function deleteArticle() {
+    if (!editingArtId) return;
+    if (!confirm('Remove this saved article?')) return;
+    const res = await fetch(`/api/article/${editingArtId}`, { method: 'DELETE' });
+    if (res.ok) { closeArticleModal(); init(); }
+}
+
+// =============================================================
+// Wishlist modal
+// =============================================================
+function openAddWish() {
+    editingWishId = null;
+    document.getElementById('wish-modal-title').textContent = 'Add to wishlist';
+    ['wish-url','wish-title','wish-artist','wish-notes','wish-tags'].forEach(id =>
+        (document.getElementById(id).value = '')
+    );
+    document.getElementById('wish-place').value  = '';
+    document.getElementById('wish-status').value = 'wishing';
+    document.getElementById('wish-delete-btn').style.display = 'none';
+    document.getElementById('wish-modal').classList.add('open');
+    document.getElementById('wish-url').focus();
+}
+function openEditWish(id) {
+    const w = wishes.find(w => w.id === id);
+    if (!w) return;
+    editingWishId = id;
+    document.getElementById('wish-modal-title').textContent = 'Edit wishlist item';
+    document.getElementById('wish-url').value    = w.url    || '';
+    document.getElementById('wish-title').value  = w.title  || '';
+    document.getElementById('wish-artist').value = w.artist || '';
+    document.getElementById('wish-notes').value  = w.notes  || '';
+    document.getElementById('wish-place').value  = w.place_id || '';
+    document.getElementById('wish-status').value = w.status || 'wishing';
+    document.getElementById('wish-tags').value   = (w.tag_list || []).join(', ');
+    document.getElementById('wish-delete-btn').style.display = 'inline-block';
+    document.getElementById('wish-modal').classList.add('open');
+}
+function closeWishModal() { document.getElementById('wish-modal').classList.remove('open'); editingWishId = null; }
+async function saveWish() {
+    const url = document.getElementById('wish-url').value.trim();
+    if (!url) { alert('URL required.'); return; }
+    const placeVal = document.getElementById('wish-place').value;
+    const body = {
+        url,
+        title:    document.getElementById('wish-title').value.trim(),
+        artist:   document.getElementById('wish-artist').value.trim(),
+        notes:    document.getElementById('wish-notes').value.trim(),
+        place_id: placeVal ? parseInt(placeVal, 10) : null,
+        status:   document.getElementById('wish-status').value,
+        tags:     document.getElementById('wish-tags').value,
+    };
+    const isEdit = !!editingWishId;
+    const res = await fetch(isEdit ? `/api/wishlist/${editingWishId}` : '/api/wishlist', {
+        method:  isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+    });
+    if (res.ok) { closeWishModal(); init(); }
+    else { const d = await res.json().catch(() => ({})); alert(d.error || 'Could not save'); }
+}
+async function deleteWish() {
+    if (!editingWishId) return;
+    if (!confirm('Remove this wishlist item?')) return;
+    const res = await fetch(`/api/wishlist/${editingWishId}`, { method: 'DELETE' });
+    if (res.ok) { closeWishModal(); init(); }
+}
+
+// =============================================================
+// Import tracks → review → wishlist (Shazam · paste a tracklist · Mixcloud)
+// =============================================================
+let importMode = 'paste', importCands = [], importSource = 'import';
+function openImport() {
+    importCands = []; importSource = 'import';
+    document.getElementById('import-review').style.display = 'none';
+    document.getElementById('import-add-btn').style.display = 'none';
+    document.getElementById('import-status').textContent = '';
+    document.getElementById('import-text').value = '';
+    document.getElementById('import-url').value = '';
+    document.getElementById('import-prov').value = '';
+    const f = document.getElementById('import-file'); if (f) f.value = '';
+    setImportMode('paste');
+    document.getElementById('import-modal').classList.add('open');
+}
+function closeImport() { document.getElementById('import-modal').classList.remove('open'); }
+function setImportMode(m) {
+    importMode = m;
+    document.querySelectorAll('.import-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    document.getElementById('import-in-paste').style.display    = m === 'paste'    ? '' : 'none';
+    document.getElementById('import-in-shazam').style.display   = m === 'shazam'   ? '' : 'none';
+    document.getElementById('import-in-mixcloud').style.display = m === 'mixcloud' ? '' : 'none';
+}
+async function runImportParse() {
+    const st = document.getElementById('import-status'); st.textContent = 'Finding…';
+    let res;
+    try {
+        if (importMode === 'shazam') {
+            const f = document.getElementById('import-file').files[0];
+            if (!f) { st.textContent = 'Choose a CSV file first.'; return; }
+            const fd = new FormData(); fd.append('file', f);
+            res = await fetch('/api/discover/parse', { method: 'POST', body: fd }).then(r => r.json());
+            importSource = 'shazam';
+            const pv = document.getElementById('import-prov'); if (!pv.value) pv.value = 'Shazam';
+        } else if (importMode === 'mixcloud') {
+            const url = document.getElementById('import-url').value.trim();
+            res = await fetch('/api/discover/mixcloud', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json());
+            importSource = 'mix';
+            const pv = document.getElementById('import-prov'); if (res.mix_name && !pv.value) pv.value = res.mix_name;
+        } else {
+            const text = document.getElementById('import-text').value;
+            res = await fetch('/api/discover/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }).then(r => r.json());
+            importSource = 'mix';
+        }
+    } catch (e) { st.textContent = 'Something went wrong — try again.'; return; }
+    importCands = (res && res.candidates) || [];
+    importCands.forEach(c => c._tick = false);   // nothing pre-ticked
+    renderImportReview();
+    st.textContent = (res && (res.error || res.note)) || (importCands.length ? '' : 'No tracks found.');
+}
+function renderImportReview() {
+    const has = importCands.length > 0;
+    document.getElementById('import-review').style.display = has ? '' : 'none';
+    document.getElementById('import-add-btn').style.display = has ? '' : 'none';
+    document.getElementById('import-count').textContent = importCands.length + ' found';
+    document.getElementById('import-list').innerHTML = importCands.map((c, i) => `
+        <label class="import-row">
+            <input type="checkbox" data-i="${i}" ${c._tick ? 'checked' : ''}>
+            <span class="import-row__main">${escHtml(c.artist)} — ${escHtml(c.title)}</span>
+            ${c.in_wishlist ? '<span class="import-badge">on wishlist</span>' : ''}
+            ${c.in_library ? '<span class="import-badge import-badge--lib">in library</span>' : ''}
+        </label>`).join('');
+    document.querySelectorAll('#import-list input[type=checkbox]').forEach(cb =>
+        cb.onchange = () => { importCands[+cb.dataset.i]._tick = cb.checked; updateImportCount(); });
+    updateImportCount();
+}
+function updateImportCount() {
+    const n = importCands.filter(c => c._tick).length;
+    const btn = document.getElementById('import-add-btn');
+    btn.textContent = n ? `Add ${n} to wishlist` : 'Add to wishlist';
+    btn.disabled = !n; btn.style.opacity = n ? '' : '.5';
+}
+function importTickAll()  { importCands.forEach(c => c._tick = true);  renderImportReview(); }
+function importTickNone() { importCands.forEach(c => c._tick = false); renderImportReview(); }
+async function runImportAdd() {
+    const items = importCands.filter(c => c._tick).map(c => ({ artist: c.artist, title: c.title }));
+    if (!items.length) return;
+    const provenance = document.getElementById('import-prov').value.trim();
+    await fetch('/api/discover/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, provenance, source: importSource }) }).then(r => r.json()).catch(() => {});
+    closeImport();
+    init();   // reload the wishlist
+}
+
+// =============================================================
+// Helpers
+// =============================================================
+function formatRelative(iso) {
+    if (!iso) return '';
+    const then = new Date(iso.replace(' ', 'T') + 'Z');
+    const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+    if (days < 1)  return 'today';
+    if (days < 2)  return 'yesterday';
+    if (days < 7)  return days + ' days ago';
+    if (days < 30) return Math.floor(days / 7) + ' weeks ago';
+    return Math.floor(days / 30) + ' months ago';
+}
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+}
+function escAttr(s) { return escHtml(s).replace(/'/g, '&#39;'); }
+
+// (Source / article / wishlist modals — backdrop click intentionally does NOT
+//  close so partially filled form data isn't lost. Use × or Cancel.
+//  ESC still closes them all.)
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeSourceModal(); closeArticleModal(); closeWishModal(); }
+});
+
+init();
+</script>
+
+<script src="/static/js/audio_coord.js"></script>
+<script src="/static/js/seinnteoir.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>
