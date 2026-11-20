@@ -46,11 +46,16 @@ Nothing reaches the fellows without you:
    publish anything private, and refuses to run over a merged pull request you
    haven't taken in yet).
 3. When you're happy, make a **release**: tag it (`vYYYY.MM.DD`, with `-2`, `-3`
-   for a second that day), build the two apps, and put them on the release's
-   page:
+   for a second that day), build the two Mac apps, and put them on the
+   release's page:
    ```bash
    tools/release.sh v2026.11.21 "what changed, in a line"
    ```
+   The **Windows** app builds itself: the tag starts GitHub's Windows machines
+   (`.github/workflows/windows.yml`), which run the tests on Windows, build
+   *Music Room (Windows).zip*, check it starts, and add it to the same page
+   (about 15 minutes; watch it under the repo's **Actions** tab). For a release
+   that already exists: Actions → *Windows app* → *Run workflow* → its tag.
 4. Move the server to it: `tools/server.sh deploy v2026.11.21`.
 5. Tell everyone's app: master page → **Version** → name it and paste the
    release's address. Each app says "a new version is ready" within ten

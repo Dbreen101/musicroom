@@ -1,0 +1,23 @@
+The Music Room — for Windows
+============================
+
+1. Unzip "Music Room (Windows).zip" somewhere you keep programs
+   (for example your Documents folder). Keep the "Music Room" folder whole:
+   the program needs everything beside it.
+
+2. Open the folder and double-click "Music Room.exe".
+
+3. The first time, Windows may say "Windows protected your PC".
+   Press "More info", then "Run anyway". (The Music Room isn't signed by
+   Microsoft yet; this happens once.)
+
+4. Make your account at the front door. You need to be on the Green Room's
+   Wi-Fi. If it can't find the server, press "change" under the form and type
+   the address you were given.
+
+The window is Microsoft Edge's (WebView2), which every Windows 11 has, and
+Windows 10 has when Edge is up to date. Without it, the Music Room opens in
+your browser instead, with a small window to quit it.
+
+Your library and settings are kept in %APPDATA%\Music Room GR.
+To make a shortcut: right-click "Music Room.exe" → Send to → Desktop.

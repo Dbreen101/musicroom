@@ -25,13 +25,14 @@ _resolved = False
 def _bundled_candidates():
     """Places the PyInstaller bundle could hold the binary."""
     cands = []
+    name = "ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg"
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
-        cands.append(os.path.join(meipass, "ffmpeg"))
-        cands.append(os.path.join(meipass, "bin", "ffmpeg"))
+        cands.append(os.path.join(meipass, name))
+        cands.append(os.path.join(meipass, "bin", name))
     if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-        cands.append(os.path.join(exe_dir, "ffmpeg"))
+        cands.append(os.path.join(exe_dir, name))
     return cands
 
 

@@ -256,7 +256,8 @@ def show_folder(data_dir):
             "These run only in your own app. To share one with everyone, send it to the\n"
             "Music Room's GitHub as a pull request.\n", encoding="utf-8")
     try:
-        subprocess.Popen(["open", str(root)])
+        import mr_os
+        mr_os.open_target(str(root))
     except OSError:
         pass
     return str(root)

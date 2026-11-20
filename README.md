@@ -23,11 +23,16 @@ you must share your changes too.
 ## Get it
 
 **The app, ready made** — from the [Releases](https://github.com/Dbreen101/musicroom/releases) page:
-*Music Room (Apple Silicon).zip* for Macs from late 2020 on, *Music Room
-(Intel).zip* for older ones (Apple menu → About This Mac → Chip). Unzip, drag
-it to Applications, open it. Because it isn't signed by Apple yet, the first
-time macOS stops it: open **System Settings → Privacy & Security**, scroll
-down, press **Open Anyway**.
+
+- **Mac**: *Music Room (Apple Silicon).zip* for Macs from late 2020 on, *Music
+  Room (Intel).zip* for older ones (Apple menu → About This Mac → Chip). Unzip,
+  drag it to Applications, open it. Because it isn't signed by Apple yet, the
+  first time macOS stops it: open **System Settings → Privacy & Security**,
+  scroll down, press **Open Anyway**.
+- **Windows PC** (Windows 10 or 11): *Music Room (Windows).zip*. Unzip it, open
+  the *Music Room* folder, double-click **Music Room.exe**. The first time,
+  Windows may say *Windows protected your PC*: press **More info**, then **Run
+  anyway**.
 
 **From the code** (if you want to change it, or make plug-ins):
 
@@ -38,8 +43,12 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./run_gr.sh
 ```
 
-Python 3.11 or 3.12 on a Mac. Your library and settings are kept in
-`~/Library/Application Support/Music Room GR/`, never in the code folder.
+On Windows: `py -3.12 -m venv venv`, `venv\Scripts\pip install -r requirements.txt`,
+then `run_gr.bat`.
+
+Python 3.11 or 3.12. Your library and settings are kept in
+`~/Library/Application Support/Music Room GR/` on a Mac and
+`%APPDATA%\Music Room GR` on Windows — never in the code folder.
 
 Either way, the first page is the front door: make an account (everyone starts
 as a listener), read and agree to the [house rules](HOUSE_RULES.md), and

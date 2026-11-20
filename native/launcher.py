@@ -63,6 +63,14 @@ BAKED_KEYS = ("MR_FEEDBACK_ENDPOINT", "MR_FEEDBACK_SECRET",
               "MR_GREEN_ROOM", "MR_GR_VERSION", "MR_GR_SERVER", "MR_DATA_NAME")
 
 
+def _app_data(name):
+    """Where the ready-made app keeps its data: ~/Library/Application Support/<name>
+    on a Mac, %APPDATA%\\<name> on Windows."""
+    if sys.platform.startswith("win"):
+        return os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming"), name)
+    return os.path.expanduser(os.path.join("~/Library/Application Support", name))
+
+
 def _bake(code_dir):
     """A build can carry settings baked in: the spec bundles native/baked_env.py
     (or MR_BAKED_ENV, e.g. native/baked_env_gr.py) into mrsrc. They are defaults:
@@ -89,9 +97,9 @@ def _setup_paths():
         data_dir = os.environ.get("MUSICROOM_DATA")
         own_name = os.environ.get("MR_DATA_NAME")               # a build with its own data folder (the Green Room's)
         if not data_dir and own_name:
-            data_dir = os.path.expanduser("~/Library/Application Support/" + own_name)
+            data_dir = _app_data(own_name)
         if not data_dir:
-            data_dir = os.path.expanduser("~/Library/Application Support/Music Room")
+            data_dir = _app_data("Music Room")
             # Portable drive: if this Mac has no library yet but a Music Room
             # drive is plugged in (carrying 'Music Room — App Data/library.db'),
             # adopt the drive's data so the whole library is there. Inlined (no
@@ -237,6 +245,10 @@ def _run_bt_connect():
 
 
 def main():
+    # Windows: a helper process (the analysis libraries start some) runs this same
+    # program again — without this it would open a second Music Room.
+    import multiprocessing
+    multiprocessing.freeze_support()
     # Worker mode short-circuits everything else.
     if "--mr-worker" in sys.argv:
         _run_worker()
@@ -309,7 +321,19 @@ def main():
         width=1400, height=900,
         min_size=(900, 600),
     )
-    webview.start()
+    if sys.platform.startswith("win"):
+        # Windows: the window is Microsoft Edge's (WebView2 — on every Windows 11, and on
+        # Windows 10 with Edge kept up to date). Where it is missing, the Music Room
+        # opens in the computer's own browser instead, and keeps running until closed
+        # from the taskbar's hidden icons… or the window below.
+        try:
+            webview.start(gui="edgechromium")
+        except Exception:
+            import webbrowser
+            webbrowser.open(url + "/room")
+            _hold_open_without_window(url)
+    else:
+        webview.start()
     # Quit = quit. Same finalization hang risk as the worker (multiprocessing
     # resource_tracker spawned inside the frozen bundle blocks Py_FinalizeEx
     # in waitpid) — the window would close but the process linger, holding the
@@ -318,6 +342,22 @@ def main():
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
+
+
+def _hold_open_without_window(url):
+    """Windows without Edge's WebView2: the app runs in the browser. A small
+    window says so and quitting it quits the Music Room (tkinter comes with Python)."""
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+        root.title("Music Room")
+        root.geometry("420x150")
+        tk.Label(root, text="The Music Room is open in your browser.\n\n" + url + "/room\n\n"
+                 "Close this window to quit it.", justify="center", padx=20, pady=20).pack()
+        root.mainloop()
+    except Exception:
+        while True:
+            time.sleep(3600)
 
 
 def _patch_mic_permission():

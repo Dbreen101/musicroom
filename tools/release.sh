@@ -65,12 +65,21 @@ PY
 fi
 
 echo "── 5. the release page"
-gh release create "$TAG" --repo "$REPO" --title "The Music Room $TAG" \
-  --notes "$NOTE
+NOTES="$NOTE
 
-**Get it**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
+**Mac**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
 
-**From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\`." "${ASSETS[@]}"
+**Windows PC**: download *Music Room (Windows).zip* (it arrives a few minutes after the Mac ones), unzip, open the Music Room folder, double-click Music Room.exe. The first time Windows may say it protected your PC: More info → Run anyway.
+
+**From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\` (Mac) or \`run_gr.bat\` (Windows)."
+# (GitHub's Windows build may have made the page already: then add to it)
+if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+  gh release edit "$TAG" --repo "$REPO" --title "The Music Room $TAG" --notes "$NOTES"
+  [ ${#ASSETS[@]} -gt 0 ] && gh release upload "$TAG" --repo "$REPO" --clobber "${ASSETS[@]}"
+else
+  gh release create "$TAG" --repo "$REPO" --title "The Music Room $TAG" --notes "$NOTES" "${ASSETS[@]}"
+fi
+echo "   The Windows app is being built on GitHub's machines: https://github.com/$REPO/actions"
 URL="https://github.com/$REPO/releases/tag/$TAG"
 echo ""
 echo "Released: $URL"

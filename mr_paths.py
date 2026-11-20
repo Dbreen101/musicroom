@@ -66,6 +66,14 @@ def _find_drive_appdata(volumes_root: str = "/Volumes") -> str | None:
     return None
 
 
+def _app_data(name):
+    """Where a ready-made app keeps its data: ~/Library/Application Support/<name>
+    on a Mac, %APPDATA%\\<name> on Windows (the same answer as mr_os.app_data)."""
+    if sys.platform.startswith("win"):
+        return os.path.join(os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming"), name)
+    return os.path.expanduser(os.path.join("~/Library/Application Support", name))
+
+
 # --- DATA_DIR: writable user data ------------------------------------------
 def _resolve_data_dir() -> str:
     # 1. Explicit override is LITERAL — used exactly as given. Tools that set it
@@ -77,7 +85,7 @@ def _resolve_data_dir() -> str:
         return os.path.expanduser(env)
 
     # 2. No override → the normal LOCAL location (App Support frozen, else dev).
-    local = os.path.expanduser("~/Library/Application Support/Music Room") if is_frozen() else CODE_DIR
+    local = _app_data("Music Room") if is_frozen() else CODE_DIR
     if os.path.isfile(os.path.join(local, "library.db")):
         return local
     # 3. No local DB anywhere → adopt the database on a plugged-in Music Room

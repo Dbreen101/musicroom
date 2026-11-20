@@ -1,0 +1,145 @@
+# The Windows Music Room — built on GitHub's own Windows machines, because a Mac
+# can't make a Windows program. Runs by itself when a release is tagged (v…),
+# or by hand for a release that already exists (Actions → Windows app → Run).
+#
+#   1. the tests that matter for the trial, on Windows
+#   2. the app (native/music-room-win.spec), with the Green Room's settings baked in
+#   3. the built app is started with no window and asked a few things
+#   4. "Music Room (Windows).zip" goes on the release's page
+name: Windows app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Which release to build (e.g. v2026.11.20-2) — or a branch (main) for a trial build kept with the run"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    if: github.repository == 'Dbreen101/musicroom'
+    runs-on: windows-latest
+    timeout-minutes: 75
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      MR_GR_SERVER: ${{ vars.MR_GR_SERVER || 'http://Davids-MacBook-Pro-2.local:5300' }}
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller==6.20.0
+
+      - name: Tests (on Windows)
+        id: tests
+        continue-on-error: true
+        shell: pwsh
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          $failed = @()
+          foreach ($t in @("test_gr_server", "test_gr_master", "test_gr_shop", "test_gr_client", "test_record_shop",
+                           "test_plugins", "test_grupa", "test_isles_map", "test_globe", "test_os")) {
+            $out = python "$t.py" 2>&1 | Out-String
+            $last = ($out.Trim() -split "`n")[-1]
+            Write-Host "$t : $last"
+            if ($LASTEXITCODE -ne 0 -or $out -notmatch "ALL PASS") { $failed += $t; Write-Host $out }
+          }
+          if ($failed.Count) { Write-Host "Failed on Windows: $($failed -join ', ')"; exit 1 }
+
+      - name: Stage ffmpeg, the icon and the Green Room's settings
+        shell: python
+        run: |
+          import os, shutil, imageio_ffmpeg
+          from PIL import Image
+          os.makedirs("native/bin", exist_ok=True)
+          shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), "native/bin/ffmpeg.exe")
+          Image.open("native/AppIcon_1024.png").save("native/AppIcon.ico",
+              sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+          os.makedirs("build_bake", exist_ok=True)
+          tag, server = os.environ["TAG"], os.environ["MR_GR_SERVER"]
+          with open("build_bake/baked_env.py", "w", encoding="utf-8") as f:
+              f.write(f'# baked into the Green Room release {tag} by .github/workflows/windows.yml\n'
+                      f'MR_GREEN_ROOM = "1"\nMR_GR_VERSION = "GR1"\nMR_GR_SERVER = "{server}"\n'
+                      f'MR_DATA_NAME = "Music Room GR"\n')
+
+      - name: Build
+        working-directory: native
+        env:
+          MR_BAKED_ENV: ${{ github.workspace }}\build_bake\baked_env.py
+          MR_FFMPEG_STAGED: ${{ github.workspace }}\native\bin\ffmpeg.exe
+        run: pyinstaller music-room-win.spec --clean --noconfirm
+
+      - name: Check the built app starts and answers
+        shell: pwsh
+        run: |
+          $env:MUSICROOM_HEADLESS = "1"
+          $env:MUSICROOM_DATA = Join-Path $env:RUNNER_TEMP "mrdata"
+          $env:MUSICROOM_PORT = "5199"
+          $env:SDL_AUDIODRIVER = "dummy"
+          $p = Start-Process -FilePath "native\dist\Music Room\Music Room.exe" -PassThru
+          $up = $false
+          foreach ($i in 1..180) {
+            try { Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5199/login" -TimeoutSec 2 | Out-Null; $up = $true; break } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) { Write-Host "It didn't come up."; Stop-Process -Id $p.Id -Force; exit 1 }
+          $status = Invoke-RestMethod "http://127.0.0.1:5199/api/gr/status"
+          $rules = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5199/house-rules").Content
+          $ver = Invoke-RestMethod "http://127.0.0.1:5199/api/gr/version"
+          Write-Host "server: $($status.default_server) · version: $($ver.mine) · house rules: $($rules -match 'Only put up music you made')"
+          $ok = ($status.default_server -eq $env:MR_GR_SERVER) -and ($rules -match 'Only put up music you made') -and $ver.mine
+          $ff = Test-Path "native\dist\Music Room\_internal\ffmpeg.exe"
+          Write-Host "ffmpeg inside: $ff"
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok) { exit 1 }
+
+      - name: Zip it
+        shell: pwsh
+        run: |
+          Copy-Item "native\Read me first (Windows).txt" "native\dist\Music Room\" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "native\dist\Music Room" -DestinationPath "Music Room (Windows).zip"
+          Get-Item "Music Room (Windows).zip" | Select-Object Name, Length
+
+      - name: Keep it with this run (for a trial build, or if the release step fails)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Music Room (Windows)
+          path: Music Room (Windows).zip
+          retention-days: 14
+
+      - name: Put it on the release
+        if: startsWith(env.TAG, 'v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:TAG 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:TAG --title "The Music Room $env:TAG" --notes "The Windows app is here; the Mac apps follow."
+          }
+          gh release upload $env:TAG "Music Room (Windows).zip" --clobber
+
+      - name: Say how the tests went
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "Some tests failed on Windows (the app was still built). See 'Tests (on Windows)' above."
+          exit 1

@@ -23,6 +23,7 @@ in short, fine for a private test, not allowed in a product that sells things.
 """
 
 import re
+import os
 import socket
 import subprocess
 import sys
@@ -45,7 +46,14 @@ def uri_of(url):
 
 def _launch_spotify_app():
     """Open the Spotify desktop app quietly (behind, hidden) so it can be told
-    to play. True when the system found and opened it. macOS only for now."""
+    to play. True when the system found and opened it. On Windows it is asked
+    for by its own address (spotify:), which the Spotify app registers."""
+    if sys.platform.startswith("win"):
+        try:
+            os.startfile("spotify:")
+            return True
+        except OSError:
+            return False
     if sys.platform != "darwin":
         return False
     try:
@@ -66,6 +74,12 @@ def show_app(url="", _run=subprocess.run):
             if _run(["open", "-a", "Spotify"], capture_output=True, timeout=6).returncode == 0:
                 return "app"
         except Exception:
+            pass
+    elif sys.platform.startswith("win"):
+        try:
+            os.startfile("spotify:")
+            return "app"
+        except OSError:
             pass
     url = (url or "").strip()
     if url.startswith("https://") and _LINK.search(url):
@@ -90,6 +104,8 @@ def _this_computer():
         names.add(socket.gethostname().split(".")[0].lower())
     except Exception:
         pass
+    if os.environ.get("COMPUTERNAME"):                 # Windows
+        names.add(os.environ["COMPUTERNAME"].lower())
     if sys.platform == "darwin":
         try:
             r = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, timeout=3, text=True)

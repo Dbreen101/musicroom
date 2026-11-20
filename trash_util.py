@@ -14,6 +14,10 @@ def move_to_trash(file_path):
     """Move a file to the macOS Trash (recoverable). Returns (ok, err)."""
     if not file_path or not os.path.exists(file_path):
         return True, None
+    # 0) Windows: the Recycle Bin (recoverable, like the Trash)
+    import mr_os
+    if mr_os.IS_WIN:
+        return mr_os.recycle(file_path)
     # 1) Finder — puts it in the volume's Trash, fully recoverable
     try:
         script = f'tell application "Finder" to delete POSIX file "{file_path}"'

@@ -50,6 +50,7 @@ from flask import (
     request, abort, g, Response, send_file, send_from_directory, redirect
 )
 from tag_writer import write_tags_to_file
+import mr_os            # opening, revealing and choosing — on a Mac or on Windows
 import genre_suggest
 import green_room
 import recorder as mr_recorder
@@ -2926,18 +2927,12 @@ def api_open_resource(rid):
             native = _rewrite_to_native_uri(target)
             is_native = native != target
             browser = (get_setting("preferred_browser", "") or "").strip()
-            if is_native:
-                cmd = ["open", native]
-            elif browser:
-                cmd = ["open", "-a", browser, target]
-            else:
-                cmd = ["open", target]
+            mr_os.open_target(native if is_native else target, app=None if is_native else (browser or None))
         else:
-            # File path — `open` resolves to the default app (Preview for PDFs, etc.)
+            # a file: the computer's own app for it (Preview for PDFs, etc.)
             if not os.path.exists(target):
                 return jsonify({"error": f"file not found: {target}"}), 404
-            cmd = ["open", target]
-        subprocess.Popen(cmd)
+            mr_os.open_target(target)
         return jsonify({"ok": True, "opened": target})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -4919,7 +4914,7 @@ def api_reveal_path():
     if not p or not os.path.exists(p):
         return jsonify({"ok": False, "error": "path not found"}), 400
     try:
-        subprocess.run(["open", "-R", p], timeout=8)
+        mr_os.reveal(p)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -4933,38 +4928,15 @@ def api_choose_path():
     via osascript. {kind:'folder'|'file', start:'optional starting dir',
     prompt:'optional'}. Returns {path} or {cancelled:true}."""
     d = request.get_json(silent=True) or {}
-    kind   = "file" if d.get("kind") == "file" else "folder"
-    start  = os.path.expanduser((d.get("start") or "").strip())
-    prompt = (d.get("prompt") or ("Choose a file" if kind == "file" else "Choose a folder"))
-    prompt = prompt.replace('"', "'").replace("\\", "")
-    chooser = "choose file" if kind == "file" else "choose folder"
-
-    loc = ""
-    try:
-        if start:
-            check = start if (kind == "folder") else (os.path.dirname(start) or start)
-            if os.path.isdir(check):
-                loc = f' default location (POSIX file "{check}")'
-    except Exception:
-        loc = ""
-
-    # `activate` first so the dialog comes to the front of the app.
-    script = (
-        'tell application "System Events" to activate\n'
-        f'POSIX path of ({chooser} with prompt "{prompt}"{loc})'
-    )
-    try:
-        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=600)
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-    if r.returncode != 0:
-        err = (r.stderr or "").strip()
-        if "User canceled" in err or "-128" in err:
-            return jsonify({"ok": True, "cancelled": True})
-        return jsonify({"ok": False, "error": err or "chooser failed"}), 500
-    path = (r.stdout or "").strip()
-    if path.endswith("/") and len(path) > 1:
-        path = path.rstrip("/")
+    kind = "file" if d.get("kind") == "file" else "folder"
+    path, why = mr_os.choose(kind, os.path.expanduser((d.get("start") or "").strip()),
+                             d.get("prompt") or ("Choose a file" if kind == "file" else "Choose a folder"))
+    if why == "cancelled":
+        return jsonify({"ok": True, "cancelled": True})
+    if not path:
+        return jsonify({"ok": False, "error": why or "chooser failed"}), 500
+    if path.endswith(("/", "\\")) and len(path) > 3:
+        path = path.rstrip("/\\")
     return jsonify({"ok": True, "cancelled": False, "path": path})
 
 
@@ -5135,14 +5107,8 @@ def api_open_url():
     is_native = native != url
     browser = (get_setting("preferred_browser", "") or "").strip()
     try:
-        if is_native:
-            # Native scheme — let macOS route to the registered handler.
-            cmd = ["open", native]
-        elif browser:
-            cmd = ["open", "-a", browser, url]
-        else:
-            cmd = ["open", url]
-        subprocess.Popen(cmd)
+        # a native scheme (spotify: …) goes to the app registered for it; a web address to the browser
+        mr_os.open_target(native if is_native else url, app=None if is_native else (browser or None))
         # Purchase tracker: clicking a record's buy link is a purchase INTENT.
         intent_id = _maybe_log_purchase_intent(url, d)
         return jsonify({"ok": True, "opened": native if is_native else url,
@@ -5335,7 +5301,7 @@ def api_reveal_in_finder():
         return jsonify({"error": "path required"}), 400
     resolved = _resolve_audio_path(fp) or fp
     try:
-        subprocess.Popen(["open", "-R", resolved])
+        mr_os.reveal(resolved)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -16053,7 +16019,7 @@ def api_grupa_folder_show(gid):
     if not path or not os.path.isdir(path):
         return jsonify({"error": "The folder isn't there. Is its drive plugged in?"}), 404
     try:
-        subprocess.Popen(["open", path])
+        mr_os.open_target(path)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     return jsonify({"ok": True, "folder": path})
