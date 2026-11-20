@@ -108,12 +108,13 @@ EOF
 start() {
   [ -L "$HOME_DIR/current" ] || die "no release in place yet — tools/server.sh deploy <tag>"
   if installed; then
-    launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl kickstart -k "gui/$(id -u)/$LABEL"
+    launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$PLIST"
   else
     if [ -f "$HOME_DIR/server.pid" ] && kill -0 "$(cat "$HOME_DIR/server.pid")" 2>/dev/null; then say "already running"; return 0; fi
     ( cd "$HOME_DIR/current" && MR_GR_DB="$DB" MR_LIBRARY_DB="$HOME_DIR/data/no-library.db" PYTHONDONTWRITEBYTECODE=1 \
-        nohup /usr/bin/caffeinate -s "$PY" gr_server.py run --host 0.0.0.0 --port "$PORT" >> "$HOME_DIR/logs/server.log" 2>&1 &
-      echo $! > "$HOME_DIR/server.pid" )
+        nohup /usr/bin/caffeinate -s "$PY" gr_server.py run --host 0.0.0.0 --port "$PORT" < /dev/null >> "$HOME_DIR/logs/server.log" 2>&1 &
+      echo $! > "$HOME_DIR/server.pid"; disown 2>/dev/null || true ) > /dev/null 2>&1
   fi
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     curl -s -m 1 -o /dev/null "http://127.0.0.1:$PORT/api/version" && { say "the rooms server is running ($(running_tag)) on port $PORT"; return 0; }
