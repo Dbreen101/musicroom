@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-_tmp = tempfile.TemporaryDirectory()
+_tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)   # (Windows: a file still open at exit can't be removed)
 os.environ["MR_GR_DB"] = str(Path(_tmp.name) / "gr_test.db")
 os.environ["MR_LIBRARY_DB"] = str(Path(_tmp.name) / "no_library.db")   # keep David's library out
 

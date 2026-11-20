@@ -507,10 +507,10 @@ def _safe_name(v, fallback):
 
 def _inside(folder, fname):
     """folder / fname, refusing anything that would land outside folder."""
-    dest = (Path(folder) / fname).resolve()
-    if dest.parent != Path(folder).resolve():
+    dest = Path(folder) / fname
+    if dest.resolve().parent != Path(folder).resolve():
         raise GRError("the file's name from the server wasn't safe to use")
-    return dest
+    return dest                          # (as the app writes paths elsewhere — not Windows' long form of it)
 
 
 def signup(server_url, name, device_name="", kind="listener", agreed=False):
