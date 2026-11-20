@@ -363,6 +363,13 @@ cat = {t["id"]: t for t in get(tok["a"], "/api/catalogue").get_json()["tracks"]}
 chk(mine[tide_ids[0]]["year"] == 1987 and mine[tide_ids[0]]["genre"] == "Dub; Ambient" and cat[tide_ids[0]]["label"] == "Tide Recordings",
     "year, genre and label can be set by the record's owner, and show in the catalogue")
 
+# ─── a server that already had the shop gets the tables added since (gr_heard was once skipped) ───
+with db() as conn:
+    conn.execute("DROP TABLE gr_heard"); conn.commit()
+    gr_shop.ensure(conn)
+    chk(conn.execute("SELECT 1 FROM sqlite_master WHERE name='gr_heard'").fetchone() is not None,
+        "a server that already had record shopping gets the one-play table when it starts")
+
 print()
 print(f"{'ALL PASS' if not fails else str(len(fails)) + ' FAILURES'}")
 sys.exit(1 if fails else 0)

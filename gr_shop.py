@@ -81,7 +81,9 @@ def ensure(conn):
     hasn't been read for its year / genre / label is read."""
     tcols = {r[1] for r in conn.execute("PRAGMA table_info(gr_tracks)")}
     acols = {r[1] for r in conn.execute("PRAGMA table_info(gr_accounts)")}
-    made = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gr_blind'").fetchone()
+    # (asked by the NEWEST table: a server from before it gets the tables it lacks — 2026-11-20, gr_heard was
+    #  skipped on a server that already had the shop, because this asked only for gr_blind)
+    made = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gr_heard'").fetchone()
     if not (made and "meta_read_at" in tcols and "is_house" in acols):     # asked of the database itself: a server may be pointed at another one
         conn.executescript(
             """
