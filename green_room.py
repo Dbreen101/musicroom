@@ -1038,7 +1038,12 @@ def shop_listen(kind, ctx_id, server_track_id=None):
     if _grupa_server_too_old(r):
         raise GRError(SHOP_OLD_SERVER)
     if r.status_code != 200:
-        raise GRError(_err_of(r, "that record can't be played right now"))
+        err = GRError(_err_of(r, "that record can't be played right now"))
+        try:
+            err.heard = bool(r.json().get("heard"))     # (its one play has been used: borrow or buy to hear it again)
+        except ValueError:
+            err.heard = False
+        raise err
     return r.content, (r.headers.get("Content-Type") or "audio/mpeg").split(";")[0].strip()
 
 

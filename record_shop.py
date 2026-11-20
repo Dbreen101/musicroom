@@ -10,10 +10,14 @@ talks to (app.py only calls `register(app)`):
                             below it: pull a crate, the counter, blind, a
                             seller's own crates. Asks go through to the rooms
                             server and its answers come back as they are.
-  /api/gr/shop/listen       a record's LISTENING COPY, played by the page while
-                            the crate (or the answer, or the blind turn) is
-                            open. Held in memory here, never written down:
-                            outside the crate there is nothing to play.
+  /api/gr/shop/play         ONE PLAY of a record (David, 2026-11-20: "whole records
+                            but only one play. If they want to hear it again they
+                            have to buy or borrow it"). Starting it asks the rooms
+                            server for the listening copy — which marks it heard
+                            for good — and gives the page a one-time ticket; the
+                            copy is held in memory here only while that play lasts
+                            (pause, carry on, move through it), never written
+                            down, and put down when it ends or the person moves on.
   /api/gr/shop/wish         "note it for later": the record's name and who it
                             is by, with the shopper's own line of why, onto the
                             wishlist.
@@ -35,10 +39,11 @@ WISH_MAX = 100
 WISH_FULL = ("Your wishlist holds {n} records, and that is as many as it keeps. "
              "Take one out, or buy one, to make room.")
 WHY_MAX = 500
-LISTEN_KEEP = 3                 # listening copies held at once (the one playing, the one before, the next)
+PLAY_KEEP = 2                   # plays held at once (the one going, and the one before while it is put down)
+PLAY_IDLE_S = 3 * 3600          # a play left alone this long is put down
 
-_listening = OrderedDict()      # (kind, ctx, track) → (day, bytes, mimetype)
-_listening_lock = threading.Lock()
+_plays = OrderedDict()          # ticket → {"key": (kind, ctx, track), "data", "mime", "at"}
+_plays_lock = threading.Lock()
 _news = {"at": 0.0, "n": 0}
 
 
@@ -107,31 +112,45 @@ def wish_note(conn, rec, why, found=""):
     return dict(conn.execute("SELECT * FROM wishlist WHERE id=?", (cur.lastrowid,)).fetchone()), "new"
 
 
-# ---------- listening copies, held in memory ----------
+# ---------- one play of a record, held in memory while it lasts ----------
 
-def _listen_bytes(kind, ctx, track):
+def _play_start(kind, ctx, track):
+    """Ask the rooms server for the record's listening copy (that is the play: it
+    is marked heard as it is handed over) and give back a one-time ticket."""
+    import secrets
+
     import green_room
-    key, today = (kind, int(ctx), int(track) if track else 0), date.today().isoformat()
-    with _listening_lock:
-        for k in [k for k, v in _listening.items() if v[0] != today]:      # yesterday's are gone with the day
-            _listening.pop(k, None)
-        hit = _listening.get(key)
-        if hit:
-            _listening.move_to_end(key)
-            return hit[1], hit[2]
     data, mime = green_room.shop_listen(kind, ctx, track)
-    with _listening_lock:
-        _listening[key] = (today, data, mime)
-        while len(_listening) > LISTEN_KEEP:
-            _listening.popitem(last=False)
-    return data, mime
+    ticket = secrets.token_urlsafe(12)
+    now = time.time()
+    with _plays_lock:
+        for k in [k for k, v in _plays.items() if now - v["at"] > PLAY_IDLE_S]:
+            _plays.pop(k, None)
+        _plays[ticket] = {"key": (kind, int(ctx), int(track) if track else 0), "data": data, "mime": mime, "at": now}
+        while len(_plays) > PLAY_KEEP:
+            _plays.popitem(last=False)
+    return ticket
+
+
+def _play_get(ticket):
+    with _plays_lock:
+        p = _plays.get(ticket)
+        if p:
+            p["at"] = time.time()
+        return p
+
+
+def _play_end(ticket):
+    with _plays_lock:
+        _plays.pop(ticket, None)
 
 
 def _listen_forget(kind, ctx=None, keep=None):
-    """Put listening copies down: an answer once it is settled, a blind record once the next is up."""
-    with _listening_lock:
-        for k in [k for k in _listening if k[0] == kind and (ctx is None or k[1] == int(ctx)) and k[1] != keep]:
-            _listening.pop(k, None)
+    """Put plays down: an answer once it is settled, a blind record once the next is up."""
+    with _plays_lock:
+        for k in [k for k, v in _plays.items()
+                  if v["key"][0] == kind and (ctx is None or v["key"][1] == int(ctx)) and v["key"][1] != keep]:
+            _plays.pop(k, None)
 
 
 # ---------- routes ----------
@@ -189,20 +208,40 @@ def register(app):
         return relay("GET", f"/api/shop/pulls/{pid}")
 
     @app.route("/api/gr/shop/listen")
-    def api_shop_listen():
-        a = request.args
-        kind = next((k for k in ("blind", "q", "pull") if a.get(k)), "")
+    def api_shop_listen_old():
+        """(Before one play, the page asked here. Records now play once, by ticket.)"""
+        return jsonify({"error": "Reload the page: records in the shop now play once each."}), 410
+
+    @app.route("/api/gr/shop/play", methods=["POST"])
+    def api_shop_play():
+        """Start the one play of a record. {kind: pull|q|blind, ctx, track}"""
+        d = request.get_json(silent=True) or {}
+        kind = d.get("kind") if d.get("kind") in ("pull", "q", "blind") else ""
         try:
-            ctx = int(a.get(kind) or 0) if kind else 0
-            track = int(a.get("track") or 0) if kind != "blind" else None
-        except ValueError:
+            ctx = int(d.get("ctx") or 0)
+            track = int(d.get("track") or 0) if kind != "blind" else None
+        except (TypeError, ValueError):
             ctx, track = 0, None
-        if not ctx or (kind != "blind" and not track):
+        if not kind or not ctx or (kind != "blind" and not track):
             return jsonify({"error": "records in the shop play from inside a crate, the counter or blind"}), 400
         try:
-            data, mime = _listen_bytes(kind, ctx, track)
+            ticket = _play_start(kind, ctx, track)
         except green_room.GRError as e:
-            return jsonify({"error": str(e)}), 403
+            return jsonify({"error": str(e), "heard": bool(getattr(e, "heard", False))}), 403
+        return jsonify({"play": ticket, "url": f"/api/gr/shop/play/{ticket}"})
+
+    @app.route("/api/gr/shop/play/<ticket>/end", methods=["POST"])
+    def api_shop_play_end(ticket):
+        _play_end(ticket)
+        return jsonify({"ended": True})
+
+    @app.route("/api/gr/shop/play/<ticket>")
+    def api_shop_play_sound(ticket):
+        """The sound of one play, in pieces (that is how the page's player seeks)."""
+        p = _play_get(ticket)
+        if not p:
+            return jsonify({"error": "That play has ended. To hear it again, borrow it or buy it.", "heard": True}), 410
+        data, mime = p["data"], p["mime"]
         # the page's player asks for it in pieces (that is how it seeks)
         total = len(data)
         start, end, status = 0, total - 1, 200

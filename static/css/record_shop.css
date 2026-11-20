@@ -148,6 +148,10 @@ body.view-shop .rs-view { display: block; }
 .rs-time { font-size: .64rem; letter-spacing: .04em; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rs-listenmsg { min-height: 0; font-size: .7rem; line-height: 1.45; color: var(--red, #c9412f); }
 .rs-listenmsg:not(:empty) { margin-top: 8px; }
+/* one play: said quietly before, plainly after (record_shop.js: ONE_PLAY, HEARD_LINE) */
+.rs-listenmsg--quiet { color: var(--muted); }
+.rs-listen.is-heard .rs-seek, .rs-listen.is-heard .rs-time { opacity: .45; }
+.rs-listen--yours { display: block; }
 .rs-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
 .rs-state { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 

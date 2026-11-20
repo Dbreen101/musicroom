@@ -91,29 +91,39 @@ r = client.post("/api/gr/shop/pull", json={"genres": ["Gabber"]})
 chk(r.status_code == 404 and J(r).get("empty") and "Nothing in the shop" in J(r)["error"], "the shop's own refusals arrive as they are")
 first = pull["items"][0]
 
-# ─── listening: the listening copy, held in memory, in pieces ───
+# ─── listening: ONE PLAY of the whole record, by a one-time ticket, held in memory while it lasts ───
 if gr_shop._ffmpeg():
     asked = []
     real_listen = green_room.shop_listen
     green_room.shop_listen = lambda *a: (asked.append(a), real_listen(*a))[1]
-    r = client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={first['id']}")
+    r = client.post("/api/gr/shop/play", json={"kind": "pull", "ctx": pull["id"], "track": first["id"]})
+    ticket = J(r)["play"]
+    chk(r.status_code == 200 and J(r)["url"] == f"/api/gr/shop/play/{ticket}" and len(ticket) >= 16, "pressing Listen starts the one play, by a ticket")
+    r = client.get(f"/api/gr/shop/play/{ticket}")
     whole = r.data
     chk(r.status_code == 200 and r.mimetype == "audio/mpeg" and r.headers["Accept-Ranges"] == "bytes" and len(whole) > 200
-        and r.headers["Cache-Control"] == "no-store", "a record in my crate plays through the app")
-    r = client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={first['id']}", headers={"Range": "bytes=100-199"})
+        and r.headers["Cache-Control"] == "no-store", "the whole record plays through the app")
+    r = client.get(f"/api/gr/shop/play/{ticket}", headers={"Range": "bytes=100-199"})
     chk(r.status_code == 206 and r.data == whole[100:200] and r.headers["Content-Range"] == f"bytes 100-199/{len(whole)}",
-        "…in pieces, so the page can seek")
-    r = client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={first['id']}", headers={"Range": "bytes=-50"})
-    chk(r.status_code == 206 and r.data == whole[-50:] and len(asked) == 1, "it is fetched from the server once, then kept in memory")
-    chk(client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={first['id']}", headers={"Range": f"bytes={len(whole) + 5}-"}).status_code == 416,
-        "a piece past the end is refused")
-    for it in pull["items"][1:5]:
-        client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={it['id']}")
-    chk(len(record_shop._listening) == record_shop.LISTEN_KEEP, f"only {record_shop.LISTEN_KEEP} listening copies are held at once")
+        "…in pieces, so the page can pause, carry on and move through it")
+    r = client.get(f"/api/gr/shop/play/{ticket}", headers={"Range": "bytes=-50"})
+    chk(r.status_code == 206 and r.data == whole[-50:] and len(asked) == 1, "within the play it is fetched from the server once")
+    chk(client.get(f"/api/gr/shop/play/{ticket}", headers={"Range": f"bytes={len(whole) + 5}-"}).status_code == 416, "a piece past the end is refused")
+    client.post(f"/api/gr/shop/play/{ticket}/end")
+    r = client.get(f"/api/gr/shop/play/{ticket}")
+    chk(r.status_code == 410 and J(r)["heard"], "once the play ends its sound is put down: the ticket plays no more")
+    r = client.post("/api/gr/shop/play", json={"kind": "pull", "ctx": pull["id"], "track": first["id"]})
+    chk(r.status_code == 403 and J(r)["heard"] and "borrow" in J(r)["error"], "a second play is refused, with the way to hear it again: borrow or buy")
+    chk(J(client.get(f"/api/gr/shop/pulls/{pull['id']}"))["pull"]["items"][0]["heard"], "the crate says it has been heard")
+    tickets = [J(client.post("/api/gr/shop/play", json={"kind": "pull", "ctx": pull["id"], "track": it["id"]}))["play"] for it in pull["items"][1:5]]
+    chk(len(record_shop._plays) == record_shop.PLAY_KEEP and tickets[0] not in record_shop._plays,
+        f"only {record_shop.PLAY_KEEP} plays are held at once; starting another puts the oldest down")
     chk(not list((TMP / "app_data").rglob("*.mp3")), "no listening copy is ever written down on the laptop")
     green_room.shop_listen = real_listen
-chk(client.get(f"/api/gr/shop/listen?pull={pull['id']}&track=99999").status_code == 403
-    and client.get(f"/api/gr/shop/listen?track={first['id']}").status_code == 400, "outside a crate nothing plays")
+chk(client.post("/api/gr/shop/play", json={"kind": "pull", "ctx": pull["id"], "track": 99999}).status_code == 403
+    and client.post("/api/gr/shop/play", json={"kind": "pull", "track": first["id"]}).status_code == 400
+    and client.get(f"/api/gr/shop/listen?pull={pull['id']}&track={first['id']}").status_code == 410,
+    "outside a crate nothing plays; the old way of asking is gone")
 
 # ─── note it for later ───
 chk(client.post("/api/gr/shop/wish", json={"record": first}).status_code == 400
@@ -172,11 +182,17 @@ chk(J(client.get("/api/gr/shop/news")) == {"answers": 1}, "the top bar hears the
 ans = J(client.get("/api/gr/shop/counter/mine"))["questions"][0]["answer"]
 chk(ans["record"]["id"] == second["id"] and ans["by"]["name"] == "Brendan" and ans["text"] == "it never hurries", "the answer arrives with its record and who gave it")
 if gr_shop._ffmpeg():
-    chk(client.get(f"/api/gr/shop/listen?q={qid}&track={second['id']}").status_code == 200, "the answer can be heard")
+    r = client.post("/api/gr/shop/play", json={"kind": "q", "ctx": qid, "track": second["id"]})
+    if second["id"] in [it["id"] for it in pull["items"][1:5]]:       # (heard already, in the crate above)
+        chk(r.status_code == 403 and J(r)["heard"], "an answer already heard in a crate isn't played again: one play, wherever it was")
+    else:
+        chk(r.status_code == 200, "the answer can be heard")
 client.post(f"/api/gr/shop/counter/{qid}/seen")
 chk(J(client.get("/api/gr/shop/news")) == {"answers": 0}, "looked at, it is no longer news")
 chk(J(client.post(f"/api/gr/shop/counter/{qid}/settle", json={"choice": "basket"})) == {"settled": "basket"}
-    and client.get(f"/api/gr/shop/listen?q={qid}&track={second['id']}").status_code == 403, "settled, it stops playing (the copy in memory is put down too)")
+    and client.post("/api/gr/shop/play", json={"kind": "q", "ctx": qid, "track": second["id"]}).status_code == 403
+    and not [v for v in record_shop._plays.values() if v["key"][0] == "q" and v["key"][1] == qid],
+    "settled, it doesn't play (and any play of it is put down)")
 chk(client.post(f"/api/gr/shop/counter/{qid}/dance").status_code == 404, "the counter does only what it does")
 requests.post(SERVER + "/api/shop/counter/ask", headers=OH, json={"text": "what is the best thing on Moss?"})
 t = J(client.post("/api/gr/shop/counter/take"))["question"]
@@ -186,13 +202,16 @@ chk(t["asker"]["name"] == "Brendan" and len(found) == 1 and r.status_code == 200
 
 # ─── blind, through the app ───
 b = J(client.post("/api/gr/shop/blind/next"))["blind"]
-chk(set(b) == {"id", "duration_s"}, "a blind record comes with no name")
+chk(set(b) == {"id", "duration_s", "heard"} and not b["heard"], "a blind record comes with no name, not heard yet")
 if gr_shop._ffmpeg():
-    chk(client.get(f"/api/gr/shop/listen?blind={b['id']}").status_code == 200, "it plays by its turn alone")
+    r = client.post("/api/gr/shop/play", json={"kind": "blind", "ctx": b["id"]})
+    chk(r.status_code == 200 and client.get(J(r)["url"]).status_code == 200, "it plays by its turn alone")
+    chk(client.post("/api/gr/shop/play", json={"kind": "blind", "ctx": b["id"]}).status_code == 403, "once")
 d = J(client.post(f"/api/gr/shop/blind/{b['id']}/decide", json={"choice": "note"}))
 chk(d["choice"] == "note" and d["record"]["title"], "decided, it is turned over")
 b2 = J(client.post("/api/gr/shop/blind/next"))["blind"]
-chk(b2["id"] != b["id"] and not [k for k in record_shop._listening if k[0] == "blind" and k[1] == b["id"]], "the next one comes; the last one's copy is put down")
+chk(b2["id"] != b["id"] and not [v for v in record_shop._plays.values() if v["key"][0] == "blind" and v["key"][1] == b["id"]],
+    "the next one comes; the last one's play is put down")
 
 # ─── a seller's crates, through the app ───
 chk(J(client.get("/api/gr/shop/my/crates")) == {"crates": [], "can_make": False, "max": 25}
@@ -208,12 +227,12 @@ real_get, real_post = green_room._get, green_room._post
 green_room._get = lambda *a, **k: Old()
 green_room._post = lambda *a, **k: Old()
 record_shop._news["at"] = 0.0
-record_shop._listening.clear()          # (a copy already in memory would still play: the crate's order is random, so which three are held is too)
+record_shop._plays.clear()
 r = client.get("/api/gr/shop")
 chk(r.status_code == 502 and J(r).get("away") and "needs one restart" in J(r)["error"] and J(r)["wish"]["max"] == 100,
     "an older server: the shop says it needs one restart, and the wishlist still answers")
 chk(client.post("/api/gr/shop/pull", json={}).status_code == 502 and J(client.get("/api/gr/shop/news")) == {"answers": 0}
-    and client.get(f"/api/gr/shop/listen?pull=1&track={IDS[7]}").status_code == 403, "…and nothing else falls over")
+    and client.post("/api/gr/shop/play", json={"kind": "pull", "ctx": 1, "track": IDS[7]}).status_code == 403, "…and nothing else falls over")
 green_room._get, green_room._post = real_get, real_post
 
 srv.shutdown()

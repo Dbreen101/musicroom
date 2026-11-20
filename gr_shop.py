@@ -146,6 +146,15 @@ def ensure(conn):
                 created_at TEXT NOT NULL, decided_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_gr_blind_who ON gr_blind(account_id, day);
+            -- one play (David, 2026-11-20: "whole records but only one play. If they want to hear
+            -- it again they have to buy or borrow it"): who has heard which record in the shop
+            CREATE TABLE IF NOT EXISTS gr_heard(
+                account_id INTEGER NOT NULL REFERENCES gr_accounts(id),
+                track_id INTEGER NOT NULL REFERENCES gr_tracks(id),
+                via TEXT,                               -- pull | q | blind
+                at TEXT NOT NULL,
+                PRIMARY KEY (account_id, track_id)
+            );
             """
         )
         cols = {r[1] for r in conn.execute("PRAGMA table_info(gr_tracks)")}
@@ -253,6 +262,7 @@ def _cards(conn, acct, ids):
     this_month = {r["track_id"] for r in conn.execute(
         "SELECT track_id FROM gr_borrows WHERE account_id=? AND month=?", (aid, S._month()))}
     credit = S._credit_cents(conn, acct)
+    heard = heard_ids(conn, aid, list(rows))
     out = []
     for i in ids:
         t = rows.get(i)
@@ -273,6 +283,7 @@ def _cards(conn, acct, ids):
             "borrow_id": held.get(t["id"]),
             "purchased": t["id"] in bought,
             "mine": t["owner_account_id"] == aid,
+            "heard": t["id"] in heard,
         })
     return out
 
@@ -610,6 +621,42 @@ def make_listen_copies():
     return {"listening_copies": made, "could_not": failed}
 
 
+# ---------- one play ----------
+# A record for sale plays ONCE for each person, whole, from inside a crate, the
+# counter or blind. Asking for its listening copy IS the play: the server marks it
+# heard as it hands the copy over, and never hands it to that person again. The
+# app holds the copy only while that one play lasts (record_shop.py). To hear it
+# again: borrow it or buy it.
+HEARD_WORDS = "You've heard this one. To hear it again, borrow it or buy it."
+
+
+def heard_ids(conn, aid, ids=None):
+    if ids is not None:
+        ids = [int(i) for i in ids]
+        if not ids:
+            return set()
+        q = ",".join("?" * len(ids))
+        return {r[0] for r in conn.execute(f"SELECT track_id FROM gr_heard WHERE account_id=? AND track_id IN ({q})",
+                                           [aid] + ids)}
+    return {r[0] for r in conn.execute("SELECT track_id FROM gr_heard WHERE account_id=?", (aid,))}
+
+
+def _first_play(conn, acct, track, via):
+    """None if this is the person's one play of it (and it is now marked heard); else
+    the refusal. Someone who has borrowed or bought it hears it in their own room."""
+    aid, tid = acct["id"], track["id"]
+    if conn.execute("SELECT 1 FROM gr_heard WHERE account_id=? AND track_id=?", (aid, tid)).fetchone():
+        return no_json(HEARD_WORDS, 403, heard=True)
+    conn.execute("INSERT OR IGNORE INTO gr_heard(account_id, track_id, via, at) VALUES(?,?,?,?)", (aid, tid, via, S._now()))
+    conn.commit()
+    S._event(conn, aid, "shop_listen", {"track_id": tid, "via": via, "owner": track["owner_account_id"]})
+    return None
+
+
+def no_json(words, code=400, **more):
+    return jsonify(dict({"error": words}, **more)), code
+
+
 def _may_listen(conn, acct, tid, args):
     """None when this person may hear this record now; else the reason not."""
     aid, today = acct["id"], _today()
@@ -799,11 +846,9 @@ def register(app, server):
             track = conn.execute("SELECT * FROM gr_tracks WHERE id=?", (tid,)).fetchone()
             if not track or (track["status"] or "live") != "live":
                 return no("that record isn't in the shop now", 404)
-            rng = request.headers.get("Range") or ""
-            if not rng or rng.startswith("bytes=0-"):
-                via = next((k for k in ("pull", "q", "blind") if request.args.get(k)), "")
-                S._event(conn, acct["id"], "shop_listen", {"track_id": tid, "via": via,
-                                                            "owner": track["owner_account_id"]})
+            refused = _first_play(conn, acct, track, next((k for k in ("pull", "q") if request.args.get(k)), ""))
+            if refused:
+                return refused
         path, mime = listen_copy(track)
         if not path:
             return no(mime, 503)
@@ -1118,7 +1163,8 @@ def register(app, server):
             if not row:
                 if counts(conn, acct)["blind"] <= 0:
                     return no(f"That's your {BLIND_PER_DAY} for today. More tomorrow.", 403, limit=True)
-                pool = [r["id"] for r in _pool(conn, acct)]
+                heard = heard_ids(conn, aid)
+                pool = [r["id"] for r in _pool(conn, acct) if r["id"] not in heard]       # (a record heard can't play again)
                 had = {r[0] for r in conn.execute("SELECT track_id FROM gr_blind WHERE account_id=?", (aid,))}
                 had_today = {r[0] for r in conn.execute(
                     "SELECT track_id FROM gr_blind WHERE account_id=? AND day=?", (aid, today))}
@@ -1130,8 +1176,10 @@ def register(app, server):
                 conn.commit()
                 row = conn.execute("SELECT * FROM gr_blind WHERE id=?", (bid,)).fetchone()
             dur = conn.execute("SELECT duration_s FROM gr_tracks WHERE id=?", (row["track_id"],)).fetchone()
+            was_heard = bool(conn.execute("SELECT 1 FROM gr_heard WHERE account_id=? AND track_id=?",
+                                          (aid, row["track_id"])).fetchone())
             # nothing here says what it is: the record's own number is not sent either
-            return jsonify({"blind": {"id": row["id"], "duration_s": dur["duration_s"] if dur else None},
+            return jsonify({"blind": {"id": row["id"], "duration_s": dur["duration_s"] if dur else None, "heard": was_heard},
                             "left": counts(conn, acct)})
         return signed_in(go)
 
@@ -1153,10 +1201,9 @@ def register(app, server):
             track = conn.execute("SELECT * FROM gr_tracks WHERE id=?", (row["track_id"],)).fetchone()
             if not track or (track["status"] or "live") != "live":
                 return no("that record has left the shop", 404)
-            rng = request.headers.get("Range") or ""
-            if not rng or rng.startswith("bytes=0-"):
-                S._event(conn, acct["id"], "shop_listen", {"track_id": track["id"], "via": "blind",
-                                                            "owner": track["owner_account_id"]})
+            refused = _first_play(conn, acct, track, "blind")
+            if refused:
+                return refused
         path, mime = listen_copy(track)
         if not path:
             return no(mime, 503)

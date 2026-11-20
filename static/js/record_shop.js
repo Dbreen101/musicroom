@@ -58,8 +58,19 @@ const REC = new Map();              // every record painted, by its number
 // One player for the whole shop, in the page: it stops when you move to the
 // next record, leave the crate, or leave the shop. Its loudness follows the
 // deck's dial, and starting it quiets the deck.
+// ONE PLAY (David, 2026-11-20: "whole records but only one play. If they want to
+// hear it again they have to buy or borrow it"): pressing Listen starts the one
+// play of that record — the whole of it, paused and carried on and moved through
+// as you like — and once it ends, or you move on, it is heard. The rooms server
+// keeps count (gr_shop.py); the app holds the sound only while the play lasts.
 const audio = new Audio(); audio.preload = 'none';
-let playing = null;                 // { key, url, state: loading | playing | paused | error, err }
+let playing = null;                 // { key, spec, play, state: loading | playing | paused | error, err }
+const heardTracks = new Set(), heardBlind = new Set();
+const HEARD_LINE = 'You’ve heard this one. To hear it again, borrow it or buy it.';
+const ONE_PLAY = 'Each record plays once here — all of it, if you like.';
+function isHeard(spec, r) { return spec.kind === 'blind' ? heardBlind.has(+spec.ctx) || !!(B && B.heard && +spec.ctx === B.id) : heardTracks.has(+spec.track) || !!(r && r.heard); }
+function markHeard(spec) { if (spec.kind === 'blind') heardBlind.add(+spec.ctx); else heardTracks.add(+spec.track); }
+function endPlay(ticket) { if (ticket) fetch('/api/gr/shop/play/' + encodeURIComponent(ticket) + '/end', { method: 'POST' }).catch(() => {}); }
 
 function deckState() { try { return (window.Seinnteoir && Seinnteoir.getState && Seinnteoir.getState()) || null; } catch (_) { return null; } }
 function deckVolume() { const st = deckState(); return st && typeof st.volume === 'number' ? Math.max(0, Math.min(1, st.volume)) : null; }
@@ -75,22 +86,31 @@ function stop() {
     try { audio.pause(); } catch (_) {}
     audio.removeAttribute('src');
     try { audio.load(); } catch (_) {}
+    if (playing && playing.play) { endPlay(playing.play); markHeard(playing.spec); }      // moving on ends the one play
     playing = null; paintListen();
 }
-async function listen(key, url) {
-    if (playing && playing.key === key && playing.state !== 'error') {      // the same record: pause it, or carry on
+async function listen(key, spec) {
+    if (playing && playing.key === key && playing.play && playing.state !== 'error') {   // the same play: pause it, or carry on
         if (audio.paused) audio.play().catch(() => {}); else audio.pause();
         return;
     }
+    if (isHeard(spec)) { paintListen(); return; }
     stop();
-    const p = playing = { key, url, state: 'loading' };
+    const p = playing = { key, spec, state: 'loading' };
     paintListen();
     quietDeck();
     let v = deckVolume();
     if (v == null) { try { v = (await (await fetch('/api/seinnteoir/state', { cache: 'no-store' })).json()).volume; } catch (_) { v = null; } }
-    if (playing !== p) return;
+    const r = await call('/api/gr/shop/play', 'POST', spec);
+    if (playing !== p) { if (r.ok) { endPlay(r.d.play); markHeard(spec); } paintListen(); return; }
+    if (!r.ok) {
+        p.state = 'error'; p.err = r.d.heard ? HEARD_LINE : (r.d.error ? r.d.error.charAt(0).toUpperCase() + r.d.error.slice(1).replace(/\.?$/, '.') : 'That record can’t be played right now.');
+        if (r.d.heard) { markHeard(spec); playing = null; }
+        paintListen(); return;
+    }
+    p.play = r.d.play;
     audio.volume = typeof v === 'number' ? Math.max(0, Math.min(1, v)) : .8;
-    audio.src = url;
+    audio.src = r.d.url;
     audio.play().catch(() => {});                                            // (a refusal arrives as the 'error' below)
 }
 audio.addEventListener('playing', () => { if (playing) { playing.state = 'playing'; paintListen(); } });
@@ -98,33 +118,42 @@ audio.addEventListener('pause', () => { if (playing && playing.state !== 'error'
 audio.addEventListener('waiting', () => { if (playing && playing.state === 'playing') { playing.state = 'loading'; paintListen(); } });
 audio.addEventListener('timeupdate', paintTime);
 audio.addEventListener('durationchange', paintTime);
-audio.addEventListener('error', async () => {
-    const p = playing; if (!p) return;
-    p.state = 'error'; p.err = 'That record can’t be played right now.';
-    try {                                                                    // the player doesn't say why; the shop does
-        const r = await fetch(p.url, { headers: { Range: 'bytes=0-0' } });
-        if (!r.ok) { const d = await r.json().catch(() => ({})); if (d.error) p.err = d.error.charAt(0).toUpperCase() + d.error.slice(1) + '.'; }
-    } catch (_) {}
-    if (playing === p) paintListen();
+audio.addEventListener('ended', () => { if (playing && playing.play) stop(); });   // the whole record: heard
+audio.addEventListener('error', () => {
+    const p = playing; if (!p || !p.play || !audio.getAttribute('src')) return;
+    p.state = 'error'; p.err = 'That play has ended. To hear it again, borrow it or buy it.';
+    endPlay(p.play); markHeard(p.spec); p.play = null;
+    paintListen();
 });
 
-function listenRow(key, url, total) {
+function listenRow(key, spec, total, r) {
     const off = S && S.listening === false;
-    return `<div class="rs-listen" data-listen="${esc(key)}" data-url="${esc(url)}" data-total="${Number(total) || 0}">
+    if (r && (r.purchased || r.borrow_id)) return `<div class="rs-listen rs-listen--yours"><span class="rs-state">It’s in your room — play it there</span></div>`;
+    return `<div class="rs-listen" data-listen="${esc(key)}" data-kind="${esc(spec.kind)}" data-ctx="${+spec.ctx || 0}" data-track="${+spec.track || 0}" data-total="${Number(total) || 0}">
         <button type="button" class="rs-btn rs-btn--primary rs-play" data-act="listen"${off ? ' disabled' : ''}>Listen</button>
         <div class="rs-seek" data-act="seek" title="Move through the record"><i></i></div>
         <span class="rs-time">0:00 / ${clock(total)}</span>
       </div><div class="rs-listenmsg" data-listenmsg="${esc(key)}">${off ? 'The shop can’t play records on this server yet.' : ''}</div>`;
 }
+function specOf(row) { return { kind: row.dataset.kind, ctx: +row.dataset.ctx || 0, track: +row.dataset.track || 0 }; }
 function paintListen() {
     if (!host) return;
     host.querySelectorAll('.rs-listen').forEach(row => {
         const mine = playing && playing.key === row.dataset.listen, st = mine ? playing.state : 'idle';
+        const spec = specOf(row), heard = !mine && isHeard(spec, spec.kind !== 'blind' ? REC.get(spec.track) : null);
         const b = row.querySelector('.rs-play');
-        if (b) b.textContent = st === 'loading' ? 'Fetching…' : st === 'playing' ? 'Pause' : st === 'paused' ? 'Carry on' : 'Listen';
+        if (b) {
+            b.textContent = heard ? 'Heard' : st === 'loading' ? 'Fetching…' : st === 'playing' ? 'Pause' : st === 'paused' ? 'Carry on' : 'Listen';
+            b.disabled = heard || (S && S.listening === false);
+            b.title = heard ? HEARD_LINE : ONE_PLAY;
+        }
         row.classList.toggle('on', !!mine);
+        row.classList.toggle('is-heard', heard);
         const m = host.querySelector(`[data-listenmsg="${CSS.escape(row.dataset.listen)}"]`);
-        if (m && !(S && S.listening === false)) m.textContent = mine && st === 'error' ? playing.err : '';
+        if (m && !(S && S.listening === false)) {
+            m.textContent = mine && st === 'error' ? playing.err : heard ? HEARD_LINE : (!mine ? ONE_PLAY : '');
+            m.classList.toggle('rs-listenmsg--quiet', !heard && !(mine && st === 'error'));
+        }
         if (!mine) { const i = row.querySelector('.rs-seek i'); if (i) i.style.width = '0'; const t = row.querySelector('.rs-time'); if (t) t.textContent = '0:00 / ' + clock(+row.dataset.total); }
     });
     paintTime();
@@ -291,7 +320,7 @@ function crateView() {
           <div class="rs-title">${esc(r.title || 'Untitled')}</div>
           <div class="rs-artist">${esc(r.artist || '')}</div>
           ${said}
-          ${listenRow('pull:' + crate.id + ':' + r.id, `/api/gr/shop/listen?pull=${crate.id}&track=${r.id}`, r.duration_s)}
+          ${listenRow('pull:' + crate.id + ':' + r.id, { kind: 'pull', ctx: crate.id, track: r.id }, r.duration_s, r)}
           ${actsFor(r)}
           ${facts(r)}
         </div>
@@ -312,7 +341,7 @@ function qCard(q) {
             <div class="rs-ans__t">${esc(r.title || 'Untitled')}</div>
             <div class="rs-ans__a">${esc(r.artist || '')}${r.label ? ' · ' + esc(r.label) : ''}${r.year ? ' · ' + r.year : ''}</div>
             <div class="rs-said"><p>${esc(a.text)}</p><span>${esc(a.by.name || '')}</span></div>
-            ${a.settled ? '' : (a.can_listen ? listenRow('q:' + q.id + ':' + r.id, `/api/gr/shop/listen?q=${q.id}&track=${r.id}`, r.duration_s) : '')
+            ${a.settled ? '' : (a.can_listen ? listenRow('q:' + q.id + ':' + r.id, { kind: 'q', ctx: q.id, track: r.id }, r.duration_s, r) : '')
                 + `<div class="rs-acts" data-q="${q.id}">
                  ${r.purchased ? '<span class="rs-state">Yours already</span>' : (r.borrow_id ? '<span class="rs-state">Borrowed · in your room</span>'
                     : `<button type="button" class="rs-btn" data-act="settle" data-choice="basket" data-mode="borrow" data-q="${q.id}" data-id="${r.id}">Borrow</button>`)
@@ -384,14 +413,14 @@ function blindView() {
         <div class="rs-bar"><button type="button" class="rs-btn rs-btn--primary" data-act="blind-next"${L ? '' : ' disabled'}>Play one</button></div>
         <div class="rs-msg" id="rs-blindmsg">${esc(note || (L ? '' : `That’s your ${of} for today. More tomorrow.`))}</div>
       </section>`;
-    const key = 'blind:' + B.id, url = `/api/gr/shop/listen?blind=${B.id}`, r = B.record;
+    const key = 'blind:' + B.id, spec = { kind: 'blind', ctx: B.id }, r = B.record;
     if (!r) return `<div class="rs-kicker">Blind <span>${leftLine(L, of)}</span></div>
       <div class="rs-blind" style="margin-top:18px">
         <div class="rs-left"><div class="rs-stack"><div class="rs-sleeve rs-sleeve--blind"><span>No name<br>No cover</span></div></div></div>
         <div class="rs-right">
           <div class="rs-title">What is this one?</div>
           <div class="rs-artist">Listen first</div>
-          ${listenRow(key, url, B.duration_s)}
+          ${listenRow(key, spec, B.duration_s)}
           <div class="rs-acts">
             <button type="button" class="rs-btn" data-act="blind-decide" data-choice="basket">Put it in my basket</button>
             <button type="button" class="rs-btn" data-act="blind-decide" data-choice="note">Note it</button>
@@ -410,7 +439,7 @@ function blindView() {
           <div class="rs-kicker"><span>${did}</span></div>
           <div class="rs-title" style="margin-top:10px">${esc(r.title || 'Untitled')}</div>
           <div class="rs-artist">${esc(r.artist || '')}</div>
-          ${listenRow(key, url, r.duration_s)}
+          ${listenRow(key, spec, r.duration_s)}
           ${B.choice === 'basket' ? `<div class="rs-acts">
               <button type="button" class="rs-btn${b === 'borrow' ? ' on' : ''}" data-act="basket" data-mode="borrow" data-id="${r.id}">${b === 'borrow' ? 'In basket · to borrow' : 'Borrow instead'}</button>
               <button type="button" class="rs-btn${b === 'buy' ? ' on' : ''}" data-act="basket" data-mode="buy" data-id="${r.id}">${b === 'buy' ? 'In basket · to buy' : 'Buy instead · ' + euro(r.buy_now_cents != null ? r.buy_now_cents : r.price_cents)}</button></div>` : ''}
@@ -488,7 +517,7 @@ const ACTS = {
     prev: () => step(-1),
     next: () => step(1),
     jump: (t) => { stop(); idx = +t.dataset.i || 0; crateRemember(); paint(); },
-    listen: (t) => { const row = t.closest('.rs-listen'); if (row) listen(row.dataset.listen, row.dataset.url); },
+    listen: (t) => { const row = t.closest('.rs-listen'); if (row && row.dataset.kind) listen(row.dataset.listen, specOf(row)); },
     seek: (t, e) => {
         const row = t.closest('.rs-listen'); if (!row || !playing || playing.key !== row.dataset.listen) return;
         const box = t.getBoundingClientRect(), total = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
@@ -545,9 +574,9 @@ const ACTS = {
         t.disabled = true; stop(); say('');
         const r = await call('/api/gr/shop/blind/next', 'POST');
         if (!r.ok) { say(r.d.error || 'Nothing could be played just now.'); if (r.d.limit) S.left.blind = 0; B = null; return paint(); }
-        S.left = r.d.left; B = { id: r.d.blind.id, duration_s: r.d.blind.duration_s };
+        S.left = r.d.left; B = { id: r.d.blind.id, duration_s: r.d.blind.duration_s, heard: !!r.d.blind.heard };
         paint();
-        listen('blind:' + B.id, `/api/gr/shop/listen?blind=${B.id}`);         // the press that asked for it starts it
+        if (!B.heard) listen('blind:' + B.id, { kind: 'blind', ctx: B.id });   // the press that asked for it starts it
     },
     'blind-decide': async (t) => {
         if (!B || B.record) return;
@@ -635,7 +664,7 @@ function onKey(e) {
     }
     if (e.key === ' ' && e.target === document.body) {                        // space: the record in front of you
         const row = host.querySelector('.rs-listen'); const b = row && row.querySelector('.rs-play');
-        if (b && !b.disabled && (tab !== 'counter')) { e.preventDefault(); listen(row.dataset.listen, row.dataset.url); }
+        if (b && !b.disabled && (tab !== 'counter')) { e.preventDefault(); listen(row.dataset.listen, specOf(row)); }
     }
 }
 

@@ -147,8 +147,16 @@ if ff:
     import mutagen
     tags = mutagen.File(str(copy), easy=True).tags
     chk(copy.exists() and not (tags or {}).get("title"), "what plays is the shop's listening copy, with no name written in it")
+    # one play (David, 2026-11-20): the whole record, once; asked again — even for a piece of it — it is refused
     r = client.get(f"/api/shop/listen/{ids1[0]}?pull={p1['id']}", headers=dict(hdr(tok["a"]), Range="bytes=10-19"))
-    chk(r.status_code == 206 and len(r.data) == 10, "it can be asked for in pieces (for seeking)")
+    chk(r.status_code == 403 and r.get_json().get("heard") and "borrow" in r.get_json()["error"],
+        "a record plays once: asked for again, even a piece of it, it is refused, with the way to hear it again")
+    pulled = get(tok["a"], f"/api/shop/pulls/{p1['id']}").get_json()["pull"]["items"]
+    chk(next(i for i in pulled if i["id"] == ids1[0])["heard"] and not next(i for i in pulled if i["id"] == ids1[1])["heard"],
+        "the crate says which of its records you have heard")
+    with db() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM gr_heard WHERE track_id=?", (ids1[0],)).fetchone()[0]
+    chk(n == 1, "heard is kept for that person and that record only")
     chk(gr_shop.make_listen_copies()["could_not"] == 0, "every record's listening copy can be made ahead of time")
 chk(get(tok["a"], f"/api/shop/listen/{ids2[0]}?pull={p1['id']}").status_code == 403, "a record that isn't in that crate does not play")
 chk(get(tok["b"], f"/api/shop/listen/{ids1[0]}?pull={p1['id']}").status_code == 403, "nor does my crate play for someone else")
@@ -306,12 +314,20 @@ chk(post(tok["a"], "/api/shop/counter/take").get_json()["question"]["id"] in (qs
 # ─── blind ───
 gr_shop.BLIND_PER_DAY = 3
 b1 = post(tok["a"], "/api/shop/blind/next").get_json()
-chk(set(b1["blind"]) == {"id", "duration_s"} and b1["left"]["blind"] == 2, "a blind record arrives with no name, no cover and no number of its own")
+chk(set(b1["blind"]) == {"id", "duration_s", "heard"} and not b1["blind"]["heard"] and b1["left"]["blind"] == 2,
+    "a blind record arrives with no name, no cover and no number of its own — and is one you haven't heard")
+with db() as conn:
+    bt1 = conn.execute("SELECT track_id FROM gr_blind WHERE id=?", (b1["blind"]["id"],)).fetchone()[0]
+    heard_a = {r[0] for r in conn.execute("SELECT track_id FROM gr_heard WHERE account_id=(SELECT id FROM gr_accounts WHERE name='Aoife')")}
+chk(not heard_a or bt1 not in heard_a, "blind never hands you a record you have already heard")
 chk(post(tok["a"], "/api/shop/blind/next").get_json()["blind"]["id"] == b1["blind"]["id"], "undecided, the same one comes back: nothing is used up")
 if ff:
     r = get(tok["a"], f"/api/shop/blind/{b1['blind']['id']}/listen")
     chk(r.status_code == 200 and r.mimetype == "audio/mpeg" and get(tok["b"], f"/api/shop/blind/{b1['blind']['id']}/listen").status_code == 403,
         "it plays for the person it is in front of, and nobody else")
+    r = get(tok["a"], f"/api/shop/blind/{b1['blind']['id']}/listen")
+    chk(r.status_code == 403 and r.get_json().get("heard") and post(tok["a"], "/api/shop/blind/next").get_json()["blind"]["heard"],
+        "blind plays once too; brought back undecided, it says it has been heard")
 chk(post(tok["a"], f"/api/shop/blind/{b1['blind']['id']}/decide", {"choice": "keep"}).status_code == 400, "the choice is basket, note or pass")
 d = post(tok["a"], f"/api/shop/blind/{b1['blind']['id']}/decide", {"choice": "pass"}).get_json()
 chk(d["choice"] == "pass" and d["record"]["id"] in ALL and d["record"]["title"], "decided, it is turned over")
