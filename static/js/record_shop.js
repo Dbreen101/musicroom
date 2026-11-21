@@ -70,7 +70,7 @@ let HEARD_LINE = 'You’ve heard this one. To hear it again, borrow it or buy it
 // the credits trial (gr_sim; sim_shop.js): bring home / buy with credits instead of the basket
 const simOn = () => !!(S && S.sim && S.sim.on && window.SimShop);
 const isSim = r => !!(simOn() && r && r.sim);
-const ONE_PLAY = 'Each record plays once here — all of it, if you like.';
+const ONE_PLAY = 'Plays once.';
 function isHeard(spec, r) { return spec.kind === 'blind' ? heardBlind.has(+spec.ctx) || !!(B && B.heard && +spec.ctx === B.id) : heardTracks.has(+spec.track) || !!(r && r.heard); }
 function markHeard(spec) { if (spec.kind === 'blind') heardBlind.add(+spec.ctx); else heardTracks.add(+spec.track); }
 function endPlay(ticket) { if (ticket) fetch('/api/gr/shop/play/' + encodeURIComponent(ticket) + '/end', { method: 'POST' }).catch(() => {}); }
@@ -140,7 +140,7 @@ audio.addEventListener('durationchange', paintTime);
 audio.addEventListener('ended', () => { if (playing && playing.play) stop(); });   // the whole record: heard
 audio.addEventListener('error', () => {
     const p = playing; if (!p || !p.play || !audio.getAttribute('src')) return;
-    p.state = 'error'; p.err = 'That play has ended. To hear it again, borrow it or buy it.';
+    p.state = 'error'; p.err = 'That play has ended. ' + HEARD_LINE.replace(/^.*?\. /, '');
     endPlay(p.play); markHeard(p.spec); p.play = null;
     paintListen();
 });
@@ -295,7 +295,6 @@ function cratesHome() {
       <section class="rs-sec">
         <div class="rs-kicker">Crates <span>${leftLine(L, S.limits.crates)}</span></div>
         <h2 class="rs-h">Pull a crate</h2>
-        <p class="rs-p">Up to ${S.limits.crate} records from the shop, to go through one at a time. Take one from anywhere, or say what you are after.</p>
         ${!S.records ? `<p class="rs-msg">There are no records in the shop for you yet.</p>` : `
         <div class="rs-ask">
           <div class="rs-askrow"><span class="rs-k">From</span><div class="rs-chips"><button type="button" class="rs-chip${any ? ' on' : ''}" data-ask="any" aria-pressed="${any}">Anywhere</button></div></div>
@@ -322,7 +321,7 @@ function crateView() {
         ((crate.sources || []).length ? ' · with records from ' + crate.sources.map(s => `${esc(s.crate)} (${esc(s.by)})`).join(', ') : '');
     const ticks = !n ? '' : `<div class="rs-ticks" role="group" aria-label="The records in this crate">${items.map((r, i) =>
         `<button type="button" data-act="jump" data-i="${i}" class="${[i === idx ? 'on' : '', seen.has(i) ? 'seen' : '', kept(r) ? 'b' : '', isNoted(r.id) ? 'w' : ''].join(' ').trim()}" title="Record ${i + 1}" aria-label="Record ${i + 1}"></button>`).join('')}</div>
-        <div class="rs-legend"><span><i class="b"></i>${simOn() ? 'brought home or bought' : 'in your basket'}</span><span><i></i>noted</span><span class="rs-legend__r">open until the day ends</span></div>`;
+        <div class="rs-legend"><span><i class="b"></i>${simOn() ? 'brought home or bought' : 'in your basket'}</span><span><i></i>noted</span></div>`;
     const top = `<div class="rs-crate__top">
         <div>
           <button type="button" class="rs-link" data-act="back">← Crates</button>
@@ -396,7 +395,7 @@ function qCard(q) {
 function answerBox() {
     const L = C.left.answers;
     if (!Q) return `<h2 class="rs-h">Answer a question</h2>
-        <p class="rs-p">You are handed the question that has waited longest. Answer it with one record from the shop and a line of why, or skip it. A question only ever gets one answer.</p>
+        <p class="rs-p">One record and a line of why.</p>
         <div class="rs-bar">
           <button type="button" class="rs-btn rs-btn--primary" data-act="take"${L && C.open ? '' : ' disabled'}>Take a question</button>
           <span class="rs-state">${C.open ? C.open + (C.open === 1 ? ' question is' : ' questions are') + ' waiting' : 'No questions are waiting'}</span>
@@ -430,7 +429,6 @@ function counterView() {
         <section class="rs-sec">
           <div class="rs-kicker">Ask the counter <span>${leftLine(L, S.limits.asks)}</span></div>
           <h2 class="rs-h">Ask for a record</h2>
-          <p class="rs-p">Say what you are after in your own words. One person answers, with one record from the shop and a line of why.</p>
           <textarea class="rs-input" id="rs-ask" rows="2" maxlength="280" placeholder="What are you looking for?">${esc(draftAsk)}</textarea>
           <div class="rs-bar"><button type="button" class="rs-btn rs-btn--primary" data-act="ask" id="rs-askgo"${L && draftAsk.trim().length >= 3 ? '' : ' disabled'}>Ask</button></div>
           <div class="rs-msg" id="rs-askmsg">${L ? '' : `That’s your ${S.limits.asks} questions for today. More tomorrow.`}</div>
@@ -450,7 +448,6 @@ function blindView() {
     if (!B) return `<section class="rs-sec">
         <div class="rs-kicker">Blind <span>${leftLine(L, of)}</span></div>
         <h2 class="rs-h">Hear it before you know what it is</h2>
-        <p class="rs-p">A record from the shop plays with no name and no cover. Decide what to do with it. Only then is it turned over.</p>
         <div class="rs-bar"><button type="button" class="rs-btn rs-btn--primary" data-act="blind-next"${L ? '' : ' disabled'}>Play one</button></div>
         <div class="rs-msg" id="rs-blindmsg">${esc(note || (L ? '' : `That’s your ${of} for today. More tomorrow.`))}</div>
       </section>`;

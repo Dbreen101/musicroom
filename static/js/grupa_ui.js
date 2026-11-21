@@ -140,12 +140,13 @@ function pick(anchor, o) {
             sayEl.textContent = bits.join(' · ');
         }
         function draw() {
-            const f = q.value.trim().toLowerCase();
-            const rows = all.filter(g => !f || (g.name || '').toLowerCase().includes(f));
+            const fold = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ø/g, 'o').replace(/ß/g, 'ss').replace(/ł/g, 'l').replace(/[đð]/g, 'd').replace(/æ/g, 'ae').replace(/œ/g, 'oe');      // "roisin" finds Róisín
+            const f = fold(q.value.trim());
+            const rows = all.filter(g => !f || fold(g.name).includes(f));
             list.innerHTML = rows.length ? rows.map(g => `<button type="button" class="gp-pick__row${now.has(g.id) ? ' on' : ''}" role="checkbox" aria-checked="${now.has(g.id)}" data-id="${g.id}">
                     <span class="gp-pick__box" aria-hidden="true"></span><span class="gp-pick__cov">${coverHtml(g)}</span>
                     <span class="gp-pick__n">${esc(g.name)}</span><i>${g.count}</i></button>`).join('')
-                : `<div class="gp-pick__wait">${all.length ? 'No grúpa by that name.' : 'None yet. Make one above.'}</div>`;
+                : `<div class="gp-pick__wait">${all.length ? 'No grúpa by that name.' : 'None yet.'}</div>`;
             placeNear(el, anchor);
         }
         call('/api/grupa' + (o.has ? '?' + o.has : '')).then(d => {
@@ -502,14 +503,14 @@ function mount(host, opts) {
                 <button type="button" class="gp-card__cover" aria-label="${esc(g.name)}">${coverHtml(g)}<span class="gp-card__tick" aria-hidden="true"></span></button>
                 <div class="gp-card__t">${esc(g.name)}</div>
                 <div class="gp-card__s">${g.count} in it${g.is_public ? ' · <span class="gp-pubmark">public</span>' : ''}${g.is_public && g.public_error ? ' · <span class="gp-warn" title="' + esc(g.public_error) + '">not sent yet</span>' : ''}</div>
-            </div>`).join('') : '<div class="gp-empty">None yet. Name one above to begin. A grúpa is a playlist that holds anything: records from your room, tracks and playlists from Spotify or SoundCloud, labels, artists, other music rooms.</div>';
+            </div>`).join('') : '<div class="gp-empty">None yet.</div>';
         drawSelBar();
     }
     function drawSelBar() {
         selBar.hidden = !selecting;
         if (!selecting) return;
         const n = sel.size, all = n === LIST.length && n > 0;
-        selBar.innerHTML = `<span class="gp-selbar__n">${n ? n + ' selected' : 'Choose the ones you mean'}</span>
+        selBar.innerHTML = `<span class="gp-selbar__n">${n} selected</span>
             <button type="button" class="gp-btn gp-btn--small" data-sel="all">${all ? 'Select none' : 'Select all'}</button>
             <span class="gp-home__sp"></span>
             <button type="button" class="gp-btn gp-btn--small" data-sel="public"${n ? '' : ' disabled'}>Make public</button>
@@ -572,7 +573,6 @@ function mount(host, opts) {
         $('[data-home=look]').classList.toggle('gp-btn--primary', lookOpen);
         if (!lookOpen) { lookBox.innerHTML = ''; return; }
         lookBox.innerHTML = `<div class="gp-box__h"><span>The look your grúpaí share</span><button type="button" class="gp-btn gp-btn--small" data-look="done">Done</button></div>
-            <p class="gp-box__p">A grúpa's cover is its name. Choose the typeface and the colour behind it. Any grúpa can be given a look of its own, or a picture, from inside it.</p>
             ${lookControls(LOOK)}`;
         bindLook(lookBox, async patch => {
             try { LOOK = (await call('/api/grupa/look', 'POST', patch)).look; } catch (_) {}
@@ -632,11 +632,11 @@ function mount(host, opts) {
         name.onblur = async () => {
             const v = name.textContent.trim();
             if (!v) { name.textContent = G.name; return; }
-            if (v !== G.name) { await call('/api/grupa/' + gid, 'PATCH', { name: v }); G.name = v; paintCover(); changed(gid); if (opts.onOpen) opts.onOpen(gid, G); }
+            if (v !== G.name) { await call('/api/grupa/' + gid, 'PATCH', { name: v }); G.name = v; paintCover(); mine(() => changed(gid)); if (opts.onOpen) opts.onOpen(gid, G); }
         };
         const desc = $('.gp-desc', pane);
         grow(desc); desc.oninput = () => grow(desc);
-        desc.onblur = async () => { const v = desc.value.trim(); if (v !== (G.description || '')) { await call('/api/grupa/' + gid, 'PATCH', { description: v }); G.description = v; changed(gid); } };
+        desc.onblur = async () => { const v = desc.value.trim(); if (v !== (G.description || '')) { await call('/api/grupa/' + gid, 'PATCH', { description: v }); G.description = v; mine(() => changed(gid)); } };
         $('[data-do=play]', pane).onclick = () => play(null, false);
         $('[data-do=cue]', pane).onclick = () => play(null, true);
         $('[data-do=del]', pane).onclick = async () => {
@@ -680,18 +680,16 @@ function mount(host, opts) {
         let d; try { d = await call(`/api/grupa/${gid}/folder`); } catch (_) { box.hidden = true; return; }
         if (mine !== folderSeq || forGid !== gid || !alive) return;
         const P = d.plan, F = d.folder, out = leftOut(P.left_out || {});
-        if (!P.count && !F) { box.hidden = !ITEMS.length; box.innerHTML = ITEMS.length ? `<div class="gp-folder__k">Folder</div><p class="gp-folder__p">Nothing in this grúpa is a file on this machine, so there is nothing to put in a folder. ${esc(out)}</p>` : ''; return; }
+        if (!P.count && !F) { box.hidden = true; box.innerHTML = ''; return; }
         box.hidden = false;
         let h = `<div class="gp-folder__k">Folder</div>`;
         if (!F) {
-            h += `<p class="gp-folder__p">${many(P.count, 'record')} here ${P.count === 1 ? 'is a file' : 'are files'} on this machine (${hours(P.seconds)}). Put ${P.count === 1 ? 'it' : 'them'} in a folder, in this order, to drag into Ableton, Serato or rekordbox. Nothing is copied or moved.</p>
+            h += `<p class="gp-folder__p">${many(P.count, 'record')} · ${hours(P.seconds)}. Nothing is copied or moved.</p>
                   <div class="gp-folder__bar"><button type="button" class="gp-btn" data-f="make">Make the folder</button></div>`;
         } else {
             const how = F.how || {}, n = F.files;
             const what = how.copy ? `${many(n, 'record')}, in order, as copies${F.bytes ? ' (' + room(F.bytes) + ')' : ''}.`
-                : (how.same && !how.link) ? `${many(n, 'record')}, in order. ${n === 1 ? 'It is your own file' : 'They are your own files'}, listed in this folder as well: nothing was copied or moved, and no room is used.`
-                : (how.link && !how.same) ? `${many(n, 'record')}, in order, as links to your files where they are: nothing was copied or moved.`
-                : `${many(n, 'record')}, in order: ${how.same || 0} ${how.same === 1 ? 'is your own file' : 'are your own files'} listed here as well, ${how.link || 0} ${how.link === 1 ? 'is a link to a file' : 'are links to files'} on another disk. Nothing was copied or moved.`;
+                : `${many(n, 'record')}, in order.`;
             h += `<p class="gp-folder__path" title="${esc(F.folder)}">${esc(F.folder)}</p>
                   <p class="gp-folder__p">${what}${F.broken ? ` ${many(F.broken, 'of them points', 'of them point')} at a file that can’t be reached right now (is its drive plugged in?).` : ''}</p>
                   ${F.stale ? `<p class="gp-folder__p gp-folder__p--now">The grúpa has changed since the folder was made.</p>` : ''}
@@ -763,8 +761,7 @@ function mount(host, opts) {
             ${coverTab === 'text' ? lookControls(mine) : ''}
             ${coverTab === 'item' ? (CHOICES.length
                 ? `<div class="gp-pics">${CHOICES.map(c => `<button type="button" class="gp-pic${picked === c.item ? ' on' : ''}" data-item="${c.item}" title="${esc(c.title)}"><img src="${esc(c.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></button>`).join('')}</div>`
-                : '<p class="gp-box__p">Nothing in this grúpa has a picture yet. Add a record with a cover, or something from Spotify or SoundCloud, and it can be chosen here.</p>') : ''}
-            ${coverTab === 'shared' ? '<p class="gp-box__p">Its name, set in the look all your grúpaí share. That look is changed with “The look”, on the page of all your grúpaí.</p>' : ''}`;
+                : '<p class="gp-box__p">Nothing in it has a picture yet.</p>') : ''}`;
         box.querySelectorAll('[data-c]').forEach(b => { b.onclick = () => {
             const c = b.dataset.c;
             if (c === 'done') { coverOpen = false; drawCoverBox(); return; }
@@ -788,7 +785,7 @@ function mount(host, opts) {
         note.classList.toggle('bad', on && !!G.public_error);
         note.textContent = !on ? '' : G.public_error
             ? G.public_error
-            : 'Others can find this in Explore and in your public room. They see its name, your notes and what is in it, and can play what is on Spotify or SoundCloud. None of your files are sent.';
+            : 'Shown in Explore and in your public room. No files are sent.';
     }
     async function togglePublic() {
         const b = $('[data-do=public]', pane), want = !G.is_public;
@@ -821,7 +818,7 @@ function mount(host, opts) {
         const anyPlay = ITEMS.some(i => i.playable);
         $('[data-do=play]', pane).disabled = !anyPlay; $('[data-do=cue]', pane).disabled = !anyPlay;
         if (sortable) { try { sortable.destroy(); } catch (_) {} sortable = null; }
-        if (!ITEMS.length) { box.innerHTML = '<div class="gp-empty">Nothing in it yet. Paste a link above, type to search, or drag a track in from Spotify.</div>'; return; }
+        if (!ITEMS.length) { box.innerHTML = '<div class="gp-empty">Nothing in it yet.</div>'; return; }
         box.innerHTML = ITEMS.map((it, i) => {
             const title = esc(it.title || 'Untitled');
             const canOpen = !it.gone && (it.kind !== 'label' && it.kind !== 'artist');
@@ -1077,15 +1074,15 @@ function mount(host, opts) {
                 <button class="gp-btn gp-btn--small" data-now="add">Add</button></div>`;
         } else if (SP && !SP.connected && window.MR_GR && !SP.client_id_set) {
             // the trial: a key is given by the Music Room to five people at a time (gr_sim); no set-up page for anyone
-            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify links play here in Spotify's own small player. Playing whole tracks through your own Spotify is open to a few people at a time — the Music Room can add you.</span></div>`;
+            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify plays here in its own small player.</span></div>`;
         } else if (SP && !SP.connected) {
-            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify isn't connected here. Connect it to search Spotify from this line, add what it is playing, and hear whole tracks through your own Spotify.</span>
+            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify isn't connected.</span>
                 <button class="gp-btn gp-btn--small" data-now="signin">${SP.client_id_set ? 'Sign in to Spotify' : 'Set up Spotify'}</button></div>`;
         } else if (SP && SP.needs_reconnect) {
-            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Sign in to Spotify once more, so the deck can play and pause it for you.</span>
+            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify needs a fresh sign-in.</span>
                 <button class="gp-btn gp-btn--small" data-now="signin">Sign in to Spotify</button></div>`;
         } else if (SP && SP.no_premium) {
-            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Spotify only lets Premium accounts be played from another app. Spotify links still play here in its own small player.</span></div>`;
+            html = `<div class="gp-now__row"><span class="gp-now__t gp-now__t--note">Needs Spotify Premium. Links still play in Spotify's small player.</span></div>`;
         }
         if (box._html !== html) { box.innerHTML = html; box._html = html; }
         box._now = now;
@@ -1190,7 +1187,11 @@ function mount(host, opts) {
     }
 
     // something was added from elsewhere (the deck's ＋ key, a record's menu in the room)
-    const onChanged = e => { if (!gid) loadList(); else if (e.detail && e.detail.id === gid) reload(); };
+    // (a change this surface made itself is told to the others, not answered here: rebuilding every
+    //  row after saving the name or description took the cursor out of the note being clicked into)
+    let selfChange = false;
+    function mine(fn) { selfChange = true; try { fn(); } finally { selfChange = false; } }
+    const onChanged = e => { if (selfChange) return; if (!gid) loadList(); else if (e.detail && e.detail.id === gid) reload(); };
     window.addEventListener('grupa-changed', onChanged);
     const onFocus = () => { if (alive && gid && SP && (!SP.connected || SP.needs_reconnect)) spotifyBits(); };
     window.addEventListener('focus', onFocus);

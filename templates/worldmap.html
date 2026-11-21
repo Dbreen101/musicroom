@@ -103,7 +103,7 @@
 
   <div class="map-head">
     <h1>The Map</h1>
-    <p id="map-sub">Your collection, by where it's from.</p>
+    <p id="map-sub"></p>
     <div class="map-head__hint">drag to spin · scroll to zoom · ⌘-drag a box to fly in</div>
   </div>
 
@@ -274,7 +274,7 @@
     document.getElementById('map-loading').style.display = 'none';
     setSub();
     function setSub(){ document.getElementById('map-sub').textContent =
-      `Your collection, by where it's from — ${totals.placed} of ${totals.total} tracks placed.`; }
+      `${totals.placed} of ${totals.total} tracks placed.`; }
 
     // ── filter search → recolour the globe ─────────────────────────────────────
     let _qT=null;

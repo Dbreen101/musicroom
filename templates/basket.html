@@ -18,7 +18,6 @@
     <header class="gr-hero">
         <div class="gr-eyebrow">Basket</div>
         <h1 class="gr-h1">Set aside</h1>
-        <p class="gr-lede">Records you've put by to borrow or buy. Flip any line between the two, then take them all at once.</p>
     </header>
 
     <div id="lines"></div>
@@ -47,7 +46,7 @@ async function load(){
 function render(){
     const box = document.getElementById('lines');
     const co = document.getElementById('checkout');
-    if (!ITEMS.length) { box.innerHTML = '<div class="gr-empty">Nothing set aside yet. Open someone\'s room under <a href="/explore3d?view=rooms">Explore → Music rooms</a>: every record you don\'t own has a <b>+ basket</b> button. Borrow or buy each one from here.</div>'; co.style.display = 'none'; return; }
+    if (!ITEMS.length) { box.innerHTML = '<div class="gr-empty">Nothing set aside yet.</div>'; co.style.display = 'none'; return; }
     box.innerHTML = `<div class="gr-lines">${ITEMS.map(it => `
         <div class="gr-line" data-id="${it.id}">
             ${it.has_art ? `<img class="gr-line__cov" src="/api/gr/art/${it.server_track_id}?v=${it.art_v || 0}" alt="">`

@@ -276,6 +276,10 @@ chk(ans["by"]["name"] == "Brendan" and ans["text"].startswith("it sounds like ra
     and ans["can_listen"] and not ans["seen"] and [q["answered"] for q in mine] == [True, False, False],
     "the answer is the record, the line of why and who gave it")
 if ff:
+    # (Aoife's earlier play was of a RANDOM record from her first crate: one time in forty it was
+    #  this one, her one play was spent, and this check failed — on GitHub's Windows machine, once)
+    with closing(gr_server.db()) as _c:
+        _c.execute("DELETE FROM gr_heard WHERE track_id=?", (tide_ids[3],)); _c.commit()
     chk(get(tok["a"], f"/api/shop/listen/{tide_ids[3]}?q={qs[2]}").status_code == 200
         and get(tok["b"], f"/api/shop/listen/{tide_ids[3]}?q={qs[2]}").status_code == 403
         and get(tok["a"], f"/api/shop/listen/{tide_ids[4]}?q={qs[2]}").status_code == 403, "the asker, and only the asker, can hear the answer")

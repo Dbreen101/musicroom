@@ -247,7 +247,7 @@ def register(app):
         """The sound of one play, in pieces (that is how the page's player seeks)."""
         p = _play_get(ticket)
         if not p:
-            return jsonify({"error": "That play has ended. To hear it again, borrow it or buy it.", "heard": True}), 410
+            return jsonify({"error": "That play has ended.", "heard": True}), 410
         data, mime = p["data"], p["mime"]
         # the page's player asks for it in pieces (that is how it seeks)
         total = len(data)

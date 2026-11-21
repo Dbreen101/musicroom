@@ -148,6 +148,7 @@
         }
 
         .settings-status.visible { opacity: 1; }
+        html.is-gr .gr-hide { display: none !important; }
     </style>
     <link rel="stylesheet" href="/static/css/ui.css">
 </head>
@@ -185,20 +186,13 @@
     <!-- How you use Music Room: local vs external drive -->
     <div class="settings-section">
         <h2>How you use Music Room</h2>
-        <p>Music Room adapts to where your music lives — pick the one that matches you. You can switch
-           any time, and nothing breaks either way.</p>
         <label class="mr-loc" style="display:block; margin:10px 0; cursor:pointer;">
             <input type="radio" name="music-location" value="local" onchange="saveMusicLocation('local')">
-            <strong>On this computer.</strong> Music, library and backups all live here — simplest, no
-            drive needed. You can still mirror everything to a spare drive any time with
-            “Back up everything to a drive” below.
+            <strong>On this computer.</strong>
         </label>
         <label class="mr-loc" style="display:block; margin:10px 0; cursor:pointer;">
             <input type="radio" name="music-location" value="external" onchange="saveMusicLocation('external')">
-            <strong>On an external drive.</strong> Your music lives on a drive, which becomes a portable
-            Music Room: the database is mirrored onto it every launch, so you can plug it into another
-            computer running Music Room and your whole library is there. (It’s carry-your-library, not
-            two-way sync — this computer stays the source of truth.)
+            <strong>On an external drive.</strong>
         </label>
         <div class="settings-hint" id="music-location-hint"></div>
         <div class="settings-status" id="music-location-status">Saved.</div>
@@ -207,41 +201,32 @@
     <!-- Music library folder -->
     <div class="settings-section">
         <h2>Music library folder</h2>
-        <p>The folder where your audio files live — an external drive, a folder on your laptop, anywhere.
-           This pre-fills the <strong>Import</strong> screen so you don't have to type the path each time.
-           Music Room never moves or alters your files; it reads them where they sit.</p>
+        <p>Pre-fills Import. Files are read where they sit.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="music-library-input"
                    placeholder="/Volumes/MY DRIVE/Music   or   ~/Music">
             <button type="button" class="settings-choose" onclick="mrChooseInto('music-library-input','folder')">📁 Choose…</button>
             <button class="settings-save" onclick="saveMusicLibrary()">Save</button>
         </div>
-        <div class="settings-hint">Tip: in Finder, right-click a folder → Hold Option → “Copy as Pathname”, then paste it here.</div>
         <div class="settings-status" id="music-library-status">Saved.</div>
     </div>
 
     <!-- Music Room Library folder (the organise destination) -->
     <div class="settings-section">
         <h2>Music Room Library folder</h2>
-        <p>The one tidy folder Music Room organises everything into —
-           <code>…/Music Room Library/A/Artist/Album/…</code>. When you copy or move on import, this is
-           where files go by default (you can still override per-import). Set it once here and forget it.</p>
+        <p>Where copied or moved files go.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="library-dest-input"
                    placeholder="/Volumes/MY DRIVE/Music Room Library">
             <button type="button" class="settings-choose" onclick="mrChooseInto('library-dest-input','folder')">📁 Choose…</button>
             <button class="settings-save" onclick="saveLibraryDest()">Save</button>
         </div>
-        <div class="settings-hint">Leave blank and Music Room will figure it out from where your files already live.</div>
         <div class="settings-status" id="library-dest-status">Saved.</div>
     </div>
 
     <!-- Data folder (where Music Room keeps everything) -->
     <div class="settings-section">
         <h2>Where Music Room keeps your data</h2>
-        <p>Your library database, artwork, voice notes, moodboard images and ambient sounds all live here.
-           Back this folder up and you've backed up your whole Music Room. (You can't change this — it's chosen
-           automatically per machine — but here's where to find it.)</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="data-folder-display" readonly
                    style="opacity:0.8; font-family:var(--font-mono); font-size:0.8rem;">
@@ -252,8 +237,6 @@
     <!-- Preferred browser -->
     <div class="settings-section">
         <h2>Preferred browser</h2>
-        <p>When you click a magazine, station, article, or any external link in Music Room,
-           it opens here. Leave blank to use the system default.</p>
         <div class="settings-field">
             <select class="settings-input" id="preferred-browser-input">
                 <option value="">System default</option>
@@ -266,16 +249,12 @@
             </select>
             <button class="settings-save" onclick="savePreferredBrowser()">Save</button>
         </div>
-        <div class="settings-hint">Custom app name? Type into Other (you can paste any .app name like <code>DuckDuckGo</code>).</div>
         <div class="settings-status" id="preferred-browser-status">Saved.</div>
     </div>
 
     <!-- Autoplay on track click -->
     <div class="settings-section">
         <h2>Autoplay on click</h2>
-        <p>When you click a track in a place, should it start playing immediately?
-           If off, clicking just opens the track panel — you press ▶ when you're ready.
-           If the Seinnteoir is already playing, it always takes priority and a click never overrides it.</p>
         <div class="settings-field">
             <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" id="autoplay-input" onchange="saveAutoplay()" style="accent-color:var(--accent);width:16px;height:16px;">
@@ -286,7 +265,7 @@
     </div>
 
     <!-- 3D room controls -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>3D room controls</h2>
         <p>How the trackpad moves the camera in the Music Room's cloud views.</p>
         <div class="settings-field" style="display:flex; flex-direction:column; gap:8px;">
@@ -304,9 +283,6 @@
 
     <div class="settings-section">
         <h2>Record typography</h2>
-        <p>By default every record in the room wears a typeface drawn from its own cover — so
-           each one has its own character. Prefer one consistent font across the whole room
-           instead? Turn the per-cover faces off and pick a single typeface here.</p>
         <div class="settings-field">
             <select class="settings-input" id="record-font-input" onchange="saveRecordFont()" style="max-width:360px;">
                 <option value="auto">✦ Each record draws its own face (default)</option>
@@ -351,7 +327,7 @@
     </div>
 
     <!-- Room atmosphere (3D room defaults) -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>Room atmosphere</h2>
         <p>Defaults for the 3D Music Room. <strong>Backdrop dimming</strong> darkens a place's
            background image so record covers stay readable in front of it.
@@ -378,7 +354,7 @@
     </div>
 
     <!-- Audio devices -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>Audio devices</h2>
         <p>Which microphone recordings use (voice notes, set recordings, interludes) and — where the
            system allows it — which output the in-app players speak through. Click "Find devices"
@@ -400,10 +376,6 @@
     <!-- Artwork search behaviour -->
     <div class="settings-section">
         <h2>Artwork search</h2>
-        <p>By default, the batch artwork search skips tracks already attempted and marked
-           "not found" — so the progress bar reflects new finds, not endless retries against
-           the same misses. Enable this if a new source (Spotify, Discogs) has been added
-           and you want to retry the tracks that came up empty before.</p>
         <div class="settings-field">
             <label class="settings-toggle" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" id="artwork-retry-not-found-input"
@@ -418,39 +390,29 @@
     <!-- Discogs token -->
     <div class="settings-section">
         <h2>Discogs API token</h2>
-        <p>Used to look up record labels when MusicBrainz doesn't know one — Discogs has stronger
-           coverage for electronic / vinyl / indie releases. Optional; without it, label lookup still
-           works via MusicBrainz alone. Generate a free personal token at
-           <a href="#" onclick="openExternal('https://www.discogs.com/settings/developers'); return false;">discogs.com/settings/developers</a>
-           — click "Generate new token".</p>
+        <p>Optional. Get a token at <a href="#" onclick="openExternal('https://www.discogs.com/settings/developers'); return false;">discogs.com/settings/developers</a></p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="discogs-token-input"
                    placeholder="Paste your personal token">
             <button class="settings-save" onclick="saveDiscogsToken()">Save</button>
         </div>
-        <div class="settings-hint">Rate limit: ~60 requests/min with a token, ~25/min without.</div>
         <div class="settings-status" id="discogs-token-status">Saved.</div>
     </div>
 
     <!-- Last.fm API key -->
     <div class="settings-section">
         <h2>Last.fm API key</h2>
-        <p>Optional — adds Last.fm's user-tagged top tags to the genre suggestions in the
-           track panel. Get a free key at
-           <a href="#" onclick="openExternal('https://www.last.fm/api/account/create'); return false;">last.fm/api/account/create</a>
-           (any application name is fine; ignore "Application homepage"). Without it, suggestions
-           still work via Discogs, MusicBrainz, Deezer, and iTunes.</p>
+        <p>Optional. Get a key at <a href="#" onclick="openExternal('https://www.last.fm/api/account/create'); return false;">last.fm/api/account/create</a></p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="lastfm-key-input"
                    placeholder="Paste your API key">
             <button class="settings-save" onclick="saveLastfmKey()">Save</button>
         </div>
-        <div class="settings-hint">Last.fm tags are noisy but catch real-world genre language Discogs/MB miss.</div>
         <div class="settings-status" id="lastfm-key-status">Saved.</div>
     </div>
 
     <!-- Pixabay key -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>Pixabay API key</h2>
         <p>For browsing real photographs to use as place moodboards. Get a free key from
            <a href="#" onclick="openExternal('https://pixabay.com/accounts/register/'); return false;">pixabay.com/accounts/register</a>
@@ -468,8 +430,6 @@
     <!-- Account — who you are here, your subscription (play money during the trial) -->
     <div class="settings-section" id="gr-settings">
         <h2>Account</h2>
-        <p>Your account, your subscription, and borrowing and buying from other music rooms. During the
-           trial this runs on play money — nothing real changes hands.</p>
         <div id="gr-set-join">
             <div class="settings-field">
                 <input type="text" class="settings-input" id="gr-set-server" placeholder="Server address, e.g. http://192.168.1.20:5301">
@@ -490,9 +450,7 @@
     <!-- Your own look: CSS of your own, on this laptop only -->
     <div class="settings-section" id="own-look">
         <h2>Your own look</h2>
-        <p>CSS of your own, laid over the whole app on this laptop: colours, type, spacing, what shows and what
-           doesn't. It changes nothing for anyone else. If something goes wrong, open any page with
-           <code>?plain=1</code> on its address to see it without your CSS, and clear the box here.</p>
+        <p>On this laptop only. ⌘⇧0 (Ctrl+Shift+0 on Windows) opens Settings without it.</p>
         <textarea class="settings-input" id="own-css" spellcheck="false" style="width:100%; min-height:180px; font-family:var(--f-mono, monospace); font-size:.8rem;"
                   placeholder="/* for example */&#10;:root { --bg: #f4f1ea; }&#10;.nav { letter-spacing: .02em; }"></textarea>
         <div class="settings-field" style="margin-top:10px;">
@@ -503,7 +461,7 @@
     </div>
 
     <!-- Export directory -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>Export directory</h2>
         <p>Where Rekordbox XML files are saved when you export a set or place. Leave blank to use the default
            (<code>~/Library/rekordbox/rekordbox/MusicRoom/</code>). Point Rekordbox at any XML in this folder via
@@ -519,7 +477,7 @@
     </div>
 
     <!-- Éisteacht keyboard shortcuts -->
-    <div class="settings-section">
+    <div class="settings-section gr-hide">
         <h2>Deep Listening — keyboard shortcuts</h2>
         <p>Keys 1–8 are bound to note categories during an active listening session. Edit the names below.
            Press a key in the Deep Listening panel to instantly tag a note with that category.</p>
@@ -533,8 +491,7 @@
     <!-- Removed-files folder -->
     <div class="settings-section">
         <h2>“Removed from Music Room” folder</h2>
-        <p>When you Remove a track (not delete), its file is moved here and skipped on future imports —
-           a safety net so nothing's lost. Leave blank to keep them in a folder inside your data folder.</p>
+        <p>Removed files are moved here.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="removed-dir-input"
                    placeholder="(default: inside your data folder)">
@@ -547,10 +504,7 @@
     <!-- Backup directory -->
     <div class="settings-section">
         <h2>Backup directory</h2>
-        <p>Where your <strong>database + metadata</strong> (artwork, voice notes, moodboards) gets backed up.
-           Runs automatically on startup if the destination is reachable. <strong>Music files are never copied
-           here</strong> — use “Back up everything to a drive” below for the audio. Leave blank to back up into a
-           <code>backups/</code> folder beside your data.</p>
+        <p>Database and artwork only, not the music files.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="backup-dir-input"
                    placeholder="/Volumes/MY DRIVE/Music Room Backup">
@@ -564,7 +518,6 @@
     <!-- Backup now -->
     <div class="settings-section">
         <h2>Backup now</h2>
-        <p>Back up immediately to the path below. Edit the path to back up to a different location — useful for copying to multiple destinations.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="backup-dest-input" placeholder="/Volumes/…">
             <button class="settings-save" id="backup-btn" onclick="runBackup()">Backup now</button>
@@ -576,10 +529,7 @@
     <!-- Full backup to a drive (database + ALL music) -->
     <div class="settings-section">
         <h2>Back up everything to a drive</h2>
-        <p>Plug in a spare external drive and copy <strong>everything</strong> onto it — the database, all
-           metadata, and every music file in your Music Room Library. Run it whenever you like; repeat runs
-           only copy what changed. The destination must be an external drive (not this laptop), and not the
-           drive your library already lives on.</p>
+        <p>The database and every music file, to an external drive.</p>
         <div class="settings-field">
             <input type="text" class="settings-input" id="full-backup-input" placeholder="/Volumes/BACKUP DRIVE">
             <button type="button" class="settings-choose" onclick="mrChooseInto('full-backup-input','folder')">📁 Choose…</button>
@@ -589,7 +539,7 @@
         <div class="settings-status" id="full-backup-status"></div>
     </div>
 
-    <div class="settings-section" id="telemetry">
+    <div class="settings-section gr-hide" id="telemetry">
         <h2>Anonymous telemetry — off by default</h2>
         <p>Off-device measurement, to design the app and see whether it drives real support to artists.
            It is <b>opt-in and OFF by default</b>, sends only <b>aggregate monthly rollups</b> of a small
@@ -748,7 +698,7 @@ function updateRecordFontPreview() {
         prev.style.fontStyle  = 'italic';
         prev.style.fontSize   = '0.95rem';
         prev.style.opacity    = '0.65';
-        prev.textContent = 'Each record keeps its own face — drawn from its album art.';
+        prev.textContent = '';
     } else {
         prev.style.fontFamily = sel.value;
         prev.style.fontStyle  = 'normal';
@@ -961,7 +911,7 @@ function renderMusicLocationHint(loc, libraryDest) {
             : 'Set your “Music Room Library folder” below to a path on the external drive.';
         h.style.color = onDrive ? 'var(--accent)' : 'var(--oxblood)';
     } else {
-        h.textContent = 'Everything stays on this computer. The database backs up locally each launch.';
+        h.textContent = '';
         h.style.color = 'var(--muted)';
     }
 }
@@ -1156,9 +1106,9 @@ async function grSettingsLoad() {
     if (me && me.sim && me.sim.on) {
         // the credits trial (gr_sim): credits and a room, no wallet and no plans
         lines.push(`<strong>${me.sim.credits}</strong> credits · your room holds <strong>${me.sim.room.count}</strong> of ${me.sim.room.space} brought-home tracks · <a href="/room?shop=1" style="color:var(--accent);">your records from the shop</a>`);
-        lines.push(`Bring a track home: ${me.sim.rules.home_cost} · buy one: ${me.sim.rules.buy_cost} (or the difference, once it is home) · a whole record: ${me.sim.rules.record_share}% of its tracks. A track taken out can come back free after ${me.sim.rules.wait_days} days.`);
+        lines.push(`Bring a track home: ${me.sim.rules.home_cost} · buy one: ${me.sim.rules.buy_cost} (or the difference, once it is home) · a whole record: ${me.sim.rules.record_share}% of its tracks.`);
         lines.push(me.sim.spotify_client_id ? `The Music Room has given this account a Spotify key: <a href="/spotify" style="color:var(--accent);">sign in to Spotify</a> to hear whole tracks through your own Spotify (Premium).`
-                                           : `Records play in Spotify's own small player. Whole tracks through your own Spotify are open to a few people at a time — the Music Room can add you.`);
+                                           : `Records play in Spotify's own small player.`);
     }
     if (me && !(me.sim && me.sim.on)) {
         lines.push(`Wallet <strong>${euro(me.wallet_cents)}</strong> (play money${me.topups_cents ? `, topped up ${euro(me.topups_cents)} so far` : ''})`);
@@ -1174,11 +1124,11 @@ async function grSettingsLoad() {
         }
     }
     if (me) {
-        lines.push(`Your account code: <code>${st.invite_code || '—'}</code> — sign in with it on another device, or here after logging out. Keep it private: it is your password.`);
+        lines.push(`Your account code: <code>${st.invite_code || '—'}</code> Keep it private: it is your password.`);
         const kinds = { artist: 'an artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
         if (me.kind_requested) lines.push(`Your request to be ${kinds[me.kind_requested] || me.kind_requested} is waiting for the Music Room.`);
         if (me.room_hidden) lines.push(`<span style="color:var(--red, #c9412f);">Your public room has been taken down</span>${me.room_hidden_note ? ': ' + escHtml(me.room_hidden_note) : ''}. Change it, then say so with the feedback button.`);
-        if (me.is_master) lines.push(`<a href="/master" style="color:var(--accent);">Open the master page</a> — accounts, records waiting, reports, feedback, the version`);
+        if (me.is_master) lines.push(`<a href="/master" style="color:var(--accent);">Open the master page</a>`);
     }
     try {
         const v = await (await fetch('/api/gr/version')).json();

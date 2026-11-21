@@ -21,6 +21,8 @@ import re
 import uuid
 import urllib.request
 
+import mr_text
+
 try:
     from mr_paths import DATA_DIR
     _QUEUE_FILE = os.path.join(DATA_DIR, "seinnteoir_queue.json")
@@ -1347,7 +1349,7 @@ class SeinnteoirPlayer:
 
     def _remote_same_record_locked(self, st):
         cur = self._cur_embed_locked() or {}
-        norm = lambda x: re.sub(r'[^a-z0-9]+', '', (x or '').lower())
+        norm = mr_text.squeeze          # accents off, the letter kept
         mine, theirs = norm(cur.get('title')), norm(st.get('title'))
         want, got = float(cur.get('duration_sec') or 0.0), float(st.get('duration') or 0.0)
         if mine and theirs and (mine == theirs or (min(len(mine), len(theirs)) >= 4 and (mine.startswith(theirs) or theirs.startswith(mine)))):

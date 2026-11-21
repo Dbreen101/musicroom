@@ -144,11 +144,22 @@ function applyDesign(d){
     if (t.font_body)  r.setProperty('--pr-font-body', t.font_body);
 }
 
-function recordHtml(t){
+function recordHtml(t, plain){
     const cov = t.has_art ? `<img class="pr-rec__cov" src="/api/gr/art/${t.id}?v=${t.art_v || 0}" alt="" loading="lazy">`
                           : `<div class="pr-rec__cov"><span>${esc((t.title || '♪').trim().charAt(0).toUpperCase())}</span></div>`;
     let act = '';
-    if (t.purchased)      act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
+    // while the credits trial runs a record FILE costs credits too (the server charges them): its
+    // buttons say so — they used to offer "borrow", "buy €…" and a basket that is no longer there
+    const cr = (!plain && window.SimShop && SimShop.on()) ? SimShop.rules() : null;
+    if (plain) act = '';                       // (a room that is a whole page of its owner's HTML runs no scripts: no dead buttons)
+    else if (cr) {
+        if (t.purchased)      act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
+        else if (t.borrow_id) act += `<button class="pr-btn pr-btn--on" disabled>at home ✓</button>`
+                                   + `<button class="pr-btn" onclick="prBuy(${t.id}, this, ${Math.max(0, cr.buy_cost - cr.home_cost)})" title="Buy it outright: it becomes a file of yours and takes no room">Buy · ${Math.max(0, cr.buy_cost - cr.home_cost)}</button>`;
+        else act += `<button class="pr-btn" onclick="prBorrow(${t.id}, this)" title="Bring it home to your Music Room: it plays only here">Bring home · ${cr.home_cost}</button>`
+                  + `<button class="pr-btn" onclick="prBuy(${t.id}, this, ${cr.buy_cost})" title="Buy it outright: it becomes a file of yours">Buy · ${cr.buy_cost}</button>`;
+    }
+    else if (t.purchased) act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
     else if (t.borrow_id) act += `<button class="pr-btn pr-btn--on" disabled>borrowed ✓</button>`
                                + `<button class="pr-btn" onclick="prBuy(${t.id}, this)" title="Buy outright — this month's credit comes off the price">buy ${euro(t.buy_now_cents)}</button>`
                                + `<button class="pr-btn pr-btn--quiet" onclick="prBasket(${t.id}, this, 'buy')" title="Set it aside in your basket, to buy">+ basket</button>`;
@@ -158,8 +169,8 @@ function recordHtml(t){
              + `<button class="pr-btn pr-btn--quiet" onclick="prBasket(${t.id}, this)" title="Set it aside in your basket">+ basket</button>`;
     }
     // a record that isn't yours can be noted for later, with a line of why (it goes on the wishlist)
-    if (!t.purchased && window.WishNote) act += `<button class="pr-btn pr-btn--quiet" onclick="prNote(${t.id}, this)" title="Keep its name and why you liked it on your wishlist">note it</button>`;
-    if (t.buy_url) act += `<a class="pr-btn" href="#" data-open="${esc(t.buy_url)}">outside ↗</a>`;   // (never a link inside an onclick: the page would run it)
+    if (!plain && !t.purchased && window.WishNote) act += `<button class="pr-btn pr-btn--quiet" onclick="prNote(${t.id}, this)" title="Keep its name and why you liked it on your wishlist">note it</button>`;
+    if (!plain && t.buy_url) act += `<a class="pr-btn" href="#" data-open="${esc(t.buy_url)}">outside ↗</a>`;   // (never a link inside an onclick: the page would run it)
     return `<div class="pr-rec">${cov}
         <div><div class="pr-rec__t">${esc(t.title || 'Untitled')}</div>
         <div class="pr-rec__s">${[t.artist, t.album, mmss(t.duration_s)].filter(Boolean).map(esc).join(' · ')}</div></div>
@@ -172,11 +183,11 @@ function simRecordsHtml(tracks){
     if (!window.SimShop || !SimShop.on() || !(tracks || []).some(t => t.sim)) return null;
     const files = tracks.filter(t => !t.sim);
     return SimShop.recordsHtml(tracks.filter(t => t.sim), { artist: ROOM && ROOM.name })
-         + (files.length ? `<div class="pr-grid">${files.map(recordHtml).join('')}</div>` : '');
+         + (files.length ? `<div class="pr-grid">${files.map(t => recordHtml(t)).join('')}</div>` : '');
 }
-function recordsHtml(tracks){
+function recordsHtml(tracks, plain){
     if (!tracks || !tracks.length) return `<div class="pr-empty">No records here yet.</div>`;
-    return `<div class="pr-grid">${tracks.map(recordHtml).join('')}</div>`;
+    return `<div class="pr-grid">${tracks.map(t => recordHtml(t, plain)).join('')}</div>`;
 }
 
 function render(){
@@ -189,7 +200,7 @@ function render(){
         // code mode, whole page: sandboxed, no scripts; records drop in at <!--records-->
         const f = document.createElement('iframe');
         f.className = 'pr-frame'; f.setAttribute('sandbox', '');
-        f.srcdoc = ROOM.html.replace('<!--records-->', recordsHtml(ROOM.tracks));
+        f.srcdoc = ROOM.html.replace('<!--records-->', recordsHtml(ROOM.tracks, true));
         el.replaceWith(f);
         return;
     }
@@ -208,9 +219,6 @@ function render(){
     { const k = document.getElementById('pr-keep'); if (k) k.style.display = (!ROOM.mine && ROOM.handle) ? '' : 'none'; }
     { const k = document.getElementById('pr-report'); if (k) k.style.display = (!ROOM.mine && ROOM.handle && window.MRReport) ? '' : 'none'; }
     if (ROOM.hidden) el.insertAdjacentHTML('afterbegin', `<div class="pr-note" style="border-color:var(--red,#c9412f)">The Music Room has taken this room down${ROOM.hidden.note ? ': ' + esc(ROOM.hidden.note) : ''}. ${ROOM.mine ? 'Only you can see it. Change it, then say so with the feedback button.' : ''}</div>`);
-    if ((ROOM.tracks || []).length) el.insertAdjacentHTML('beforeend', window.SimShop && SimShop.on()
-        ? `<div class="pr-note">Records you bring home play only in your Music Room. Bought ones are yours, and take no room.</div>`
-        : `<div class="pr-note">Borrowed records play only inside the Music Room. Bought records are yours — a plain file, forever.</div>`);
     el.querySelectorAll('[data-open]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); prOpen(a.dataset.open); }));
     reveal();
 }
@@ -243,11 +251,12 @@ function prGoSubscribe(){
     location.href = url;
 }
 async function prBorrow(trackId, btn){
-    btn.disabled = true; btn.textContent = 'borrowing…';
+    const was = btn.textContent;
+    btn.disabled = true; btn.textContent = (window.SimShop && SimShop.on()) ? 'bringing it home…' : 'borrowing…';
     const r = await fetch('/api/gr/borrow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId }) });
     const d = await r.json();
     if (!r.ok) {
-        btn.disabled = false; btn.textContent = 'borrow';
+        btn.disabled = false; btn.textContent = was;
         if (/subscription/i.test(d.error || '')) { prGoSubscribe(); return; }
         alert(d.error || 'the borrow failed'); return;
     }
@@ -260,12 +269,14 @@ async function prBasket(trackId, btn, mode){
     if (!r.ok) btn.disabled = false;
     try { if (window.parent !== window && window.parent.grNavCount) window.parent.grNavCount(); } catch (_) {}
 }
-async function prBuy(trackId, btn){
-    if (!confirm('Buy this record? Play money — it arrives as a plain file that is yours.')) return;
+async function prBuy(trackId, btn, credits){
+    const was = btn.textContent;
+    if (!confirm(credits != null ? `Buy this record for ${credits} credit${credits === 1 ? '' : 's'}? It arrives as a file that is yours.`
+                                 : 'Buy this record? Play money — it arrives as a plain file that is yours.')) return;
     btn.disabled = true; btn.textContent = 'buying…';
     const r = await fetch('/api/gr/buy-track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId }) });
     const d = await r.json();
-    if (!r.ok) { btn.disabled = false; btn.textContent = 'buy'; alert(d.error || 'the buy failed'); return; }
+    if (!r.ok) { btn.disabled = false; btn.textContent = was; alert(d.error || 'the buy failed'); return; }
     load();
 }
 // one of the room's public grúpaí: what is in it, and what of it can be played here

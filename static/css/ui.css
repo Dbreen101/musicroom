@@ -58,7 +58,7 @@ a { color: inherit; }
 
 /* ── type: serif titles, mono labels, mono reading ── */
 h1, h2, h3, .index-title, .settings-title, .settings-header h1, .explore-header h1, .celtic-title, .gr-h1, .rb-name, .pr-name,
-.index-card h2, .settings-section h2, .help-hero h1, .help-section h2, .help-section h3, .in-step__h, .lg-side__line {
+.index-card h2, .settings-section h2, .help-hero h1, .help-section h2, .help-section h3, .in-step__h {
   font-family: var(--f-display) !important; font-weight: 400 !important; font-style: normal !important;
   letter-spacing: -.01em; text-shadow: none; color: var(--text);
 }
@@ -123,6 +123,14 @@ body:not(.is-place):not(.is-well) .nav, body.gr-page .nav, .nav {
 .nav__count, body.gr-page .nav__count { background: var(--text) !important; color: var(--bg) !important; font-family: var(--f-mono); border-radius: 0 !important; font-size: .6rem !important; height: 16px !important; line-height: 16px !important; min-width: 16px !important; }
 .mr-theme { margin-left: 8px !important; }
 .mr-theme__btn { border-radius: 0 !important; width: 32px !important; height: 32px !important; border: 1px solid var(--border) !important; }
+.mr-theme--fixed { margin-left: 0 !important; }
+.mr-theme__menu { border-radius: 0 !important; border: 1px solid var(--text) !important; background: var(--bg) !important; box-shadow: none !important; padding: 0 !important; min-width: 200px !important; }
+.mr-theme__row { border-radius: 0 !important; font-family: var(--f-mono) !important; font-size: .7rem !important; letter-spacing: .06em; text-transform: uppercase; padding: 10px 12px !important; color: var(--text) !important; }
+.mr-theme__row:hover { background: color-mix(in srgb, var(--text) 8%, transparent) !important; }
+.mr-theme__row .dot, .mr-theme__row .sw { border-radius: 0 !important; border-color: var(--border2) !important; }
+.mr-theme__row.on .dot { background: var(--text) !important; border-color: var(--text) !important; }
+.mr-theme__sep { margin: 0 !important; background: var(--border) !important; }
+.mr-theme__lbl { font-family: var(--f-mono); color: var(--muted) !important; padding: 10px 12px 2px !important; }
 @media (max-width: 720px) { .nav, body.gr-page .nav { height: auto; flex-wrap: wrap; padding: 10px 16px; gap: 10px; } .nav__links { flex-wrap: wrap; margin-left: 0; } }
 
 /* the nav icons: tools+settings as one gear, help as a question mark */
@@ -183,7 +191,7 @@ body:not(.is-place):not(.is-well) .nav, body.gr-page .nav, .nav {
 .settings-section p { color: var(--text); margin: 0 0 12px !important; }
 .settings-hint { color: var(--muted); }
 @media (max-width: 720px) { .settings-section { grid-template-columns: 1fr; } .settings-section > h2 { grid-row: auto; } .settings-section > :not(h2) { grid-column: 1; } }
-.gr-plan, .in-room, .in-you, .mr-design, .blk, .item, .rcard, .card { border-radius: 0 !important; box-shadow: none !important; }
+.gr-plan, .in-room, .mr-design, .blk, .item, .rcard, .card { border-radius: 0 !important; box-shadow: none !important; }
 .rcard__name, .card__title { font-family: var(--f-display) !important; }
 
 /* ── tables: hairline rows, a mono-caps head, no filled head row ── */
@@ -228,9 +236,6 @@ body.gr-page.lg { background: var(--bg); }
   letter-spacing: -.035em; color: var(--text) !important; max-width: 6.2ch; margin-bottom: 28px; position: relative; z-index: 1; }
 .lg-side__wordmark::before { content: "The "; }
 .lg-side__wordmark::after { content: "."; }
-.lg-side__line { font-family: var(--f-mono) !important; font-size: .78rem !important; letter-spacing: var(--ui-track) !important; line-height: 1.5 !important; text-transform: uppercase; color: var(--muted) !important; max-width: 60ch !important; }
-.lg-side__line em { font-style: normal; color: var(--red); }
-.lg-side__fine { font-family: var(--f-mono); font-size: .76rem; color: var(--muted); max-width: 52ch; line-height: 1.6; }
 .lg-pane { border-left: 1px solid var(--border) !important; }
 .lg-tabs { border-radius: 0 !important; border: 1px solid var(--border2) !important; padding: 0 !important; gap: 0 !important; }
 .lg-tabs button { border-radius: 0 !important; border: none !important; padding: 9px 16px !important; }
@@ -249,12 +254,11 @@ body.gr-page.lg { background: var(--bg); }
 .in-step__h { font-size: clamp(2.6rem, 5vw, 4.4rem) !important; line-height: .96 !important; letter-spacing: -.025em !important; }
 .in-step__h em { font-style: normal; color: var(--red); }
 .in-step__p { font-family: var(--f-mono); font-size: .9rem !important; color: var(--text) !important; line-height: 1.6; }
-.in-grid i, .in-lock i, .in-room .m i, .in-you .m i { border-radius: 0 !important; box-shadow: none !important; }
+.in-grid i, .in-lock i, .in-room .m i { border-radius: 0 !important; box-shadow: none !important; }
 .in-lock i.b::after, .in-lock i.y::after { border-radius: 0 !important; }
 .in-lock i.b::after { background: var(--red) !important; color: #fff !important; }
-.in-room, .in-you { border: 1px solid var(--border) !important; background: none !important; }
+.in-room { border: 1px solid var(--border) !important; background: none !important; }
 .in-room small { color: var(--muted) !important; }
-.in-you em { font-family: var(--f-mono) !important; font-size: .8rem; color: var(--muted); }
 .in-fb { border-radius: 0 !important; box-shadow: none !important; background: none !important; border-color: var(--border2) !important; }
 .in-line i { background: var(--text) !important; height: 1px !important; top: 0 !important; }
 .in-skip { border: none !important; color: var(--muted) !important; }
@@ -433,4 +437,11 @@ html.is-gr body.r3d-toolopen > .nav { display: none !important; }
    when there isn't. */
 html.is-gr { --mr-keys-bottom: calc(16px + clamp(0px, calc((var(--snt-right, 0px) - (100vw - var(--mr-keys-right, 16px) - 44px)) * 9999), var(--snt-clear, 0px))); }
 html.is-gr body { padding-bottom: max(150px, calc(var(--snt-clear, 0px) + 24px)); }      /* (--snt-clear: how far up the deck reaches) */
+html.is-gr body.lg { padding-bottom: 0; }      /* the front door has no deck to clear: its two panes run to the window's foot */
+
+/* ── Import and Insights kept their own summer colours: in the Paper look the Import card was a
+   black box with dark writing on it (the page a new person brings their music in with), and
+   Insights wrote in pale gold on paper. Both follow the page now. ── */
+.import-card { background: transparent !important; border: 1px solid var(--border) !important; border-radius: 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.iw { --ink: var(--text); --ink2: var(--muted); --line: var(--border); --gold: var(--text); }
 html.is-gr body.view-stream, html.is-gr body.view-wall, html.is-gr body.view-rooms { padding-bottom: 0; }

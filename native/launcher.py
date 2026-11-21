@@ -87,9 +87,28 @@ def _bake(code_dir):
         pass
 
 
+def _trust_the_web():
+    """Certificates for https. The Apple Silicon app's bundled OpenSSL looks for them only where
+    Homebrew keeps them — on a Mac without Homebrew every https call the app makes itself
+    (Explore's feeds, a pasted Spotify or SoundCloud link's name and cover, signing in to
+    Spotify, cover lookups) failed. certifi's list comes inside the app; use it."""
+    if sys.platform != "darwin" or os.environ.get("SSL_CERT_FILE"):
+        return
+    try:
+        import certifi
+        if os.path.isfile(certifi.where()):
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+            return
+    except Exception:
+        pass
+    if os.path.isfile("/etc/ssl/cert.pem"):
+        os.environ["SSL_CERT_FILE"] = "/etc/ssl/cert.pem"
+
+
 def _setup_paths():
     """Locate bundled source + writable data dir; wire sys.path + env.
     Returns (code_dir, data_dir). Idempotent."""
+    _trust_the_web()
     frozen = getattr(sys, "frozen", False)
     if frozen:
         code_dir = os.path.join(sys._MEIPASS, "mrsrc")          # bundled source
@@ -154,6 +173,13 @@ def _run_worker():
     except Exception:
         pass
     _setup_paths()
+    # a file name the output's code page can't print (Dvořák…, Japanese, Greek on a Windows PC)
+    # stopped the whole import at its progress line: print a ? for such a letter instead
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(errors="replace")
+        except Exception:
+            pass
     args = [a for a in sys.argv[1:] if a != "--mr-worker"]
     import importer
     code = 0
@@ -174,7 +200,14 @@ def _ensure_database():
     """Create the schema on a fresh install, then run (idempotent) migrations.
     Uses the data dir's DB_PATH via mr_paths."""
     import mr_paths
-    if not os.path.exists(mr_paths.DB_PATH):
+    import sqlite3
+    fresh = not os.path.exists(mr_paths.DB_PATH)
+    if not fresh:
+        # a file with no tables in it (something opened it before it was ever set up) is fresh too:
+        # skipping the schema then stopped the app with "no such table: places", every time
+        with sqlite3.connect(mr_paths.DB_PATH) as c:
+            fresh = not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='places'").fetchone()
+    if fresh:
         import schema
         schema.create_database()
     import migrate
@@ -245,6 +278,11 @@ def _run_bt_connect():
 
 
 def main():
+    # Windows: a program with no console window has NO stdout or stderr (they are None), and
+    # anything that writes or flushes them throws — closing the window showed an error box.
+    for _name in ("stdout", "stderr"):
+        if getattr(sys, _name) is None:
+            setattr(sys, _name, open(os.devnull, "w", encoding="utf-8"))
     # Windows: a helper process (the analysis libraries start some) runs this same
     # program again — without this it would open a second Music Room.
     import multiprocessing
@@ -315,6 +353,12 @@ def main():
     _patch_mic_permission()
 
     import webview
+    try:
+        # a file a page hands over (a theme, a spreadsheet) gets a save panel; pywebview's own
+        # default is off, which on a Mac turned the whole window into the raw file, with no way back
+        webview.settings["ALLOW_DOWNLOADS"] = True
+    except Exception:
+        pass
     webview.create_window(
         "Music Room",
         url + "/room",                 # open straight into the 3D Music Room
@@ -327,11 +371,20 @@ def main():
         # opens in the computer's own browser instead, and keeps running until closed
         # from the taskbar's hidden icons… or the window below.
         try:
+            if not _has_webview2():
+                raise RuntimeError("no WebView2")
             webview.start(gui="edgechromium")
         except Exception:
             import webbrowser
             webbrowser.open(url + "/room")
             _hold_open_without_window(url)
+    elif sys.platform == "darwin":
+        # (not pywebview's "private mode", which wipes cookies and page storage at every launch:
+        #  a sign-in to Spotify inside its own small player could never last past a relaunch)
+        try:
+            webview.start(private_mode=False)
+        except TypeError:
+            webview.start()
     else:
         webview.start()
     # Quit = quit. Same finalization hang risk as the worker (multiprocessing
@@ -342,6 +395,32 @@ def main():
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
+
+
+def _has_webview2():
+    """Is Microsoft Edge's WebView2 on this PC? (Every Windows 11; Windows 10 with Edge kept up to
+    date.) Without it pywebview quietly uses the old Internet Explorer engine — a blank or broken
+    window — instead of failing. Any doubt counts as yes: the window is tried as before."""
+    try:
+        import winreg
+        key = r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        seen_registry = False
+        for root, path in ((winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\" + key),
+                           (winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\" + key),
+                           (winreg.HKEY_CURRENT_USER, "Software\\" + key)):
+            try:
+                with winreg.OpenKey(root, path) as k:
+                    seen_registry = True
+                    pv = str(winreg.QueryValueEx(k, "pv")[0] or "")
+                    if pv and pv != "0.0.0.0":
+                        return True
+            except FileNotFoundError:
+                seen_registry = True          # (the registry answered: the key just isn't there)
+            except OSError:
+                pass
+        return not seen_registry              # nothing readable at all → don't guess: say yes
+    except Exception:
+        return True
 
 
 def _hold_open_without_window(url):

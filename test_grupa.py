@@ -270,6 +270,19 @@ res = c.get(f"/api/grupa/search?gid={g}&q=owned").get_json()["results"]
 chk([r["title"] for r in res if r["kind"] == "track"] == ["Owned One", "Owned Two"] and any(r.get("free") for r in res), "search finds records, and offers the name as a label or artist")
 res = c.get(f"/api/grupa/search?gid={g}&q=two+good+some").get_json()["results"]
 chk([r["title"] for r in res if r["kind"] == "track"] == ["Owned Two"], "…by any words in any order, across title, artist and label")
+# names with fadas: found with or without them, and a name typed in goes in as it was typed
+_db = sqlite3.connect(DB_PATH)
+_db.execute("INSERT INTO tracks (id, title, artist_name, label) VALUES (90, 'Overpowered', 'Róisín Murphy', 'Ceol Órga')")
+_db.commit(); _db.close()
+for typed in ("roisin", "Róisín", "ROISIN murphy", "orga ceol"):
+    res = c.get("/api/grupa/search", query_string={"gid": g, "q": typed}).get_json()["results"]
+    chk([r["title"] for r in res if r["kind"] == "track"] == ["Overpowered"], f"…“{typed}” finds Róisín Murphy's record")
+res = c.get("/api/grupa/search", query_string={"gid": g, "q": "roisin murphy"}).get_json()["results"]
+chk(not any(r.get("free") and r["kind"] == "artist" for r in res) and any(r["kind"] == "artist" and r["title"] == "Róisín Murphy" for r in res),
+    "…and offers her as the artist she is, not a second one without fadas")
+res = c.get("/api/grupa/search", query_string={"gid": g, "q": "Siobhán Ní Bhriain"}).get_json()["results"]
+chk([r["title"] for r in res if r.get("free")] == ["Siobhán Ní Bhriain", "Siobhán Ní Bhriain"], "…a name nobody has yet goes in as it was typed, fadas and all")
+_db = sqlite3.connect(DB_PATH); _db.execute("DELETE FROM tracks WHERE id=90"); _db.commit(); _db.close()
 res = c.get(f"/api/grupa/search?gid={g}&q=owned").get_json()["results"]
 tr = {r["title"]: r for r in res if r["kind"] == "track"}
 chk(tr["Owned One"]["have"] is True and tr["Owned Two"]["have"] is False and "image" in tr["Owned One"] and "album" in tr["Owned One"], "…each row says whether it is already in this grúpa, and carries its cover and album")

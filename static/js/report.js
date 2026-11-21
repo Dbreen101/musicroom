@@ -43,7 +43,7 @@ window.MRReport = (function () {
         box = document.createElement('div');
         box.className = 'mr-rep'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Report');
         box.innerHTML = `<h3>Report ${thing.what === 'grupa' ? 'this grúpa' : thing.what === 'record' ? 'this record' : 'this room'}</h3>
-          <p>${esc(thing.title || '')}${thing.title ? ' · ' : ''}It goes to the Music Room, who looks at every report. Whoever made it isn’t told who you are.</p>
+          <p>${esc(thing.title || '')}${thing.title ? ' · ' : ''}They aren’t told who you are.</p>
           ${REASONS.map(([k, l], i) => `<label><input type="radio" name="mr-rep-why" value="${k}" ${i === 0 ? 'checked' : ''}> ${esc(l)}</label>`).join('')}
           <textarea placeholder="Anything that would help (optional)" maxlength="1000"></textarea>
           <div class="mr-rep__acts"><span class="mr-rep__said" role="status"></span><button type="button" data-x>Cancel</button><button type="button" class="go" data-send>Send</button></div>`;

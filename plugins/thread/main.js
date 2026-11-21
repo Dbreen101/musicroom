@@ -52,7 +52,7 @@
                 class: 'mr-btn' + (on.has(t.key) ? ' on' : ''), type: 'button', 'aria-pressed': String(on.has(t.key)),
                 onclick: () => { on.has(t.key) ? on.delete(t.key) : on.add(t.key); draw(); } }, t.name))),
             el('hr', { class: 'mr-rule' }));
-        if (!hits.length) { app.append(el('p', { class: 'mr-muted' }, 'Nothing else in the shop shares that. Follow it by something else.')); return; }
+        if (!hits.length) { app.append(el('p', { class: 'mr-muted' }, 'Nothing else shares that.')); return; }
         const take = hits.slice(0, 25);
         app.append(el('div', { class: 'th-head' },
             el('p', { class: 'mr-muted' }, `${hits.length} record${hits.length === 1 ? '' : 's'} on this thread` + (hits.length > 25 ? ' — a crate takes the first 25' : '')),
@@ -79,7 +79,7 @@
             if (!list.length) rows.append(el('p', { class: 'mr-muted' }, 'Nothing matches.'));
         };
         box.addEventListener('input', fill);
-        app.append(el('p', null, 'Pick one record you like. Then follow a thread out from it.'), box, rows);
+        app.append(box, rows);
         fill(); box.focus();
     }
 

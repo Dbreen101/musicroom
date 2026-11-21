@@ -63,7 +63,7 @@
     <header class="gr-hero">
         <div class="gr-eyebrow">Master</div>
         <h1 class="gr-h1">The Music Room</h1>
-        <p class="gr-lede" id="ms-lede">Accounts, records waiting to go out, reports, feedback, and the version everyone should be on.</p>
+        <p class="gr-lede" id="ms-lede"></p>
     </header>
     <nav class="ms-tabs" id="ms-tabs">
         <button data-tab="accounts">Accounts<b id="n-requests" hidden></b></button>
@@ -129,6 +129,7 @@ async function accounts() {
           ${a.kind_requested ? `<button class="ms-btn ms-btn--go" data-do="approve">Make ${esc(a.kind_requested)}</button><button class="ms-btn" data-do="refuse">Keep as ${esc(a.kind)}</button>` : ''}
           <select data-do="kind" aria-label="Kind of account">${KINDS.map(k => `<option ${k === a.kind ? 'selected' : ''}>${k}</option>`).join('')}</select>
           ${a.hidden ? `<button class="ms-btn" data-do="unhide">Put the room back</button>` : ''}
+          ${a.devices && !a.is_master ? `<button class="ms-btn" data-do="devices" title="Signs this account out on every device. Its person signs in again with their account code.">Sign out its devices</button>` : ''}
           ${a.is_master ? '' : (a.paused ? `<button class="ms-btn" data-do="unpause">Unpause</button>` : `${WHY}<button class="ms-btn ms-btn--red" data-do="pause">Pause</button>`)}
         </div>
       </div>`).join('') || '<p class="ms-none">No accounts yet.</p>';
@@ -144,7 +145,7 @@ body.addEventListener('click', async e => {
     const row = b.closest('[data-id]'), id = row && row.dataset.id, d = b.dataset.do;
     let r;
     if (TAB === 'accounts') {
-        const send = { approve: { request: 'approve' }, refuse: { request: 'refuse' }, unpause: { paused: false }, unhide: { hidden: false } }[d];
+        const send = { approve: { request: 'approve' }, refuse: { request: 'refuse' }, unpause: { paused: false }, unhide: { hidden: false }, devices: { devices: 'free' } }[d];
         if (d === 'pause') r = await api('accounts/' + id, { paused: true, note: why(row) });
         else if (send) r = await api('accounts/' + id, send);
         if (r) { said.textContent = r.ok ? 'Done: ' + r.d.did.join(', ') : r.d.error; overview(); accounts(); }
@@ -233,12 +234,10 @@ async function version() {
     const r = await api('overview');
     const v = (r.d && r.d.version) || {};
     body.innerHTML = `
-      <p class="gr-lede" style="max-width:640px">Name the release everyone should be on, and where to get it (its page on GitHub).
-        Everyone’s app compares it with its own and says when a new one is ready. To step back, name an older release here.
-        This app is version <code>{{ app_version or '—' }}</code>.</p>
+      <p class="gr-lede" style="max-width:640px">This app is version <code>{{ app_version or '—' }}</code>.</p>
       <form class="ms-form" id="ms-ver">
         <label for="v-version">Version</label><input id="v-version" value="${esc(v.version || '')}" placeholder="2026.11.20">
-        <label for="v-url">Where to get it</label><input id="v-url" value="${esc(v.url || '')}" placeholder="https://github.com/…/releases/tag/…">
+        <label for="v-url">Where to get it</label><input id="v-url" value="${esc(v.url || '')}" placeholder="an address everyone can open (leave empty if you hand it out yourself)">
         <label for="v-note">A line about it</label><input id="v-note" value="${esc(v.note || '')}" placeholder="What changed, in a few words">
         <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
       </form>
@@ -259,8 +258,6 @@ async function trial() {
     if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
     const d = r.d, R = d.rules, pl = d.playlist || {};
     body.innerHTML = `
-      <p class="gr-lede" style="max-width:700px">Records come from your Spotify playlist; each record's first artist gets an artist account.
-        Everyone brings tracks home or buys them with credits. Every credit spent is kept, with how full their room was.</p>
       <div class="ms-line"><label class="ms-switch"><input type="checkbox" id="t-on" ${R.on ? 'checked' : ''}> The trial is on</label>
         <span class="ms-row__s">${R.on ? 'Everyone brings home and buys with credits. No basket, no plans.' : 'Off: the old borrowing, plans and basket.'}</span></div>
       <h2 class="ms-h2">The numbers</h2>
@@ -269,8 +266,7 @@ async function trial() {
         <span class="ms-row__s">Changes count from now. Credits already given stay as they are; the starting credits are for people who haven't started yet.</span></div>
 
       <h2 class="ms-h2">The shop's playlist</h2>
-      <p class="ms-row__s" style="max-width:700px">A public Spotify playlist you made. Each track on it brings in its whole album or single (a track off a compilation comes alone).
-        This app reads it — signed in to Spotify with the account that made it — once now, and every hour by itself while it is open. Records that are already here stay as they are.</p>
+      <p class="ms-row__s" style="max-width:700px">A public Spotify playlist you made. Read every hour while this app is open.</p>
       <div class="ms-line"><input id="t-pl" value="${esc(pl.url || '')}" placeholder="https://open.spotify.com/playlist/…" aria-label="The playlist's link">
         <button class="ms-btn" id="t-plsave">Save</button><button class="ms-btn ms-btn--go" id="t-sync" ${pl.id ? '' : 'disabled'}>Bring records in now</button></div>
       <div class="ms-row__s" id="t-syncsaid">${pl.synced_at ? `Last brought in ${when(pl.synced_at)}${pl.name ? ' from “' + esc(pl.name) + '”' : ''}${pl.note ? ' · ' + esc(pl.note) : ''}.` : (pl.note ? esc(pl.note) : '')}</div>
@@ -317,8 +313,7 @@ async function spotify() {
     const d = r.d, keys = d.keys || [];
     const keyOf = id => keys.find(k => k.id === id);
     body.innerHTML = `
-      <p class="gr-lede" style="max-width:720px">Spotify lets an app in development be used by ${d.per_key} people. Give a key to up to ${d.per_key} people:
-        their app picks it up by itself, and they can sign in to Spotify and hear whole tracks through their own Spotify. Everyone else hears records in Spotify's own small player.</p>
+      <p class="gr-lede" style="max-width:720px">${d.per_key} people per key.</p>
       <p class="ms-row__s" style="max-width:720px">On developer.spotify.com, each person must also be added to that app (Settings → User Management: their name and the email of their Spotify account), and the app needs the address
         <code>http://127.0.0.1:5177/api/spotify/callback</code> under Redirect URIs. People need Spotify Premium for the deck to play their Spotify.</p>
       <h2 class="ms-h2">Keys</h2>
@@ -349,8 +344,7 @@ async function activity() {
     const ppl = r.d.people || [], R = r.d.rules || {};
     const sum = k => ppl.reduce((a, p) => a + (p[k] || 0), 0);
     body.innerHTML = `
-      <p class="gr-lede" style="max-width:720px">Per person: credits left, what they spent them on, their room, and what they did when it was full.
-        Room space now: ${esc(R.room_space)}. ${sum('spent')} credits spent in all; ${sum('buys_when_full')} buys made with a full room.</p>
+      <p class="gr-lede" style="max-width:720px">Room space now: ${esc(R.room_space)}. ${sum('spent')} credits spent in all; ${sum('buys_when_full')} buys made with a full room.</p>
       <div class="ms-line"><a class="ms-btn" href="/api/gr/sim-csv/activity" download>This table as a spreadsheet</a>
         <a class="ms-btn" href="/api/gr/sim-csv/ledger" download>Every credit, as a spreadsheet</a></div>
       <div class="ms-wide"><table class="ms-table"><thead><tr>
@@ -360,7 +354,7 @@ async function activity() {
           <td>${p.spent_home}</td><td>${p.spent_buy}</td><td>${p.given}</td><td>${p.home_now}</td><td>${p.bought}</td><td>${p.taken_out}</td>
           <td>${p.room_count} / ${p.room_space}</td><td>${p.full_refused}</td><td>${p.buys_when_full}</td><td>${p.short_refused}</td><td>${p.plays}</td><td>${p.one_plays}</td><td>${when(p.last) || '—'}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="ms-row__s">Plays are counted when a record is started from “From the shop” or a public room. The activity log in Terminal (<code>gr_server.py events --kind sim_buy</code>) has every move.</p>`;
+      <p class="ms-row__s">Plays are counted when a record is started from “From the shop” or a public room.</p>`;
 }
 overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version', 'trial', 'spotify', 'activity'].includes(TAB) ? TAB : 'accounts'); });
 </script>

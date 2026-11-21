@@ -534,7 +534,6 @@
   .wp-reason__row{ display:flex; gap:8px; }
   .wp-empty{ color:var(--muted); font-style:italic; font-family:var(--font-serif,serif); font-size:1.12rem;
     text-align:center; line-height:1.7; }
-  .wp-reason__opt{ color:var(--muted); font-style:normal; font-size:.74rem; }
   .wp-reason__chips{ display:flex; flex-wrap:wrap; gap:6px; }
   .wp-rchip{ font-family:inherit; font-size:.8rem; padding:7px 13px; border-radius:20px; cursor:pointer;
     color:var(--ink); background:var(--accent-dim); border:1px solid var(--border2);
@@ -714,7 +713,7 @@
   <div class="ex-dock__grip" id="ex-dock-grip" title="Browse the flow — hover to open, click to keep open"></div>
   <div class="strip" id="strip"></div>
 </div>
-<div class="navhint">←/→ flick · enter open<br>{% if is_gr %}g grúpa{% else %}w wishlist · s save{% endif %} · x let go</div>
+{% if not is_gr %}<div class="navhint">←/→ flick · enter open<br>w wishlist · s save · x let go</div>{% endif %}
 
 <!-- WALL -->
 <div class="wall" id="wall"><div class="wall__grid" id="wall-grid"></div></div>
@@ -760,7 +759,7 @@
      (static/js/explore_globe.js builds everything inside; explore_globe.py feeds it) -->
 <div class="gx gx--view" id="globe"></div>
 
-<div class="empty" id="empty">Nothing here yet.<br>Try another type or source — or open ✦ sources and add a few.</div>
+<div class="empty" id="empty">Nothing here yet.</div>
 
 <!-- SOURCES panel -->
 <aside class="ex-panel" id="panel-sources">
@@ -818,7 +817,7 @@
     <div class="ex-ser">
       <div class="ex-ser__top">wander<span class="ex-ser__val" id="tune-ser-val">10%</span></div>
       <input type="range" id="tune-ser" min="0" max="50" step="5">
-      <div class="ex-ser__hint">how much of the feed comes from outside your interests — never a black box</div>
+      <div class="ex-ser__hint">how much comes from outside your interests</div>
     </div>
     <div class="ex-form">
       <div class="ex-form__row"><input class="ex-in" id="int-name" placeholder="new interest — e.g. Dub techno"></div>
@@ -829,7 +828,7 @@
         <button class="ex-btn" id="int-add">Add interest</button>
       </div>
     </div>
-    <div class="ex-sec">your interests · the bars are how hard each pulls</div>
+    <div class="ex-sec">your interests</div>
     <div id="int-list"></div>
   </div>
 </aside>
@@ -888,7 +887,7 @@
   <div class="wp-steer" id="wp-steer"></div>
   <div class="wp-stage" id="wp-stage"></div>
   <div class="wp-reason" id="wp-reason">
-    <div class="wp-reason__q">why this one? <span class="wp-reason__opt">— just for your own record, skip anytime</span></div>
+    <div class="wp-reason__q">why this one?</div>
     <div class="wp-reason__chips" id="wp-reason-chips"></div>
     <div class="wp-reason__row" id="wp-reason-other" style="display:none">
       <input class="ex-in" id="wp-reason-in" placeholder="in your own words…" autocomplete="off">
@@ -903,7 +902,6 @@
 <aside class="ex-panel" id="panel-import">
   <div class="ex-panel__head"><h2>Import tracks</h2><button class="ex-panel__x" data-close>✕</button></div>
   <div class="ex-panel__body">
-    <div class="ex-hint">Bring in tracks you've found, tick the ones to keep. Each remembers where it came from, and gets links to listen and buy direct.</div>
     <div class="chiprow" id="imp-modes">
       <button class="chip active" data-mode="paste">Paste a tracklist</button>
       <button class="chip" data-mode="shazam">Shazam CSV</button>
@@ -970,7 +968,7 @@ function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c=>({'&':'&amp;','<':
 function stripTags(s){ return String(s ?? '').replace(/<[^>]*>/g, ''); }
 function typeBadge(t, cls){ return t && t !== 'article'
   ? `<span class="${cls||'tbadge'} ${(cls||'tbadge')}--${t}">${esc(t)}</span>` : ''; }
-function whyLine(it){ if (it.website) return esc(stripTags(it.summary||'').slice(0,140)); return it.serendipity ? '<b>a wander</b> — outside your usual'
+function whyLine(it){ if (it.website) return esc(stripTags(it.summary||'').slice(0,140)); return it.serendipity ? '<b>a wander</b>'
   : (it.matched && it.matched.length ? 'why: <b>' + it.matched.map(m=>esc(m.name||m)).join('</b> · <b>') + '</b>' : ''); }
 
 // ── load ─────────────────────────────────────────────────────────────────────
@@ -1309,7 +1307,7 @@ function setView(v){
 // each in a sealed box (static/js/plugins_host.js). A crate a plug-in picks opens in
 // Record shopping, like any other. ──
 let plugins = null;
-const PLUGINS_HELP = 'https://github.com/Dbreen101/musicroom/blob/main/docs/PLUGINS.md';
+const PLUGINS_HELP = '/plugins/how';      // the guide, shown from the app itself (its GitHub page is for invited people only)
 function openPlugins(){
   if (!window.PluginsHost) return;
   if (!plugins) plugins = PluginsHost.mount(document.getElementById('plugins-view'), {
@@ -1406,7 +1404,7 @@ async function buildPubg(){
   try { const r = await fetch('/api/gr/grupai?q=' + encodeURIComponent(q)); d = await r.json(); ok = r.ok; } catch(_){ d = { error: "the rooms server can't be reached" }; ok = false; }
   if (!ok){ grid.innerHTML = ''; hint.textContent = d.error || "the grúpaí can't be read right now"; return; }
   const list = d.grupai || [];
-  hint.textContent = list.length ? `${list.length} public grúpa${list.length === 1 ? '' : 'í'}` : (q ? 'No grúpa matches.' : 'Nobody has made a grúpa public yet. Yours can be: open one in My Room and press “Make public”.');
+  hint.textContent = list.length ? `${list.length} public grúpa${list.length === 1 ? '' : 'í'}` : (q ? 'No grúpa matches.' : 'No public grúpaí yet.');
   grid.innerHTML = list.map(g => `<div class="pubg-card" data-id="${g.id}" tabindex="0">
       <div class="pubg-card__cover">${GrupaUI.coverHtml(g)}</div>
       <div class="pubg-card__t">${escR(g.name)}</div>
@@ -1495,7 +1493,9 @@ function markSource(){
 
 // ── keyboard + wheel (stream loop) ──────────────────────────────────────────────
 addEventListener('keydown', e=>{
-  if (e.target.tagName === 'INPUT') return;
+  // (typing anywhere — the counter's question, the feedback box are textareas — is not a key for Explore:
+  //  Escape there used to leave for My Room, and the words were gone)
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.key === 'Escape'){                                   // close an open reader/video first
     if (document.getElementById('ex-reader').classList.contains('open')) return closeReader();
     if (document.getElementById('ex-video').classList.contains('open')) return closeVideo();
@@ -1726,7 +1726,7 @@ async function buildTune(){
     box.appendChild(row);
   });
   if (!(d.interests||[]).filter(i=>!i.is_wildcard).length)
-    box.innerHTML = '<div class="ex-empty2">No interests yet — add one above to shape the feed.</div>';
+    box.innerHTML = '<div class="ex-empty2">No interests yet.</div>';
 }
 function patchInterest(id, body){
   return fetch(`/api/interest/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'},
@@ -1844,7 +1844,7 @@ let editingSrc = null;
 async function buildSourceList(){
   const sources = await fetch('/api/sources').then(r=>r.json()).catch(()=>[]);
   const box = document.getElementById('src-list');
-  box.innerHTML = sources.length ? '' : '<div class="ex-empty2">No sources yet — add one above.</div>';
+  box.innerHTML = sources.length ? '' : '<div class="ex-empty2">No sources yet.</div>';
   sources.forEach(s=>{
     const row = document.createElement('div'); row.className = 'ex-srow';
     row.innerHTML = `
@@ -2079,7 +2079,7 @@ async function buildWishlist(){
   if (window.MR_GR) fetch('/api/gr/shop/wishes').then(r=>r.json()).then(w=>{          // it holds 100: how full it is
     const el = document.getElementById('wish-room'); if (el && w && w.max) el.textContent = w.count + ' of ' + w.max; }).catch(()=>{});
   const box = document.getElementById('wish-list'); box.innerHTML = '';
-  if (!rows.length){ box.innerHTML = '<div class="ex-empty2">' + (window.MR_GR ? 'Nothing here yet. Note a record while record shopping, or add one above.' : 'Nothing here yet. Wishlist things from the flow.') + '</div>'; return; }
+  if (!rows.length){ box.innerHTML = '<div class="ex-empty2">' + (window.MR_GR ? 'Nothing here yet.' : 'Nothing here yet. Wishlist things from the flow.') + '</div>'; return; }
   const ic = (html, title, del)=>{ const b = document.createElement('button');
     b.className = 'ex-ic' + (del ? ' ex-ic--del' : ''); b.title = title; b.innerHTML = html;
     if (!del) b.style.cssText = 'width:auto;padding:0 8px;font-size:.7rem;white-space:nowrap'; return b; };
@@ -2687,6 +2687,15 @@ maybeRefreshOnOpen();
 <script src="/static/js/seinnteoir.js"></script>
 <script src="/static/js/feedback.js"></script>
 
+{% if is_gr %}
+<script>/* the trial's Explore: two short tips (plain words; Daithí re-voices) */
+window.MR_TIP = { key:'explore', title:'Explore', steps:[
+  { sel:'.views', title:'Six doors',
+    body:'Other people’s <b>Music Rooms</b>. <b>The World</b>: articles, mixes and videos from sources you choose. The <b>Map</b>. <b>Grúpaí</b> people have made public. <b>Record shopping</b>. <b>Plug-ins</b> made by people here.' },
+  { title:'Record shopping',
+    body:'Go through a crate, ask at the counter, or listen blind. Each record plays once. Then bring it home or buy it, with credits.' },
+]};</script>
+{% else %}
 <script>window.MR_TIP = { key:'explore', title:'Explore', steps:[
   { title:'Where you find new music',
     body:'A flow of articles, mixes and videos from sources YOU choose \u2014 read and listen right here, without leaving the app.' },
@@ -2703,6 +2712,7 @@ maybeRefreshOnOpen();
     body:'\u2190/\u2192 flick between items \u00b7 the strip along the bottom shows what\u2019s coming \u00b7 <b>w</b> wishlists \u00b7 <b>s</b> saves to Listen \u00b7 <b>x</b> lets one go. Wall (top left) shows everything at once.',
     link:'/help#explore', linkText:'more in the guide' },
 ]};</script>
+{% endif %}
 <script src="/static/js/mr_tips.js"></script>
 <script src="/static/js/gr_nav.js"></script>
 <script src="/static/js/theme.js"></script>

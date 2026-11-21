@@ -39,6 +39,9 @@ for py in glob.glob(os.path.join(PROJ, "*.py")):
 for fn in ("VERSION", "HOUSE_RULES.md"):
     if os.path.isfile(os.path.join(PROJ, fn)):
         datas.append((os.path.join(PROJ, fn), "mrsrc"))
+# the plug-in guide, shown from inside the app (Explore → Plug-ins → How to make one)
+if os.path.isfile(os.path.join(PROJ, "docs", "PLUGINS.md")):
+    datas.append((os.path.join(PROJ, "docs", "PLUGINS.md"), os.path.join("mrsrc", "docs")))
 BAKED = os.environ.get("MR_BAKED_ENV") or os.path.join(SPECPATH, "baked_env.py")
 # the Green Room build is its own app: "Music Room GR", with the GR wordmark icon (as on the Mac)
 IS_GR_BUILD = os.path.isfile(BAKED) and 'MR_GREEN_ROOM = "1"' in open(BAKED, encoding="utf-8").read()

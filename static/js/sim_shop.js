@@ -152,7 +152,7 @@ function ask(anchor, a) {
         const hgt = el.getBoundingClientRect().height;
         if (y + hgt > innerHeight - clear - 12) el.style.top = Math.max(12, (r ? r.top : innerHeight / 2) - hgt - 8) + 'px';
         const end = v => { el.remove(); document.removeEventListener('keydown', key, true); document.removeEventListener('pointerdown', away, true); done(v); };
-        const key = e => { if (e.key === 'Escape') { e.preventDefault(); end(false); } };
+        const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } };   // (only this question closes — not the crate or the page behind it)
         const away = e => { if (!el.contains(e.target)) end(false); };
         el.querySelector('[data-y]').onclick = () => end(true);
         el.querySelector('[data-n]').onclick = () => end(false);
@@ -267,11 +267,9 @@ function mountMine(host, opts) {
         let h = `<div class="sim-mine">
           <div class="sim-head"><h2 class="sim-h">From the shop</h2>
             <div class="sim-meter"><span><b>${m.credits}</b> credits</span><span>room <b>${m.room.count}</b> of ${m.room.space}</span></div></div>
-          <p class="sim-p">Records you bring home play only here, in your Music Room. Bought ones are yours and take no room.
-            Taking one out gives no credit back, and it can come back free after ${m.rules.wait_days} days.</p>
           <div class="sim-tabs" role="tablist">${[['all', 'All', recs.length], ['home', 'At home', n('home')], ['bought', 'Bought', n('bought')], ['out', 'Taken out', n('out')]]
             .map(([k, l, c]) => `<button type="button" class="sim-tab${want === k ? ' on' : ''}" data-want="${k}">${l}<span>${c}</span></button>`).join('')}</div>`;
-        if (!recs.length) h += `<p class="sim-p sim-empty">Nothing yet. Records are in Explore → Record shopping, and in the artists’ own music rooms (Explore → Music Rooms).</p>
+        if (!recs.length) h += `<p class="sim-p sim-empty">Nothing yet.</p>
             <p><a class="sim-btn" href="/explore3d?view=shop" ${opts.openPage ? 'data-page' : ''}>Go record shopping</a></p>`;
         for (const r of shown) {
             const ts = r.tracks.map(t => Object.assign({}, t, { sim: { state: t.state, back_after: t.back_after, url: t.url, buy_cost: t.buy_cost, home_cost: t.state === 'out' ? 0 : null, record: r.key, record_title: r.title, track_no: t.track_no, disc_no: t.disc_no }, cover_id: r.cover_id, art_v: r.art_v }));
@@ -311,5 +309,5 @@ function mountMine(host, opts) {
     return { refresh: load, destroy() { window.removeEventListener('sim-changed', onChange); host.innerHTML = ''; } };
 }
 
-window.SimShop = { me, on: () => !!(ME && ME.on), quote, trackActs, recordActs, recordsHtml, mountMine, playTrack, playRecord, ask, say, embedOf, cr };
+window.SimShop = { me, on: () => !!(ME && ME.on), rules, quote, trackActs, recordActs, recordsHtml, mountMine, playTrack, playRecord, ask, say, embedOf, cr };
 })();

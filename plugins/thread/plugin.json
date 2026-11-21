@@ -3,7 +3,7 @@
   "name": "Thread",
   "version": "1.0.0",
   "author": "The Music Room",
-  "description": "Start from one record in the shop and follow a thread out from it: the same label, the same seller, the same genre, or the same few years. Every record says which thread it came by. Make a crate of what you find.",
+  "description": "Follow a thread out from one record.",
   "entry": "main.js",
   "style": "style.css",
   "wants": ["catalogue"]

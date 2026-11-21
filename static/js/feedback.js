@@ -83,8 +83,7 @@
     `<button id="mr-fb__btn" title="A quick thought about the app?">${BUBBLE}</button>` +
     `<div id="mr-fb__panel">
        <div id="mr-fb__acct">
-         <div class="mr-fb__h">Welcome — set up your tester account</div>
-         <p>Your feedback is logged under your name so we can tell whose is whose. You set this once.</p>
+         <div class="mr-fb__h">Your name</div>
          <input id="mr-fb__acct-name" placeholder="your name" spellcheck="false" maxlength="60">
          <button id="mr-fb__acct-go">Create account</button>
        </div>

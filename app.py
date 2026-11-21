@@ -34,6 +34,13 @@ import sqlite3
 import os
 import shutil
 import mimetypes
+# What kind of file a .js or .css is must not depend on the computer: on Windows Python takes
+# it from the registry, and where that says ".js is plain text" the browser refuses the 3D
+# engine's module and My Room stops at "Could not load the 3D engine".
+for _ext, _kind in ((".js", "text/javascript"), (".mjs", "text/javascript"), (".css", "text/css"),
+                    (".json", "application/json"), (".svg", "image/svg+xml"), (".woff2", "font/woff2"),
+                    (".woff", "font/woff"), (".png", "image/png"), (".jpg", "image/jpeg"), (".webp", "image/webp")):
+    mimetypes.add_type(_kind, _ext)
 from pathlib import Path
 import uuid
 import subprocess
@@ -51,6 +58,7 @@ from flask import (
 )
 from tag_writer import write_tags_to_file
 import mr_os            # opening, revealing and choosing — on a Mac or on Windows
+import mr_text          # names as plain letters: accents off, the letter kept
 import genre_suggest
 import green_room
 import recorder as mr_recorder
@@ -284,6 +292,9 @@ def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH, timeout=10)
         g.db.row_factory = sqlite3.Row
+        # mrfold(x): x in plain lower-case letters, accents off — so a search for "roisin" finds
+        # Róisín (the database's own LIKE and LOWER() only know A–Z)
+        g.db.create_function("mrfold", 1, mr_text.fold, deterministic=True)
         g.db.execute("PRAGMA foreign_keys = ON")
         _apply_concurrency_pragmas(g.db)
     return g.db
@@ -1156,7 +1167,11 @@ def _user_css_tag():
     if not css.strip() or (request and request.args.get("plain") == "1"):    # ?plain=1: the app without it
         return ""
     css = css[:USER_CSS_MAX].replace("</", "<\\/")
-    return f'<style id="mr-user-css">{css}</style>'
+    # ⌘⇧0 / Ctrl+Shift+0 opens Settings WITHOUT it: a stylesheet that hides the page would
+    # otherwise lock its author out for good (the desktop window has no address bar)
+    way_back = ("<script>addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='0'||e.code==='Digit0'))"
+                "location.href='/settings?plain=1#look';});</script>")
+    return f'<style id="mr-user-css">{css}</style>{way_back}'
 
 
 @app.route("/api/themes")
@@ -1209,17 +1224,17 @@ def _needs_onboarding():
     unrecoverable — no tracks, no folder, no way back to the walkthrough).
     Once a library folder IS chosen the empty room guides the user itself
     ('Bring your music in →'), so we don't force the wizard then."""
+    # The trial never sends anyone to the welcome wizard: it is the summer's fourteen steps (a
+    # forest, places, sets — none of them in the trial), and it came straight after the opening
+    # tutorial. Most fellows have no music of their own; the trial's room is never dead when
+    # empty (Grúpaí, "From the shop"), and it says "Bring your music in" itself.
+    if IS_GR:
+        return False
     track_count = query_one("SELECT COUNT(*) AS n FROM tracks WHERE is_deleted=0")["n"]
     if track_count > 0:
         return False
     if get_setting("setup_complete", "") != "1":
         return True
-    # The trial's room is never dead when empty: it has Grúpaí and, while the shop
-    # runs the credits trial, "From the shop" — most fellows have no music of their
-    # own (David, 2026-11-20). Without this, skipping the walkthrough sent My Room
-    # straight back to it, for good.
-    if IS_GR:
-        return False
     # Marked complete but empty → only truly set up if a library folder exists.
     return not (get_library_dest() or "").strip()
 
@@ -5064,6 +5079,8 @@ def api_organise_stop():
 
 @app.route("/welcome")
 def welcome_page():
+    if IS_GR:                       # (the trial has no wizard: bringing music in is one page)
+        return redirect("/import")
     return render_template("welcome.html")
 
 
@@ -5115,8 +5132,20 @@ def api_open_url():
     is_native = native != url
     browser = (get_setting("preferred_browser", "") or "").strip()
     try:
-        # a native scheme (spotify: …) goes to the app registered for it; a web address to the browser
-        mr_os.open_target(native if is_native else url, app=None if is_native else (browser or None))
+        # a native scheme (spotify: …) goes to the app registered for it; a web address to the browser.
+        # No app for the scheme (no Spotify on this computer) → the web page instead: on a Mac the
+        # ask used to fail unseen and nothing opened, on Windows it was an error.
+        if is_native:
+            try:
+                if mr_os.IS_MAC:
+                    if subprocess.run(["open", native], capture_output=True, timeout=8).returncode != 0:
+                        raise OSError("nothing opens " + native.split(":", 1)[0] + ": links here")
+                else:
+                    mr_os.open_target(native)
+            except (OSError, subprocess.SubprocessError):
+                is_native = False
+        if not is_native:
+            mr_os.open_target(url, app=browser or None)
         # Purchase tracker: clicking a record's buy link is a purchase INTENT.
         intent_id = _maybe_log_purchase_intent(url, d)
         return jsonify({"ok": True, "opened": native if is_native else url,
@@ -5260,8 +5289,7 @@ def _bandcamp_collection(username, limit=400):
 
 
 def _norm_title(s):
-    import re as _re
-    return _re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    return mr_text.words(s)       # accents off, the letter kept (it used to drop the letter)
 
 
 @app.route("/api/bandcamp/sync", methods=["POST"])
@@ -11257,7 +11285,7 @@ def _import_rekordbox_analysis(xml_path, persist=True):
             scale = "minor" if (suf.startswith("m") and not suf.startswith("maj")) else "major"
             return note, scale
         return s, None                                        # unknown format — keep raw
-    def norm(s): return _re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    norm = mr_text.words
     mr = query("SELECT t.id, t.title, t.artist_name, f.file_path FROM tracks t "
                "JOIN files f ON f.track_id=t.id AND f.is_primary=1 AND f.is_deleted=0 WHERE t.is_deleted=0")
     by_path, by_base, by_at = {}, {}, {}
@@ -11357,7 +11385,7 @@ def _import_rekordbox_metadata(xml_path, fields, dry_run=True):
     coll = ET.parse(xml_path).getroot().find("COLLECTION")
     rows = coll.findall("TRACK") if coll is not None else []
 
-    def norm(s): return _re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    norm = mr_text.words
 
     mr = query("SELECT t.id, t.title, t.artist_name, t.colour_code, f.file_path "
                "FROM tracks t LEFT JOIN files f ON f.track_id=t.id AND f.is_primary=1 AND f.is_deleted=0 "
@@ -14515,6 +14543,11 @@ def _gr_guard(fn):
         return jsonify(fn())
     except green_room.GRError as e:
         return jsonify({"error": str(e)}), 502
+    except OSError as e:
+        # (the Wi-Fi dropping mid-download, a full disk: requests' own errors are OSErrors too.
+        #  It used to answer an error PAGE, the button's script choked on it and seemed to do nothing)
+        print(f"[green room] {type(e).__name__}: {e}")
+        return jsonify({"error": "That was interrupted. Try again."}), 502
 
 
 @app.route("/greenroom")
@@ -14880,6 +14913,9 @@ def subscribe_page():
 
 _GR_OPEN_PREFIXES = ("/login", "/intro", "/static/", "/api/gr/status", "/api/gr/signup", "/house-rules", "/api/gr/version",
                      "/api/gr/join", "/api/gr/plans", "/api/feedback", "/favicon", "/api/tips")
+# the look can be chosen at the front door (its key used to open an empty list): reading the
+# themes and picking one, nothing more — importing and deleting wait for sign-in
+_GR_OPEN_EXACT = ("/api/themes", "/api/themes/current")
 
 
 @app.before_request
@@ -14887,7 +14923,7 @@ def _gr_front_door():
     if not IS_GR:
         return
     p = request.path
-    if p.startswith(_GR_OPEN_PREFIXES):
+    if p.startswith(_GR_OPEN_PREFIXES) or p in _GR_OPEN_EXACT:
         return
     if get_setting("gr_token", ""):
         return
@@ -14905,28 +14941,62 @@ def login_page():
 
 
 def _md_page(path):
-    """A small Markdown file (headings, lists, paragraphs, **bold**, `code`) as
-    HTML — for the house rules, which live once, in the code's own HOUSE_RULES.md."""
+    """A small Markdown file (headings, lists, paragraphs, **bold**, `code`, fenced
+    code, simple tables, links) as HTML — for the house rules and the plug-in guide,
+    which live once, in the code's own HOUSE_RULES.md and docs/PLUGINS.md."""
     import html as _h
     import re as _re
     try:
         text = open(path, encoding="utf-8").read()
     except OSError:
-        return "<p>The house rules can't be found.</p>"
+        return "<p>This page can't be found.</p>"
     out, in_list, para = [], False, []
 
     def inline(t):
         t = _h.escape(t)
         t = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
-        return _re.sub(r"`(.+?)`", r"<code>\1</code>", t)
+        t = _re.sub(r"`(.+?)`", r"<code>\1</code>", t)
+        # a link out to the web opens in the browser; one into the code's own folders is just its words
+        t = _re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2" target="_blank" rel="noopener">\1</a>', t)
+        return _re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", t)
 
     def flush():
         nonlocal para
         if para:
             out.append("<p>" + inline(" ".join(para)) + "</p>")
             para = []
+    fence, table = None, []
+
+    def flush_table():
+        nonlocal table
+        if table:
+            rows = [[c.strip() for c in r.strip().strip("|").split("|")] for r in table
+                    if not _re.fullmatch(r"[\s|:\-]+", r)]
+            if rows:
+                out.append("<table><tr>" + "".join(f"<th>{inline(c)}</th>" for c in rows[0]) + "</tr>"
+                           + "".join("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in r) + "</tr>" for r in rows[1:]) + "</table>")
+            table = []
     for line in text.splitlines():
         st = line.strip()
+        if fence is not None:                       # inside ``` … ```: as it is
+            if st.startswith("```"):
+                out.append("<pre><code>" + _h.escape("\n".join(fence)) + "</code></pre>"); fence = None
+            else:
+                fence.append(line)
+            continue
+        if st.startswith("```"):
+            flush(); flush_table()
+            if in_list:
+                out.append("</ul>"); in_list = False
+            fence = []
+            continue
+        if st.startswith("|"):
+            flush()
+            if in_list:
+                out.append("</ul>"); in_list = False
+            table.append(st)
+            continue
+        flush_table()
         if st.startswith("#"):
             flush()
             if in_list:
@@ -14946,7 +15016,9 @@ def _md_page(path):
             out[-1] += " " + inline(st)
         else:
             para.append(st)
-    flush()
+    flush(); flush_table()
+    if fence is not None:
+        out.append("<pre><code>" + _h.escape("\n".join(fence)) + "</code></pre>")
     if in_list:
         out.append("</ul>")
     return "\n".join(out)
@@ -15047,11 +15119,19 @@ def house_rules_page():
                            bare=request.args.get("bare") == "1")
 
 
+@app.route("/plugins/how")
+def plugins_how_page():
+    """How to make a plug-in — docs/PLUGINS.md, shown from the app itself (the link used to go
+    to the code's page on GitHub, which only invited people can open)."""
+    return render_template("house_rules.html", title="Making a plug-in",
+                           body=_md_page(os.path.join(BASE_DIR, "docs", "PLUGINS.md")),
+                           bare=request.args.get("bare") == "1")
+
+
 @app.route("/intro")
 def intro_page():
-    """The first look around, after the account is made. Ends in the
-    welcome wizard (bring your music in) when the room is empty, else the
-    room itself."""
+    """The first look around, after the account is made: four screens, then the room.
+    (Outside the trial it ends in the welcome wizard when the room is empty.)"""
     return render_template("intro.html",
                            next_url="/welcome" if _needs_onboarding() else "/room")
 
@@ -16065,16 +16145,17 @@ def api_grupa_search():
     gid = request.args.get("gid", type=int) or 0
     if len(q) < 2:
         return jsonify({"results": []})
-    like = f"%{q}%"
     # words in any order, each found in the title, the artist, the album or the
     # label ("stott luxury" finds Luxury Problems by Andy Stott)
+    typed, q = q, mr_text.fold(q)         # "roisin" finds Róisín; "Björk" finds Bjork
+    like = f"%{q}%"
     toks = [t for t in q.split() if t][:6]
-    each = "(t.title LIKE ? OR t.artist_name LIKE ? OR t.album LIKE ? OR t.label LIKE ?)"
+    each = "(mrfold(t.title) LIKE ? OR mrfold(t.artist_name) LIKE ? OR mrfold(t.album) LIKE ? OR mrfold(t.label) LIKE ?)"
     have = {r["ref_id"] for r in query("SELECT ref_id FROM grupa_items WHERE grupa_id=? AND kind='track'", (gid,))} if gid else set()
     res = []
     for t in query("SELECT t.id, t.title, t.artist_name, t.album, t.year, t.artwork_path FROM tracks t "
                    "WHERE t.is_deleted=0 AND COALESCE(t.is_recording,0)=0 AND " + " AND ".join(each for _ in toks) +
-                   " ORDER BY (t.title LIKE ?) DESC, (t.artist_name LIKE ?) DESC, t.artist_name, t.album, t.track_number, t.title LIMIT 10",
+                   " ORDER BY (mrfold(t.title) LIKE ?) DESC, (mrfold(t.artist_name) LIKE ?) DESC, t.artist_name, t.album, t.track_number, t.title LIMIT 10",
                    [f"%{tok}%" for tok in toks for _ in range(4)] + [q + "%", q + "%"]):
         res.append({"kind": "track", "ref_id": t["id"], "title": t["title"] or "Untitled",
                     "subtitle": t["artist_name"] or "", "album": t["album"] or "", "year": t["year"] or "",
@@ -16082,27 +16163,27 @@ def api_grupa_search():
     names = {"artist": set(), "label": set()}
     for kind, col in (("artist", "artist_name"), ("label", "label")):
         for r in query(f"SELECT {col} AS name, COUNT(*) AS n, MIN(CASE WHEN artwork_path IS NOT NULL THEN id END) AS art "
-                       f"FROM tracks WHERE is_deleted=0 AND {col} IS NOT NULL AND " + " AND ".join(f"{col} LIKE ?" for _ in toks) +
-                       f" GROUP BY {col} COLLATE NOCASE ORDER BY ({col} LIKE ?) DESC, n DESC LIMIT 4",
+                       f"FROM tracks WHERE is_deleted=0 AND {col} IS NOT NULL AND " + " AND ".join(f"mrfold({col}) LIKE ?" for _ in toks) +
+                       f" GROUP BY {col} COLLATE NOCASE ORDER BY (mrfold({col}) LIKE ?) DESC, n DESC LIMIT 4",
                        [f"%{tok}%" for tok in toks] + [q + "%"]):
-            names[kind].add(r["name"].lower())
+            names[kind].add(mr_text.fold(r["name"]))
             res.append({"kind": kind, "ref_key": r["name"], "title": r["name"], "subtitle": _GRUPA_NAMES[kind], "count": r["n"],
                         "image": f"/api/artwork/{r['art']}?s=96" if r["art"] else ""})
     # (places belong to the forest, which the trial doesn't have)
     for kind, table in ((("set", "sets"), ("grupa", "grupa")) if IS_GR else (("place", "places"), ("set", "sets"), ("grupa", "grupa"))):
-        for r in query(f"SELECT id, name FROM {table} WHERE name LIKE ? AND NOT (? = 'grupa' AND id = ?) LIMIT 4",
+        for r in query(f"SELECT id, name FROM {table} WHERE mrfold(name) LIKE ? AND NOT (? = 'grupa' AND id = ?) LIMIT 4",
                        (like, kind, gid)):
             res.append({"kind": kind, "ref_id": r["id"], "title": r["name"], "subtitle": _GRUPA_NAMES[kind]})
     if get_setting("gr_token", ""):
         try:
-            for r in (green_room.rooms(q) or [])[:4]:
+            for r in (green_room.rooms(typed) or [])[:4]:
                 res.append({"kind": "room", "ref_key": r.get("handle"), "title": r.get("name") or r.get("handle"),
                             "subtitle": (r.get("kind") or "").capitalize() + " · music room" if r.get("kind") else _GRUPA_NAMES["room"]})
         except Exception:
             pass
     for kind in ("label", "artist"):                 # not in your room? it can still go in, by name
-        if q.lower() not in names[kind]:
-            res.append({"kind": kind, "ref_key": q, "title": q, "subtitle": _GRUPA_NAMES[kind], "free": True})
+        if q not in names[kind]:             # (as it was typed: the accents are theirs to keep)
+            res.append({"kind": kind, "ref_key": typed, "title": typed, "subtitle": _GRUPA_NAMES[kind], "free": True})
     return jsonify({"results": res})
 
 

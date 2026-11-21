@@ -20,4 +20,6 @@ export MR_GR_SERVER="${MR_GR_SERVER:-http://Davids-MacBook-Pro-2.local:5300}"
 export MUSICROOM_DATA="${MUSICROOM_DATA:-$HOME/Library/Application Support/Music Room GR}"
 export MUSICROOM_PORT="${MUSICROOM_PORT:-5177}"
 mkdir -p "$MUSICROOM_DATA"
-exec venv/bin/python desktop.py
+# (through the launcher, as on Windows: it makes and updates the database first — desktop.py
+#  alone left a fresh folder with an empty database, and every page answered an error)
+exec venv/bin/python native/launcher.py

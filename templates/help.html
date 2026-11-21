@@ -182,11 +182,15 @@
             <div class="kicker">Start here</div>
             <h2>First time? Three minutes to lift-off</h2>
             <p>If a friend handed you this, do these in order and you're away:</p>
-            <p style="margin:6px 0 18px;">
+            {% if is_gr %}<p style="margin:6px 0 18px;">
+                <a href="/intro" class="help-cta">✦ See the opening tutorial again</a>
+                <a href="/import" class="help-cta">Bring your music in</a>
+            </p>
+            {% else %}<p style="margin:6px 0 18px;">
                 <a href="/welcome?refresher=1" class="help-cta">✦ Run the setup walkthrough</a>
                 — the same guided steps you saw on first launch (import, organise, analyse, keys).
                 Safe to run any time.
-            </p>
+            </p>{% endif %}
             <ol class="help-step">
                 <li><strong>Tell it where your music lives.</strong> Go to <code>Tools → Settings</code> and
                     paste your music folder into <em>Music library folder</em>. An external drive, a folder
@@ -242,16 +246,17 @@
             <h2>See a page's introduction again</h2>
             <p>Each part of the app introduces itself the first time you walk in. To see one again:</p>
             <p style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;">
-                <a href="#" class="help-cta" onclick="return replayTip('room','/room')">The Music Room</a>
+                <a href="#" class="help-cta" onclick="return replayTip('room','/room')">{% if is_gr %}My Room{% else %}The Music Room{% endif %}</a>
                 {% if not is_gr %}<a href="#" class="help-cta" onclick="return replayTip('forest','/forest3d')">The Forest</a>{% endif %}
                 <a href="#" class="help-cta" onclick="return replayTip('explore','/explore3d')">Explore</a>
-                <a href="#" class="help-cta" onclick="return replayTip('sets','/sets')">Sets</a>
-                <a href="#" class="help-cta" onclick="return replayTip('export','/usb')">Export</a>
+                {% if not is_gr %}<a href="#" class="help-cta" onclick="return replayTip('sets','/sets')">Sets</a>
+                <a href="#" class="help-cta" onclick="return replayTip('export','/usb')">Export</a>{% endif %}
                 <a href="#" class="help-cta" onclick="return replayTip('tools','/tools')">Tools</a>
                 <a href="#" class="help-cta" onclick="return replayTip('import','/import')">Import</a>
             </p>
-            <p>And the full setup walkthrough is always here:
-                <a href="/welcome?refresher=1" class="help-cta">✦ Run the walkthrough again</a></p>
+            {% if is_gr %}<p>And the opening tutorial: <a href="/intro" class="help-cta">✦ See it again</a></p>
+            {% else %}<p>And the full setup walkthrough is always here:
+                <a href="/welcome?refresher=1" class="help-cta">✦ Run the walkthrough again</a></p>{% endif %}
             <script>
             async function replayTip(key, page){
                 try { localStorage.removeItem('mr_tip_' + key); } catch(e) {}

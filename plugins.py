@@ -17,7 +17,7 @@ A plug-in is a folder:
       "id": "thread",                     a-z, 0-9 and -, the folder's own name
       "name": "Thread",
       "version": "1.0.0",
-      "author": "David Breen",
+      "author": "The Music Room",
       "description": "Pick a record; follow it by label, seller, genre or year.",
       "entry": "main.js",
       "style": "style.css",

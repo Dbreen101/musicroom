@@ -46,7 +46,7 @@ function list() {
         <span><span class="rs-pull__t">${esc(c.name)}</span><span class="rs-pull__s">${c.count} ${c.count === 1 ? 'record' : 'records'} · ${c.is_out ? 'out on the shop floor' : 'not out'}</span></span>
         <span class="rs-pull__go">Open</span></button>`).join('');
     return `<div class="rs-kicker">Your crates</div>
-      <p class="rs-p" style="margin-top:8px">A crate is up to ${D.max} records from the shop, yours or anyone’s, in your order, with a line on any of them. Put it out and people shopping in Explore may be handed it, signed with your name.</p>
+      <p class="rs-p" style="margin-top:8px">Up to ${D.max} records. Put out, it is signed with your name.</p>
       ${rows ? `<div class="rs-pulls">${rows}</div>` : ''}
       <div class="rs-bar"><input class="rs-input" id="cm-new" type="text" maxlength="80" placeholder="Name a new crate" autocomplete="off" style="flex:1 1 160px">
         <button type="button" class="rs-btn rs-btn--primary" data-act="new">Make it</button></div>

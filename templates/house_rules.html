@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>House rules — Music Room</title>
+    <title>{{ title|default('House rules') }} — Music Room</title>
     <link rel="stylesheet" href="/static/css/style.css">
     {{ theme_head|safe }}
     <link rel="stylesheet" href="/static/css/explore-theme.css">
@@ -17,6 +17,12 @@
         .hr-doc p, .hr-doc li { font-size: .92rem; line-height: 1.65; }
         .hr-doc ul { margin: 0 0 8px; padding-left: 1.1em; }
         .hr-doc li { margin: 4px 0; }
+        .hr-doc pre { margin: 10px 0 14px; padding: 12px 14px; border: 1px solid var(--border); overflow-x: auto; font-family: var(--f-mono, monospace); font-size: .78rem; line-height: 1.55; }
+        .hr-doc code { font-family: var(--f-mono, monospace); font-size: .86em; }
+        .hr-doc table { border-collapse: collapse; margin: 10px 0 14px; font-size: .86rem; }
+        .hr-doc th, .hr-doc td { text-align: left; vertical-align: top; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--border); }
+        .hr-doc th { font-family: var(--f-mono, monospace); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 400; color: var(--muted); }
+        .hr-doc h3 { margin: 22px 0 6px; font-family: var(--f-display, Georgia, serif); font-weight: 400; font-size: 1.15rem; }
         body.hr-bare { padding: 26px 30px 40px !important; }
         body.hr-bare .gr-main { padding: 0; }
     </style>
@@ -26,7 +32,7 @@
 <main class="gr-main gr-main--narrow">
     <header class="gr-hero">
         <div class="gr-eyebrow">The Music Room</div>
-        <h1 class="gr-h1">House rules</h1>
+        <h1 class="gr-h1">{{ title|default('House rules') }}</h1>
     </header>
     <article class="hr-doc">{{ body|safe }}</article>
 </main>

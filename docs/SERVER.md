@@ -23,7 +23,7 @@ its own, **never** the code you are working on:
 ```bash
 tools/server.sh deploy v2026.11.20     # put the first release in place and start it
 tools/server.sh install                # start it whenever this Mac starts, and again if it stops
-tools/server.sh master "David Breen"   # make the master account — it prints its code
+tools/server.sh master "Daithí Breen"   # make the master account — it prints its code
 tools/server.sh address                # the address the fellows' apps use
 ```
 

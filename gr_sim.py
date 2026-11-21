@@ -200,10 +200,13 @@ def credits(conn, aid):
         return 0
     if row["credits"] is None:
         start = int(rules(conn)["start_credits"])
-        conn.execute("UPDATE gr_accounts SET credits=0 WHERE id=? AND credits IS NULL", (aid,))
-        _ledger(conn, aid, "start", start, [], note="the trial's starting credits")
+        # (only the request that turns "none yet" into a number writes the starting line: a new
+        #  person's first page asks four things at once, and two of them used to add the 300 each)
+        cur = conn.execute("UPDATE gr_accounts SET credits=0 WHERE id=? AND credits IS NULL", (aid,))
+        if cur.rowcount:
+            _ledger(conn, aid, "start", start, [], note="the trial's starting credits")
         conn.commit()
-        return start
+        return int(conn.execute("SELECT credits FROM gr_accounts WHERE id=?", (aid,)).fetchone()[0] or 0)
     return int(row["credits"])
 
 
@@ -627,8 +630,7 @@ def file_home(conn, acct, track):
         return {"error": WORDS["short"].format(cost=cost, credits=have), "short": True, "cost": cost,
                 "credits": have}, 402
     _ledger(conn, aid, "home" if cost else "back", -cost, [track["id"]], room_before=count, note="a record file")
-    conn.commit()
-    return None
+    return None             # (not committed here: the charge and the borrow it pays for are written together)
 
 
 def file_buy(conn, acct, track):
@@ -766,6 +768,7 @@ def bring_in(conn, records, fetch_covers=True):
             made["tracks"] += 1
             new_here = True
         made["records"] += 1 if new_here else 0
+        conn.commit()            # (before any cover is fetched: a slow one must not hold everyone else's writes)
         has = conn.execute("SELECT art_path FROM gr_tracks WHERE record_key=? AND art_path IS NOT NULL LIMIT 1",
                            (key,)).fetchone()
         if has:
@@ -868,7 +871,13 @@ def register(app, server):
         def go(conn, acct):
             if not is_on(conn):
                 return no(WORDS["off"], 409, off=True)
-            out, code = fn(conn, acct, body)
+            credits(conn, acct["id"])           # (the starting credits first: that commits)
+            conn.execute("BEGIN IMMEDIATE")     # one at a time: the balance is read and spent with nothing in between
+            try:
+                out, code = fn(conn, acct, body)
+            finally:
+                if conn.in_transaction:         # (a refusal part-way leaves nothing half-written)
+                    conn.rollback()
             return jsonify(out), code
         return signed_in(go)
 
@@ -909,6 +918,7 @@ def register(app, server):
             keys = spotify_keys(conn)
             people = conn.execute("SELECT id, name, handle, kind, spotify_key FROM gr_accounts"
                                   " WHERE COALESCE(is_sim,0)=0 ORDER BY name COLLATE NOCASE").fetchall()
+            people.sort(key=lambda p: S.mr_text.fold(p["name"]))      # Áine with the As
             one = lambda sql: conn.execute(sql).fetchone()[0]
             return jsonify({
                 "rules": rules(conn), "defaults": DEFAULTS, "limits": LIMITS,

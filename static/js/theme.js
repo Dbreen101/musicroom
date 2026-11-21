@@ -6,6 +6,8 @@
 (function () {
   let THEMES = null, CURRENT = 'dark';
   const $ = (s, r) => (r || document).querySelector(s);
+  // a theme's name comes from a file someone else may have made: it goes on the page as text
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function applyVars(theme) {
     const root = document.documentElement;
@@ -23,7 +25,9 @@
     return THEMES.find(t => t.id === id) || THEMES[0];
   }
   async function load() {
-    const d = await (await fetch('/api/themes')).json();
+    let d = null;
+    try { d = await (await fetch('/api/themes')).json(); } catch (_) {}
+    if (!d || !Array.isArray(d.themes)) return;      // no list → no key (a key that opens nothing is worse)
     THEMES = d.themes; CURRENT = d.current || 'dark';
     if (CURRENT === 'system') applyVars(resolve('system'));
     matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (CURRENT === 'system') applyVars(resolve('system')); });
@@ -46,12 +50,13 @@
     const out = { name: t.name + (t.id.startsWith('custom-') ? '' : ' (copy)'), scheme: t.scheme, author: '', vars: Object.assign({}, (THEMES.find(x => x.id === 'dark') || {}).vars, t.vars) };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
-    a.download = (t.name || 'theme').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.musicroom-theme.json';
+    a.download = ((t.name || 'theme').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'theme') + '.musicroom-theme.json';
     a.click();
   }
   async function remove(id) {
     if (!confirm('Delete this theme?')) return;
-    const d = await (await fetch('/api/themes/' + encodeURIComponent(id), { method: 'DELETE' })).json();
+    const d = await (await fetch('/api/themes/' + encodeURIComponent(id), { method: 'DELETE' })).json().catch(() => ({}));
+    if (!Array.isArray(d.themes)) return;          // refused (not signed in yet): the list stays as it is
     THEMES = d.themes; if (CURRENT === id) await choose('dark'); else render();
   }
 
@@ -73,17 +78,19 @@
       .mr-theme__row .x:hover{color:var(--danger,#c4574a)}
       .mr-theme__sep{height:1px;background:var(--border,rgba(255,255,255,.1));margin:6px 4px}
       .mr-theme__lbl{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2,#7d7257);padding:6px 10px 2px}
-      .mr-theme__hint{font-size:.7rem;color:var(--muted2,#7d7257);padding:4px 10px 6px;line-height:1.5}
-      .mr-theme__hint a{color:var(--gold,#f5e6b0)}`;
+      `;
     document.head.appendChild(css);
     const host = document.createElement('div');
     host.className = 'mr-theme';
     host.innerHTML = `<button class="mr-theme__btn" title="Theme" aria-label="Theme">◐</button><div class="mr-theme__menu"></div><input type="file" accept=".json,application/json" style="display:none">`;
     // where it lives: the nav; else a page's own top bar (public room, intro,
     // login); else nowhere — the 3D room is unthemed and already crowded
-    const slot = $('.nav') || $('.pr-bar') || $('.in-top') || $('.lg-tabs');
+    // the front door has no bar: its key sits alone in the page's top corner, and offers the looks only
+    const door = document.body.classList.contains('lg');
+    const slot = door ? document.body : ($('.nav') || $('.pr-bar') || $('.in-top'));
     if (!slot) return;
-    host.style.marginLeft = '14px';
+    if (door) { host.classList.add('mr-theme--fixed'); host.dataset.plain = '1'; }
+    else host.style.marginLeft = '14px';
     if (slot.classList.contains('in-top')) slot.insertBefore(host, slot.lastElementChild); else slot.appendChild(host);
     $('.mr-theme__btn', host).addEventListener('click', e => { e.stopPropagation(); host.classList.toggle('open'); });
     document.addEventListener('click', () => host.classList.remove('open'));
@@ -94,17 +101,17 @@
   function render() {
     const host = window.__mrThemeHost; if (!host || !THEMES) return;
     const menu = $('.mr-theme__menu', host);
-    const row = (id, name, sw, removable) => `<button class="mr-theme__row ${CURRENT === id ? 'on' : ''}" data-id="${id}"><span class="dot"></span>${sw ? `<span class="sw" style="background:${sw}"></span>` : ''}<span>${name}</span>${removable ? `<span class="x" data-del="${id}" title="delete">✕</span>` : ''}</button>`;
+    const row = (id, name, sw, removable) => `<button class="mr-theme__row ${CURRENT === id ? 'on' : ''}" data-id="${esc(id)}"><span class="dot"></span>${sw ? `<span class="sw" style="background:${esc(sw)}"></span>` : ''}<span>${esc(name)}</span>${removable && !host.dataset.plain ? `<span class="x" data-del="${esc(id)}" title="delete">✕</span>` : ''}</button>`;
     const builtIn = THEMES.filter(t => !t.id.startsWith('custom-')), mine = THEMES.filter(t => t.id.startsWith('custom-'));
     menu.innerHTML = builtIn.map(t => row(t.id, t.name, t.vars.bg)).join('')
       + row('system', 'Match the system', null)
       + (mine.length ? `<div class="mr-theme__sep"></div><div class="mr-theme__lbl">Yours</div>` + mine.map(t => row(t.id, t.name, t.vars.bg, true)).join('') : '')
-      + `<div class="mr-theme__sep"></div><button class="mr-theme__row" data-act="import">Import a theme…</button><button class="mr-theme__row" data-act="export">Export this theme</button>
-         <div class="mr-theme__hint">A theme is a small JSON file of colours — a skin. Export one, change the values, import it back.</div>`;
+      + (host.dataset.plain ? '' : `<div class="mr-theme__sep"></div><button class="mr-theme__row" data-act="import">Import a theme…</button><button class="mr-theme__row" data-act="export">Export this theme</button>`);
     menu.querySelectorAll('[data-del]').forEach(x => x.addEventListener('click', e => { e.stopPropagation(); remove(x.dataset.del); }));
     menu.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); choose(b.dataset.id); }));
-    menu.querySelector('[data-act="import"]').addEventListener('click', e => { e.stopPropagation(); $('input', host).click(); });
-    menu.querySelector('[data-act="export"]').addEventListener('click', e => { e.stopPropagation(); exportCurrent(); });
+    const imp = menu.querySelector('[data-act="import"]'), exp = menu.querySelector('[data-act="export"]');
+    if (imp) imp.addEventListener('click', e => { e.stopPropagation(); $('input', host).click(); });
+    if (exp) exp.addEventListener('click', e => { e.stopPropagation(); exportCurrent(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load); else load();
 })();

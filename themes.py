@@ -87,7 +87,7 @@ def validate(obj):
     """A theme file people import: {name, scheme?, vars{}}. Returns (theme, error)."""
     if not isinstance(obj, dict):
         return None, "a theme is a JSON object"
-    name = str(obj.get("name") or "").strip()[:60]
+    name = "".join(c for c in str(obj.get("name") or "") if c not in "<>\"'&`").strip()[:60]
     if not name:
         return None, "the theme needs a name"
     raw = obj.get("vars")
@@ -105,7 +105,8 @@ def validate(obj):
     if not vars_:
         return None, f"none of the colours were ones I know — the tokens are: {', '.join(TOKENS)}"
     import re
-    ident = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "theme"
+    import mr_text
+    ident = mr_text.slug(name, "theme")
     scheme = obj.get("scheme") if obj.get("scheme") in ("light", "dark") else None
     if not scheme:
         # guess from the background: light if it's bright

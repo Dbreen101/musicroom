@@ -500,8 +500,11 @@ def _wish_bought(conn, server_track_id, track_id=None):
 def _safe_name(v, fallback):
     """A file or folder name that came from the server (or a seller) made safe to
     use on this laptop: one plain name, never a path, never '.' or '..'."""
-    name = Path(str(v or "").replace("\\", "/")).name.strip().replace(":", "-")
-    name = "".join(ch for ch in name if ch >= " ")[:180].strip(". ")
+    # (a slash is a hyphen, not "take what follows it": AC/DC was filed as DC)
+    name = str(v or "").replace("\\", "-").replace("/", "-").strip().replace(":", "-")
+    # (? * " < > | are fine on a Mac and refused by Windows: "Who Are You?.flac" could be paid
+    #  for and never saved there)
+    name = "".join("_" if ch in '<>"|?*' else ch for ch in name if ch >= " ")[:180].strip(". -")
     return name if name and name not in (".", "..") else fallback
 
 

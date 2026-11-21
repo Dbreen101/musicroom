@@ -211,6 +211,8 @@ function close() {
 
 function show() {
     if (scrim) return;                       // already open
+    // a page can say its tips have nothing to point at yet (an empty room): they wait, unseen
+    if (typeof TIP.when === 'function' && !TIP.when()) return;
     ensureCss();
     at = 0;
     scrim = document.createElement('div'); scrim.id = 'mr-tip-scrim';

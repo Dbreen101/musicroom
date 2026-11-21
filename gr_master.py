@@ -289,6 +289,8 @@ def plugin_catalogue(conn):
         " FROM gr_tracks t LEFT JOIN gr_accounts a ON a.id = t.owner_account_id"
         f" WHERE {LIVE} AND (a.id IS NULL OR a.hidden_at IS NULL)"
         " ORDER BY t.artist COLLATE NOCASE, t.album COLLATE NOCASE, t.title COLLATE NOCASE").fetchall()
+    import mr_text
+    rows.sort(key=lambda r: (mr_text.fold(r["artist"]), mr_text.fold(r["album"]), mr_text.fold(r["title"])))
     import gr_shop
     out = []
     for r in rows:
@@ -440,6 +442,11 @@ def register(app, server):
                         return no("there must always be one master account")
                 conn.execute("UPDATE gr_accounts SET is_master=? WHERE id=?", (1 if d.get("master") else 0, aid))
                 said.append("master" if d.get("master") else "not master")
+            if d.get("devices") == "free":
+                # each account signs in on two devices; a wiped laptop or a move used one up for good.
+                # This signs the account out everywhere — its person signs in again with their code.
+                n = conn.execute("DELETE FROM gr_devices WHERE account_id=?", (aid,)).rowcount
+                said.append(f"{n} device{'' if n == 1 else 's'} signed out")
             if "hidden" in d:
                 conn.execute("UPDATE gr_accounts SET hidden_at=?, hidden_note=? WHERE id=?",
                              (S._now() if d.get("hidden") else None, _txt(d.get("note"), 300) or None, aid))
@@ -538,8 +545,13 @@ def register(app, server):
             note = _txt(d.get("note"), 500) or None
             if action == "hidden":
                 if r["what"] == "room":
-                    conn.execute("UPDATE gr_accounts SET hidden_at=?, hidden_note=? WHERE handle=?",
-                                 (S._now(), note or REPORT_REASONS.get(r["reason"]), r["ref"]))
+                    # (by whose room it is: its owner may have changed its address since the report)
+                    if r["owner_id"]:
+                        conn.execute("UPDATE gr_accounts SET hidden_at=?, hidden_note=? WHERE id=?",
+                                     (S._now(), note or REPORT_REASONS.get(r["reason"]), r["owner_id"]))
+                    else:
+                        conn.execute("UPDATE gr_accounts SET hidden_at=?, hidden_note=? WHERE handle=?",
+                                     (S._now(), note or REPORT_REASONS.get(r["reason"]), r["ref"]))
                 elif r["what"] == "record" and r["ref"].isdigit():
                     conn.execute("UPDATE gr_tracks SET status='hidden', review_note=?, reviewed_at=? WHERE id=?",
                                  (note or REPORT_REASONS.get(r["reason"]), S._now(), int(r["ref"])))

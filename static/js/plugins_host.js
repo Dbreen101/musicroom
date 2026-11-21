@@ -61,23 +61,21 @@ window.PluginsHost = (function () {
 
     function paint() {
         const built = list.filter(p => p.source !== 'yours'), mine = list.filter(p => p.source === 'yours');
-        host.innerHTML = `
-          <aside class="pl-list" aria-label="Plug-ins">
-            <p class="pl-lede">Ways of exploring the music here, made by people who use the Music Room. Each one runs in a sealed box: it sees only what it says it reads, and it can’t send anything anywhere.</p>
-            ${built.length ? `<div class="pl-k">Built in</div>${built.map(card).join('')}` : ''}
-            <div class="pl-k">Your own</div>
-            ${mine.length ? mine.map(card).join('') : '<p class="pl-none">None yet. A plug-in is a small folder; put it in your plug-ins folder and look again.</p>'}
-            <div class="pl-foot">
-              <button type="button" class="pl-btn" data-act="folder">Show the folder</button>
-              <button type="button" class="pl-btn" data-act="again">Look again</button>
-              ${opts.helpUrl ? `<button type="button" class="pl-link" data-act="help">How to make one ↗</button>` : ''}
-            </div>
-          </aside>
-          <section class="pl-stage" aria-label="The open plug-in">
+        const stage = host.querySelector('.pl-stage');
+        if (open && frame && frame.isConnected && stage && stage.dataset.open === String(open.id)) {
+            // the same plug-in is still open: only the list is drawn again — its frame stays where it is
+            const side = document.createElement('div');
+            side.innerHTML = listHtml(built, mine);
+            host.querySelector('.pl-list').replaceWith(side.firstElementChild);
+            const say = host.querySelector('.pl-bar__say'); if (say) say.textContent = said;
+            return;
+        }
+        host.innerHTML = listHtml(built, mine) + `
+          <section class="pl-stage" aria-label="The open plug-in" data-open="${open ? esc(String(open.id)) : ''}">
             ${open ? `<div class="pl-bar"><span class="pl-bar__n">${esc(open.name)}</span><span class="pl-bar__say" role="status">${esc(said)}</span>
                        <button type="button" class="pl-x" data-act="close" title="Close" aria-label="Close">✕</button></div>
                        <div class="pl-frame-wrap"></div>`
-                   : `<div class="pl-empty">${list.some(p => p.on) ? 'Open a plug-in from the list.' : 'Switch a plug-in on to try it.'}</div>`}
+                   : ''}
           </section>`;
         if (open) {
             if (!frame) {
@@ -90,6 +88,20 @@ window.PluginsHost = (function () {
             }
             host.querySelector('.pl-frame-wrap').append(frame);
         }
+    }
+
+    function listHtml(built, mine) {
+        return `
+          <aside class="pl-list" aria-label="Plug-ins">
+            ${built.length ? `<div class="pl-k">Built in</div>${built.map(card).join('')}` : ''}
+            <div class="pl-k">Your own</div>
+            ${mine.length ? mine.map(card).join('') : '<p class="pl-none">None yet.</p>'}
+            <div class="pl-foot">
+              <button type="button" class="pl-btn" data-act="folder">Show the folder</button>
+              <button type="button" class="pl-btn" data-act="again">Look again</button>
+              ${opts.helpUrl ? `<button type="button" class="pl-link" data-act="help">How to make one${opts.helpUrl.charAt(0) === '/' ? '' : ' ↗'}</button>` : ''}
+            </div>
+          </aside>`;
     }
 
     function close() {
@@ -116,7 +128,10 @@ window.PluginsHost = (function () {
         }
         if (act === 'folder') { await call('/api/plugins/folder/show', 'POST'); return; }
         if (act === 'again') { await load(); return; }
-        if (act === 'help' && opts.helpUrl) { call('/api/open-url', 'POST', { url: opts.helpUrl }); }
+        if (act === 'help' && opts.helpUrl) {
+            if (opts.helpUrl.charAt(0) === '/') (window.rtGo || (h => { location.href = h; }))(opts.helpUrl);   // a page of the app's own
+            else call('/api/open-url', 'POST', { url: opts.helpUrl });
+        }
     }
 
     function reply(m, ok, data, error) {

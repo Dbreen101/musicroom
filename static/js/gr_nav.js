@@ -97,7 +97,7 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
     const x = document.createElement('button');
     x.type = 'button'; x.textContent = '✕'; x.title = 'Not now'; x.setAttribute('aria-label', 'Not now');
     x.addEventListener('click', () => { bar.remove(); try { sessionStorage.setItem(key, '1'); } catch (_) {} });
-    bar.append(say, get, x);
+    if (v.want.url) bar.append(say, get, x); else bar.append(say, x);      // (no address given → no link that leads nowhere)
     const css = document.createElement('style');
     css.textContent = `.mr-update{position:fixed;left:50%;top:calc(var(--nav-h,54px) + 8px);transform:translateX(-50%);z-index:9400;display:flex;align-items:center;gap:10px;
       max-width:calc(100vw - 24px);padding:8px 10px 8px 14px;background:var(--text,#161513);color:var(--bg,#f2efe8);font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.68rem;line-height:1.4}

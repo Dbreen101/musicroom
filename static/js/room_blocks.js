@@ -46,7 +46,7 @@ window.RoomBlocks = (function () {
   // ── the blocks ───────────────────────────────────────────────────────────
 
   register('hero', {
-    label: 'Opening', hint: 'The top of the room: name, a line, an image.',
+    label: 'Opening',
     schema: [
       { key: 'heading', type: 'text', label: 'Name (blank = your room\'s name)' },
       { key: 'tagline', type: 'text', label: 'A line under it' },
@@ -74,7 +74,7 @@ window.RoomBlocks = (function () {
   });
 
   register('text', {
-    label: 'Words', hint: 'A heading and a paragraph or two.',
+    label: 'Words',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading' },
       { key: 'body', type: 'textarea', label: 'Text' },
@@ -84,7 +84,7 @@ window.RoomBlocks = (function () {
   });
 
   register('image', {
-    label: 'Image', hint: 'One picture, any size.',
+    label: 'Image',
     schema: [
       { key: 'image', type: 'image', label: 'Image' },
       { key: 'caption', type: 'text', label: 'Caption' },
@@ -94,7 +94,7 @@ window.RoomBlocks = (function () {
   });
 
   register('gallery', {
-    label: 'Gallery', hint: 'A row of pictures.',
+    label: 'Gallery',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading' },
       { key: 'images', type: 'images', label: 'Images' },
@@ -103,7 +103,7 @@ window.RoomBlocks = (function () {
   });
 
   register('records', {
-    label: 'Records', hint: 'What you sell and lend. Artists, labels and shops.',
+    label: 'Records', hint: 'Artists, labels and shops',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading', default: 'Records' },
       { key: 'which', type: 'select', label: 'Which', options: [['all', 'all of them'], ['chosen', 'only the ones I pick']], default: 'all' },
@@ -123,7 +123,7 @@ window.RoomBlocks = (function () {
   });
 
   register('picks', {
-    label: 'Picks', hint: 'Things you want people to know about — records, books, films, anything, with a line and a link. Words only, never audio.',
+    label: 'Picks', hint: 'Words and links, never audio',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading', default: 'Picks' },
       { key: 'items', type: 'items', label: 'Picks', fields: [['title', 'Title'], ['subtitle', 'Who / what'], ['note', 'A line about it'], ['url', 'Link']] , from_showcase: true },
@@ -146,7 +146,7 @@ window.RoomBlocks = (function () {
   // A room with public grúpaí shows them even if this block was never added
   // (see render below); adding it is how their owner chooses WHERE.
   register('grupai', {
-    label: 'Grúpaí', hint: 'The grúpaí you have made public. Move this block to put them where you want them.',
+    label: 'Grúpaí', hint: 'Your public grúpaí',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading', default: 'Grúpaí' },
       { key: 'layout', type: 'select', label: 'Layout', options: [['grid', 'covers'], ['list', 'a list']], default: 'grid' },
@@ -161,7 +161,7 @@ window.RoomBlocks = (function () {
   });
 
   register('links', {
-    label: 'Links', hint: 'Where else to find you.',
+    label: 'Links',
     schema: [
       { key: 'heading', type: 'text', label: 'Heading' },
       { key: 'items', type: 'items', label: 'Links', fields: [['label', 'Label'], ['url', 'Link']] },
@@ -170,13 +170,13 @@ window.RoomBlocks = (function () {
   });
 
   register('spacer', {
-    label: 'Space', hint: 'Breathing room between things.',
+    label: 'Space',
     schema: [{ key: 'size', type: 'select', label: 'How much', options: [['small', 'a little'], ['large', 'a lot']], default: 'small' }],
     render(b) { return `<div class="rb rb-spacer rb-spacer--${esc(b.size || 'small')}"></div>`; },
   });
 
   register('custom', {
-    label: 'Your own HTML', hint: 'A block of your own markup, kept in a box of its own (no scripts).',
+    label: 'Your own HTML', hint: 'No scripts',
     schema: [
       { key: 'html', type: 'textarea', label: 'HTML', code: true },
       { key: 'height', type: 'number', label: 'Height (px)', default: 320 },

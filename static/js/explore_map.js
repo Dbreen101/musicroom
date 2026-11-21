@@ -710,7 +710,7 @@
       const state = { things: things.slice(), q: '' };
       const back = () => open();
       const draw = () => {
-        const body = sheetFrame('List', null);
+        const body = sheetFrame('', null);
         body.append(h('h2', { class: 'gx-h' }, o.title || plural(state.things.length, 'thing')));
         if (o.sub) body.append(h('p', { class: 'gx-sub' }, o.sub));
         const rows = h('div', { class: 'gx-rows' });
@@ -739,7 +739,7 @@
       open();
     }
     function openCard(t, back) {
-      const body = sheetFrame('One thing', back);
+      const body = sheetFrame('', back);
       S.sheet = { kind: 'card', live: null };
       body.append(h('p', { class: 'gx-kicker gx-kicker--kind' }, t.kind === 'room' ? (t.sub || 'listener') + ' · music room' : KIND_ONE[t.kind]));
       body.append(h('h2', { class: 'gx-h gx-h--big' }, t.name));
@@ -768,7 +768,6 @@
           onclick: e => opts.addToGrupa(t.kind === 'room' ? { kind: 'room', ref_key: t.handle, title: t.name, subtitle: (t.sub || 'listener') + ' · music room' }
                                                            : { url: t.url, title: t.name, subtitle: KIND_ONE[t.kind] || '' }, e.currentTarget) }, '＋ Grúpa'));
       body.append(acts);
-      if (t.kind === 'website') body.append(h('p', { class: 'gx-sub' }, 'Websites turn up in your flow on their own.'));
       select(t);
     }
     function openSite(t, btn) {
@@ -790,7 +789,7 @@
     // ── the panel on the left ──
     const sum = h('p', { class: 'gx-sum', 'aria-live': 'polite' });
     const warn = h('p', { class: 'gx-warn' });
-    const offLine = h('button', { class: 'gx-link mx-off', type: 'button', onclick: () => openList(S.off, { title: plural(S.off.length, 'thing') + ' not on this map', sub: 'They gave no place, or a place beyond Ireland and Britain.', live: () => S.off }) });
+    const offLine = h('button', { class: 'gx-link mx-off', type: 'button', onclick: () => openList(S.off, { title: plural(S.off.length, 'thing') + ' not on this map', live: () => S.off }) });
     const secs = {};
     function section(key, title) {
       const body = h('div', { class: 'gx-sec__b' });
@@ -814,7 +813,7 @@
       if (e.key === 'Enter') { clearTimeout(findT); S.find = findBox.value; refilter(); listShown(); }
     });
     findB.append(findBox, findSay);
-    function listShown() { openList(S.on.concat(S.off), { title: plural(S.on.length + S.off.length, 'thing'), sub: S.words.length ? 'Everything that matches.' : 'Everything showing.', live: () => S.on.concat(S.off) }); }
+    function listShown() { openList(S.on.concat(S.off), { title: plural(S.on.length + S.off.length, 'thing'), live: () => S.on.concat(S.off) }); }
     function check(label, on, n, kind, click, small) {
       return h('button', { class: 'gx-check' + (small ? ' gx-check--sub' : ''), type: 'button', role: 'switch', 'aria-checked': String(on), onclick: click },
         h('i', { class: 'gx-check__box', 'aria-hidden': 'true' }), kind ? glyph(kind) : null, h('span', null, label), h('b', null, n == null ? '' : String(n)));

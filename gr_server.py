@@ -40,6 +40,8 @@ from flask import Flask, Response, jsonify, request, send_file
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+import mr_text  # names as plain letters: accents off, the letter kept
+
 # ---------- Pricing experiment knobs (play money, fake-euro cents) ----------
 PLAY_MONEY_START_CENTS = 2000    # every new account starts with €20
 TOPUP_STEP_CENTS = 1000          # a short wallet tops itself up in €10 steps (recorded, never blocks)
@@ -244,10 +246,31 @@ def new_code() -> str:
     return "gr-" + "-".join(raw[i:i + 4] for i in range(0, 16, 4))
 
 
+def _my_turn(conn, acct):
+    """Take the database's one write turn NOW, before reading what the answer depends on (what
+    is already held, the credits, the room). Two requests at once from one account — a double
+    press, two laptops — were each let through by what they had read, and both were charged."""
+    try:
+        if gr_sim.is_on(conn):
+            gr_sim.credits(conn, acct["id"])    # (the starting credits, if this is the first ask: it commits)
+    except Exception:
+        pass
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+
+
+def _owner_taken_down(conn, track) -> bool:
+    """Is this record's room one the master took down? (Its records leave the shelves with it.)"""
+    if not track["owner_account_id"]:
+        return False
+    row = conn.execute("SELECT hidden_at FROM gr_accounts WHERE id=?", (track["owner_account_id"],)).fetchone()
+    return bool(row and row["hidden_at"])
+
+
 def _slug(text: str) -> str:
-    import re
-    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
-    return s or "room"
+    """A name as a room's address. An accent comes off and its letter stays (Róisín → roisin;
+    it used to be thrown away with its letter: "r-is-n")."""
+    return mr_text.slug(text)
 
 
 def art_dir() -> Path:
@@ -527,6 +550,9 @@ def api_join():
         ).fetchone()
         if not acct:
             return jsonify({"error": "that invite code isn't known here"}), 403
+        if gr_master.is_paused(acct):
+            note = (acct["disabled_note"] or "").strip() if "disabled_note" in acct.keys() else ""
+            return jsonify({"error": "This account is paused." + (" " + note if note else ""), "paused": True}), 403
         dev = conn.execute(
             "SELECT * FROM gr_devices WHERE account_id=? AND fingerprint=?",
             (acct["id"], fingerprint),
@@ -765,6 +791,9 @@ def _catalogue_rows(conn, acct, owner_id=None, everything=False):
         f" FROM gr_tracks t LEFT JOIN gr_accounts a ON a.id = t.owner_account_id"
         f" {where} ORDER BY t.artist, t.album, COALESCE(t.disc_no,1), COALESCE(t.track_no,0), t.title", params
     ).fetchall()
+    # (filed the way a person files them: Ólafur with the Os, not after Z)
+    db_rows.sort(key=lambda t: (mr_text.fold(t["artist"]), mr_text.fold(t["album"]), t["disc_no"] or 1,
+                                t["track_no"] or 0, mr_text.fold(t["title"])))
     for t in db_rows:
         c = credit if t["id"] in borrowed_this_month else 0
         out.append(
@@ -838,7 +867,7 @@ def api_borrow():
         already_held = conn.execute(
             "SELECT 1 FROM gr_borrows WHERE account_id=? AND track_id=? AND returned_at IS NULL",
             (acct["id"], track_id)).fetchone()
-        if not already_held and (track["status"] or "live") != "live":
+        if not already_held and ((track["status"] or "live") != "live" or _owner_taken_down(conn, track)):
             return jsonify({"error": "that record isn't in the shop right now"}), 404
 
         def _payload(borrow_row):
@@ -856,6 +885,7 @@ def api_borrow():
                 }
             )
 
+        _my_turn(conn, acct)
         existing = conn.execute(
             "SELECT * FROM gr_borrows WHERE account_id=? AND track_id=?"
             " AND returned_at IS NULL",
@@ -957,7 +987,9 @@ def api_download(borrow_id):
 
     headers = {
         "Content-Length": str(track["size_bytes"]),
-        "X-GR-Filename": track["filename"],
+        # (no file name here: a header can only carry Latin-1, and one name with a fada stored the
+        #  Mac's way, a long dash or an emoji closed the connection with no answer — the borrow was
+        #  made and paid for, the file never came. The app never read it.)
         "X-GR-Format": track["format"] or "",
         "X-GR-Nonce": row["nonce_hex"],
     }
@@ -980,8 +1012,9 @@ def api_buy():
         ).fetchone()
         if not track:
             return jsonify({"error": "no such track"}), 404
-        if (track["status"] or "live") != "live":       # waiting for the master, refused or taken down
+        if (track["status"] or "live") != "live" or _owner_taken_down(conn, track):   # waiting for the master, refused or taken down
             return jsonify({"error": "that record isn't in the shop right now"}), 404
+        _my_turn(conn, acct)
         already = conn.execute(
             "SELECT id FROM gr_purchases WHERE account_id=? AND track_id=?",
             (acct["id"], track["id"]),
@@ -1125,7 +1158,7 @@ def api_rooms():
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
-        q = (request.args.get("q") or "").strip().lower()
+        q = (request.args.get("q") or "").strip()
         kind = (request.args.get("kind") or "").strip().lower()
         rows = conn.execute(
             f"SELECT a.*, (SELECT COUNT(*) FROM gr_tracks t WHERE t.owner_account_id=a.id AND {gr_master.LIVE})"
@@ -1133,14 +1166,15 @@ def api_rooms():
             " (SELECT updated_at FROM gr_rooms r WHERE r.account_id=a.id AND r.is_live=1)"
             "  AS room_updated_at"
             " FROM gr_accounts a WHERE a.is_public=1 AND a.handle IS NOT NULL AND a.hidden_at IS NULL"
-            " ORDER BY room_updated_at DESC, a.name"
         ).fetchall()
+        # latest first, then by name — whatever the accents (Áine with the As)
+        rows.sort(key=lambda a: mr_text.fold(a["name"]))
+        rows.sort(key=lambda a: a["room_updated_at"] or "", reverse=True)
         rooms = []
         for a in rows:
             if kind and a["kind"] != kind:
                 continue
-            hay = f"{a['name']} {a['handle']} {a['bio'] or ''}".lower()
-            if q and q not in hay:
+            if q and not mr_text.holds(f"{a['name']} {a['handle']} {a['bio'] or ''}", q):
                 continue
             cover = conn.execute(
                 "SELECT id, art_path FROM gr_tracks t WHERE owner_account_id=? AND art_path IS NOT NULL"
@@ -1163,18 +1197,21 @@ def api_rooms_lookup():
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
-        name = (request.args.get("name") or "").strip().lower()
+        name = mr_text.words(request.args.get("name"))
         if not name:
             return jsonify({"handle": None})
-        row = conn.execute(
-            "SELECT handle FROM gr_accounts WHERE is_public=1 AND handle IS NOT NULL AND hidden_at IS NULL"
-            " AND (LOWER(name)=? OR handle=?)", (name, _slug(name))).fetchone()
+        # (compared here, not by the database: its LOWER() leaves Ó, É, Á … as capitals, so a name
+        #  with one never matched)
+        slug = _slug(name)
+        row = next((a for a in conn.execute(
+            "SELECT handle, name FROM gr_accounts WHERE is_public=1 AND handle IS NOT NULL AND hidden_at IS NULL")
+            if mr_text.words(a["name"]) == name or a["handle"] == slug), None)
         if not row:
             # a record they own, under this artist name
-            row = conn.execute(
-                "SELECT a.handle FROM gr_tracks t JOIN gr_accounts a ON a.id=t.owner_account_id"
-                f" WHERE a.is_public=1 AND a.hidden_at IS NULL AND {gr_master.LIVE} AND LOWER(t.artist)=? LIMIT 1",
-                (name,)).fetchone()
+            row = next((t for t in conn.execute(
+                "SELECT DISTINCT a.handle, t.artist FROM gr_tracks t JOIN gr_accounts a ON a.id=t.owner_account_id"
+                f" WHERE a.is_public=1 AND a.hidden_at IS NULL AND {gr_master.LIVE}")
+                if mr_text.words(t["artist"]) == name), None)
         return jsonify({"handle": row["handle"] if row else None})
 
 
@@ -1252,7 +1289,9 @@ def api_my_room_profile():
             "UPDATE gr_accounts SET name=?, handle=?, bio=?, links=?, is_public=? WHERE id=?",
             ((data.get("name") or acct["name"]).strip(), handle,
              (str(data.get("bio"))[:4000] if data.get("bio") is not None else acct["bio"]),
-             json.dumps(data["links"][:20] if isinstance(data["links"], list) else [])[:8000] if "links" in data else acct["links"],
+             json.dumps([{"label": str(l.get("label") or "")[:120], "url": str(l.get("url") or "")[:500]}
+                         for l in (data["links"] if isinstance(data["links"], list) else [])[:20] if isinstance(l, dict)])
+             if "links" in data else acct["links"],
              1 if data.get("is_public", bool(acct["is_public"])) else 0,
              acct["id"]))
         conn.commit()
@@ -1367,7 +1406,7 @@ def api_my_assets():
         if not acct:
             return _unauthorized()
         rows = conn.execute("SELECT id, mime, width, height, label, created_at FROM gr_assets"
-                            " WHERE account_id=? ORDER BY id DESC", (acct["id"],)).fetchall()
+                            " WHERE account_id=? AND path!='' ORDER BY id DESC", (acct["id"],)).fetchall()
         return jsonify({"assets": [dict(r, url=f"/api/assets/{r['id']}") for r in rows]})
 
 
@@ -1428,7 +1467,7 @@ def api_my_assets_delete(aid):
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
-        row = conn.execute("SELECT * FROM gr_assets WHERE id=? AND account_id=?",
+        row = conn.execute("SELECT * FROM gr_assets WHERE id=? AND account_id=? AND path!=''",
                            (aid, acct["id"])).fetchone()
         if not row:
             return jsonify({"error": "no such image"}), 404
@@ -1436,7 +1475,7 @@ def api_my_assets_delete(aid):
             os.remove(row["path"])
         except OSError:
             pass
-        conn.execute("DELETE FROM gr_assets WHERE id=?", (aid,))
+        conn.execute("UPDATE gr_assets SET path='' WHERE id=?", (aid,))     # (the row stays, empty: its number is spent)
         conn.commit()
         return jsonify({"deleted": aid})
 
@@ -1698,7 +1737,7 @@ def api_grupai():
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
-        q = (request.args.get("q") or "").strip().lower()
+        q = mr_text.fold((request.args.get("q") or "").strip())
         handle = (request.args.get("handle") or "").strip().lower()
         rows = conn.execute(
             "SELECT g.*, a.name AS owner_name, a.handle AS owner_handle FROM gr_grupai g"
@@ -1709,7 +1748,7 @@ def api_grupai():
         for r in rows:
             if handle and (r["owner_handle"] or "").lower() != handle:
                 continue
-            if q and not all(w in f"{r['name']} {r['description'] or ''} {r['owner_name']}".lower() for w in q.split()):
+            if q and not mr_text.holds(f"{r['name']} {r['description'] or ''} {r['owner_name']}", q):
                 continue
             out.append(_grupa_card(conn, r, acct["id"]))
         return jsonify({"grupai": out})
@@ -1942,6 +1981,8 @@ def api_my_records_delete(tid):
         taken = conn.execute(
             "SELECT (SELECT COUNT(*) FROM gr_borrows WHERE track_id=?) +"
             " (SELECT COUNT(*) FROM gr_purchases WHERE track_id=?)", (tid, tid)).fetchone()[0]
+        gr_sim.ensure(conn)
+        taken += conn.execute("SELECT COUNT(*) FROM gr_home WHERE track_id=?", (tid,)).fetchone()[0]
         if taken:
             return jsonify({"error": "people have borrowed or bought this — it can't be removed, only unlisted"}), 409
         for p in (row["path"], row["art_path"]):
@@ -1950,6 +1991,9 @@ def api_my_records_delete(tid):
                     os.remove(p)
                 except OSError:
                     pass
+        gr_shop.ensure(conn)
+        for tbl in ("gr_heard", "gr_crate_items", "gr_blind"):
+            conn.execute(f"DELETE FROM {tbl} WHERE track_id=?", (tid,))
         conn.execute("DELETE FROM gr_tracks WHERE id=?", (tid,))
         conn.commit()
         return jsonify({"deleted": tid})

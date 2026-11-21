@@ -14,9 +14,6 @@
         .lg-side::before { content: ''; position: absolute; inset: 0;
             background: radial-gradient(1200px 600px at 20% 110%, rgba(230,201,122,.10), transparent 60%); }
         .lg-side__wordmark { position: absolute; top: var(--gr-s4); left: var(--gr-s5); font-family: var(--font-celtic, var(--gr-serif)); font-size: 1.4rem; color: var(--gr-ink); }
-        .lg-side__line { position: relative; font-family: var(--gr-serif); font-size: clamp(2rem, 4.2vw, 3.4rem); line-height: 1.04; letter-spacing: -.01em; max-width: 16ch; color: var(--gr-ink); }
-        .lg-side__line em { font-style: italic; color: var(--gr-accent); }
-        .lg-side__fine { position: relative; margin-top: var(--gr-s3); font-size: var(--gr-t5); color: var(--gr-muted); max-width: 44ch; line-height: 1.6; }
         .lg-pane { display: flex; flex-direction: column; justify-content: center; padding: var(--gr-s5) var(--gr-s5); border-left: 1px solid var(--gr-line); }
         .lg-tabs { display: inline-flex; gap: 4px; border: 1px solid var(--gr-line); border-radius: 999px; padding: 3px; margin-bottom: var(--gr-s4); align-self: flex-start; }
         .lg-tabs button { appearance: none; border: none; background: none; color: var(--gr-muted); font-family: var(--gr-sans); font-size: var(--gr-t5); padding: 7px 16px; border-radius: 999px; cursor: pointer; }
@@ -53,10 +50,6 @@
 <body class="gr-page lg">
 <section class="lg-side">
     <div class="lg-side__wordmark">Music Room</div>
-    <div>
-        <div class="lg-side__line">A room for your records, and a way into <em>everyone else's</em>.</div>
-        <div class="lg-side__fine">Your music stays yours, on your machine. Borrow and buy from the people who made it. Make a room others can walk into.</div>
-    </div>
 </section>
 <section class="lg-pane">
     <div class="lg-tabs">
@@ -76,21 +69,21 @@
             <button type="button" class="lg-kind" data-kind="venue">a venue</button>
             <button type="button" class="lg-kind" data-kind="business">a business</button>
         </div>
-        <div class="lg-asked" id="n-asked" hidden>Everyone starts as a listener. Your request to be <b id="n-asked-kind"></b> goes to the Music Room, and it is switched on once it has been looked at.</div>
+        <div class="lg-asked" id="n-asked" hidden>You start as a listener. <b id="n-asked-kind"></b> is switched on once your request has been looked at.</div>
         <label class="lg-agree"><input type="checkbox" id="n-agree"><span>I have read the <a href="/house-rules" target="_blank" rel="noopener" id="n-rules">house rules</a> and agree to them.</span></label>
         <div id="n-server-row" style="display:none">
             <label>Server address</label>
-            <input id="n-server" placeholder="http://…:5301">
+            <input id="n-server" placeholder="http://…:5300" autocapitalize="off" spellcheck="false">
         </div>
         <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Make my room</button><span class="lg-err" id="n-err"></span></div>
     </form>
 
     <form class="lg-form" id="f-back" style="display:none" onsubmit="return go(event, 'back')">
         <label>Your account code</label>
-        <input id="b-code" placeholder="gr-xxxxxx (it's in Settings on your other device)" autocomplete="off">
+        <input id="b-code" placeholder="gr-xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
         <div id="b-server-row" style="display:none">
             <label>Server address</label>
-            <input id="b-server" placeholder="http://…:5301">
+            <input id="b-server" placeholder="http://…:5300" autocapitalize="off" spellcheck="false">
         </div>
         <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Sign in on this device</button><span class="lg-err" id="b-err"></span></div>
     </form>
@@ -139,21 +132,28 @@ async function init(){
     document.getElementById('server-note').textContent = DEFAULT_SERVER ? 'server · ' + DEFAULT_SERVER : '';
     document.getElementById('server-change').hidden = !DEFAULT_SERVER;
     if (window.gsap && !document.hidden) {
-        gsap.from('.lg-side__line, .lg-side__fine', { y: 18, opacity: 0, duration: .9, stagger: .12, ease: 'power3.out' });
         gsap.from('.lg-pane > *', { y: 12, opacity: 0, duration: .6, stagger: .06, ease: 'power3.out', delay: .2 });
     }
 }
 async function go(e, which){
     e.preventDefault();
+    if (go.busy) return false;                      // (a double press made two accounts: name and name-2)
     const err = document.getElementById(which === 'new' ? 'n-err' : 'b-err');
     err.textContent = '';
     if (which === 'new' && !document.getElementById('n-agree').checked) { err.textContent = 'Please read the house rules and tick the box first.'; return false; }
+    if (which === 'new' && !document.getElementById('n-name').value.trim()) { err.textContent = 'Your name, please.'; return false; }
+    const btn = e.target.querySelector('button[type=submit]');
+    go.busy = true; if (btn) btn.disabled = true;
+    const again = () => { go.busy = false; if (btn) btn.disabled = false; return false; };
     const body = which === 'new'
         ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform }
         : { server_url: document.getElementById('b-server').value || DEFAULT_SERVER, invite_code: document.getElementById('b-code').value, device_name: navigator.platform };
-    const r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const d = await r.json();
-    if (!r.ok) { err.textContent = d.error || 'that did not work'; return false; }
+    let r = null, d = {};
+    try {
+        r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        d = await r.json().catch(() => ({}));
+    } catch (_) {}
+    if (!r || !r.ok) { err.textContent = d.error || 'That did not work. Check the server address.'; return again(); }
     location.href = which === 'new' ? '/intro' : '/room';
     return false;
 }

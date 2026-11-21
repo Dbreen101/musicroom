@@ -42,7 +42,7 @@ PRIVATE = [
     "tools/google_sheet_endpoint.gs", "tools/pull_feedback.py", "tools/ingest_feedback.py", "tools/preflight.sh",
     "telemetry_server/*", "native/Tester guide.txt",
     "rekey_all.py", "remove_ableton_tracks.py", "reset_itunes_artwork.py", "generate_research_library.py",
-    "make_usb.py", "tools/publish_never.txt", "docs/commit-map-*",
+    "make_usb.py", "tools/publish_never.txt", "docs/commit-map-*", "tools/setup_gr_library.sh",
 ]
 # a published file must not hold any of these (it stops, and says where). The words that are
 # private in themselves (an email address, people's names, this Mac's home folder) are kept in
@@ -86,17 +86,31 @@ def account_email():
     return owner, f"{who}@users.noreply.github.com"
 
 
+def author_name():
+    """The name that goes on every commit: the one HE gave (git config musicroom.authorname in
+    this repo) — never taken from the Mac's user name or a login. '' if it was never said."""
+    return git("config", "--get", "musicroom.authorname", cwd=HERE, check=False).strip()
+
+
 def identity_problems(*repos):
-    """Every repo given must commit as the owner's own account, and nothing else."""
+    """Every repo given must commit as the owner's own account and under his own name, and nothing else."""
     owner, address = account_email()
     if not owner:
         return [address]
     out = []
+    name = author_name()
+    if not name:
+        out.append("no name is set for commits.\n"
+                   f"      Fix:  git -C '{HERE}' config musicroom.authorname 'Your Name'")
     for repo in repos:
         mine = git("config", "--get", "user.email", cwd=repo, check=False).strip()
         if mine != address:
             out.append(f"{repo} commits as <{mine or 'nobody'}>, not your GitHub account's <{address}>.\n"
                        f"      Fix:  git -C '{repo}' config user.email '{address}'")
+        named = git("config", "--get", "user.name", cwd=repo, check=False).strip()
+        if name and named != name:
+            out.append(f"{repo} commits under the name “{named or 'nobody'}”, not “{name}”.\n"
+                       f"      Fix:  git -C '{repo}' config user.name '{name}'")
     return out
 
 
@@ -201,9 +215,11 @@ def main():
     # and the commit itself, before anything leaves this Mac
     _, address = account_email()
     made = set(git("log", "-1", "--format=%ae%n%ce", cwd=PUBLIC).split())
-    if made != {address}:
+    names = set(git("log", "-1", "--format=%an%n%cn", cwd=PUBLIC).splitlines())
+    if made != {address} or names != {author_name()}:
         git("reset", "--quiet", "--soft", "HEAD~1", cwd=PUBLIC, check=False)
-        print(f"Not published — the commit was made as {sorted(made)}, not <{address}>. It was undone.")
+        print(f"Not published — the commit was made as {sorted(names)} {sorted(made)}, "
+              f"not {author_name()} <{address}>. It was undone.")
         return 1
     if a.push:
         r = subprocess.run(["git", "push", "origin", "HEAD:main"], cwd=PUBLIC, capture_output=True, text=True)

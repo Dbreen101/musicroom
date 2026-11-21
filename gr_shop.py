@@ -392,7 +392,7 @@ def _out_crates(conn, not_by=None):
     for c in conn.execute(
             "SELECT c.*, a.name AS a_name, a.handle AS a_handle, a.is_house AS a_is_house"
             " FROM gr_crates c JOIN gr_accounts a ON a.id = c.account_id"
-            " WHERE c.is_out=1 ORDER BY c.id").fetchall():
+            " WHERE c.is_out=1 AND a.hidden_at IS NULL ORDER BY c.id").fetchall():
         if not_by is not None and c["account_id"] == not_by:
             continue
         items = [{"id": i["track_id"], "note": i["note"] or ""} for i in conn.execute(
@@ -577,9 +577,16 @@ def listen_copy(track_row):
     again if the real file is newer. The real file itself is only played when
     the server was started with MR_SHOP_PLAY_ORIGINALS=1 and can't make copies."""
     src = Path(track_row["path"] or "")
-    if not src.exists():
-        return None, "the file is missing on the server"
     dest = listen_dir() / f"{track_row['id']}.mp3"
+    if not src.exists():
+        # (the record's own file is away — a drive not plugged in — but its listening copy was
+        #  made before: that is all the shop ever plays)
+        try:
+            if dest.stat().st_size > 0:
+                return str(dest), "audio/mpeg"
+        except OSError:
+            pass
+        return None, "the file is missing on the server"
 
     def good():
         try:
@@ -654,7 +661,14 @@ def _first_play(conn, acct, track, via):
     the refusal. Someone who has borrowed or bought it hears it in their own room."""
     aid, tid = acct["id"], track["id"]
     if conn.execute("SELECT 1 FROM gr_heard WHERE account_id=? AND track_id=?", (aid, tid)).fetchone():
-        return no_json(HEARD_WORDS, 403, heard=True)
+        words = HEARD_WORDS
+        try:                                   # (while the credits trial runs there is no "borrow": it is "bring it home")
+            import gr_sim
+            if gr_sim.is_on(conn):
+                words = HEARD_WORDS.replace("borrow it", "bring it home")
+        except Exception:
+            pass
+        return no_json(words, 403, heard=True)
     conn.execute("INSERT OR IGNORE INTO gr_heard(account_id, track_id, via, at) VALUES(?,?,?,?)", (aid, tid, via, S._now()))
     conn.commit()
     S._event(conn, aid, "shop_listen", {"track_id": tid, "via": via, "owner": track["owner_account_id"]})
@@ -861,16 +875,20 @@ def register(app, server):
             track = conn.execute("SELECT * FROM gr_tracks WHERE id=?", (tid,)).fetchone()
             if not track or (track["status"] or "live") != "live":
                 return no("that record isn't in the shop now", 404)
+            import gr_sim
+            streamed = gr_sim.listen_json(track)
+            path = mime = None
+            if not streamed:
+                # the copy FIRST, the play counted after: a copy that couldn't be made used to cost
+                # the person their one play — "try again" answered "you've heard this one"
+                path, mime = listen_copy(track)
+                if not path:
+                    return no(mime, 503)
             refused = _first_play(conn, acct, track, next((k for k in ("pull", "q") if request.args.get(k)), ""))
             if refused:
                 return refused
-            import gr_sim
-            streamed = gr_sim.listen_json(track)
             if streamed:                       # (no file: it plays once from the listener's own Spotify)
                 return jsonify(streamed)
-        path, mime = listen_copy(track)
-        if not path:
-            return no(mime, 503)
         resp = send_file(path, mimetype=mime, conditional=True)
         resp.headers["Cache-Control"] = "no-store"
         return resp
@@ -1220,16 +1238,18 @@ def register(app, server):
             track = conn.execute("SELECT * FROM gr_tracks WHERE id=?", (row["track_id"],)).fetchone()
             if not track or (track["status"] or "live") != "live":
                 return no("that record has left the shop", 404)
+            import gr_sim
+            streamed = gr_sim.listen_json(track)
+            path = mime = None
+            if not streamed:                   # (the copy first, the play counted after — as in a crate)
+                path, mime = listen_copy(track)
+                if not path:
+                    return no(mime, 503)
             refused = _first_play(conn, acct, track, "blind")
             if refused:
                 return refused
-            import gr_sim
-            streamed = gr_sim.listen_json(track)
             if streamed:
                 return jsonify(streamed)
-        path, mime = listen_copy(track)
-        if not path:
-            return no(mime, 503)
         resp = send_file(path, mimetype=mime, conditional=True)
         resp.headers["Cache-Control"] = "no-store"
         return resp

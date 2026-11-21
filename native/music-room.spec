@@ -58,6 +58,9 @@ for root, _dirs, files in os.walk(os.path.join(PROJ, "plugins")):
 for fn in ("VERSION", "HOUSE_RULES.md"):
     if os.path.isfile(os.path.join(PROJ, fn)):
         datas.append((os.path.join(PROJ, fn), "mrsrc"))
+# the plug-in guide, shown from inside the app (Explore → Plug-ins → How to make one)
+if os.path.isfile(os.path.join(PROJ, "docs", "PLUGINS.md")):
+    datas.append((os.path.join(PROJ, "docs", "PLUGINS.md"), os.path.join("mrsrc", "docs")))
 
 for root, _dirs, files in os.walk(os.path.join(PROJ, "templates")):
     for fn in files:

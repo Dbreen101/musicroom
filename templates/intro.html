@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/explore-theme.css">
     <link rel="stylesheet" href="/static/css/gr.css">
     <style>
-        /* One idea per screen. Six screens. A line that fills in as you go.
+        /* One idea per screen. Four screens. A line that fills in as you go.
            Arrow keys, click, or skip. Nothing to read twice. */
         body.gr-page.in { min-height: 100vh; overflow: hidden; }
         .in-wrap { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; }
@@ -17,6 +17,7 @@
         .in-top__wordmark { font-family: var(--font-celtic, var(--gr-serif)); font-size: 1.25rem; color: var(--gr-ink); }
         .in-skip { font-family: var(--gr-sans); font-size: var(--gr-t5); color: var(--gr-faint); background: none; border: none; cursor: pointer; }
         .in-skip:hover { color: var(--gr-ink); }
+        .in-top .mr-theme { margin-left: auto !important; margin-right: 14px; }      /* the theme key sits by “skip”, not mid-bar */
         .in-stage { position: relative; }
         .in-step { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--gr-s5);
             padding: 0 var(--gr-s5); visibility: hidden; opacity: 0; }
@@ -31,19 +32,13 @@
         .in-grid i { display: block; aspect-ratio: 1; border-radius: 6px; background: var(--c, #2a241a); box-shadow: 0 10px 26px rgba(0,0,0,.45); }
         .in-lock { width: min(100%, 420px); display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
         .in-lock i { display: block; aspect-ratio: 1; border-radius: 6px; background: var(--c, #2a241a); position: relative; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
-        .in-lock i.b::after { content: 'borrowed'; position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: #1d160d; background: rgba(230,201,122,.95); padding: 2px 6px; border-radius: 3px; }
-        .in-lock i.y::after { content: 'yours'; position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gr-ink); background: rgba(255,255,255,.16); padding: 2px 6px; border-radius: 3px; }
+        .in-lock i.b::after { content: attr(data-l); position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: #1d160d; background: rgba(230,201,122,.95); padding: 2px 6px; border-radius: 3px; }
+        .in-lock i.y::after { content: attr(data-l); position: absolute; left: 8px; bottom: 8px; font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gr-ink); background: rgba(255,255,255,.16); padding: 2px 6px; border-radius: 3px; }
         .in-rooms { width: min(100%, 460px); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .in-room { border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px; background: var(--gr-surface); }
-        .in-room b { display: block; font-family: var(--gr-serif); font-weight: 400; font-size: 1.05rem; margin-bottom: 4px; }
         .in-room small { font-family: var(--gr-mono); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gr-accent); }
         .in-room .m { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 10px; }
         .in-room .m i { display: block; aspect-ratio: 1; border-radius: 3px; background: var(--c, #2a241a); }
-        .in-you { width: min(100%, 440px); border: 1px solid var(--gr-line); border-radius: 16px; padding: 22px; background: var(--gr-surface); }
-        .in-you b { font-family: var(--gr-serif); font-weight: 400; font-size: 1.7rem; display: block; }
-        .in-you em { font-family: var(--gr-serif); color: var(--gr-muted); }
-        .in-you .m { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
-        .in-you .m i { display: block; aspect-ratio: 1; border-radius: 5px; background: var(--c, #2a241a); }
         .in-fb { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--gr-line); background: var(--gr-surface); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--gr-ink); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
         .in-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--gr-s3); padding: var(--gr-s3) var(--gr-s4) var(--gr-s4); }
         .in-line { flex: 1; height: 1px; background: var(--gr-line); position: relative; }
@@ -61,11 +56,13 @@
     </div>
 
     <div class="in-stage" id="stage">
+        {# Four screens: what this version does, in the order a new person meets it.
+           Plain words (several are Daithí's own, from his deck of 20 Nov) — his to re-voice. #}
         <section class="in-step on">
             <div>
                 <div class="in-step__n">1 · Your room</div>
-                <h1 class="in-step__h">This is <em>your</em> room.</h1>
-                <p class="in-step__p">Your records, as a grid or a cloud, with your own tags, places and notes. Nothing here is recommended to you. You arrange it.</p>
+                <h1 class="in-step__h">Your own records, in a place.</h1>
+                <p class="in-step__p">Bring in the music files on your computer. They are read where they are: nothing is moved, nothing is uploaded.</p>
             </div>
             <div class="in-art"><div class="in-grid">
                 <i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#3a2a3a"></i><i style="--c:#4a4a2a"></i>
@@ -76,55 +73,36 @@
 
         <section class="in-step">
             <div>
-                <div class="in-step__n">2 · Your files</div>
-                <h1 class="in-step__h">Your music stays <em>yours.</em></h1>
-                <p class="in-step__p">Bring in the files already on your laptop. The Music Room reads them, never moves them without asking, never uploads them anywhere.</p>
-            </div>
-            <div class="in-art"><div class="in-grid" style="grid-template-columns:repeat(3,1fr)">
-                <i style="--c:#2a241a"></i><i style="--c:#2a241a"></i><i style="--c:#2a241a"></i>
-                <i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#2a241a"></i>
-            </div></div>
-        </section>
-
-        <section class="in-step">
-            <div>
-                <div class="in-step__n">3 · Borrow &amp; buy</div>
-                <h1 class="in-step__h">Borrow records. <em>Keep</em> them.</h1>
-                <p class="in-step__p">A borrowed record stays on your machine for good — it just only plays in here. Buy it any time and it becomes an ordinary file of yours, with what you've paid this month taken off the price.</p>
-            </div>
-            <div class="in-art"><div class="in-lock">
-                <i class="b" style="--c:#7a4a2a"></i><i class="b" style="--c:#2a3a4a"></i><i class="y" style="--c:#4a4a2a"></i>
-            </div></div>
-        </section>
-
-        <section class="in-step">
-            <div>
-                <div class="in-step__n">4 · Other rooms</div>
-                <h1 class="in-step__h">Walk into <em>other</em> rooms.</h1>
-                <p class="in-step__p">Artists, record shops, labels, venues — each with a room of their own. Borrow and buy straight from the people who made the music.</p>
+                <div class="in-step__n">2 · Explore</div>
+                <h1 class="in-step__h">No algorithm.</h1>
+                <p class="in-step__p">You find music through other people: their rooms, the crates they put out, the plug-ins they make, and by chance. You can make a public room of your own.</p>
             </div>
             <div class="in-art"><div class="in-rooms">
-                <div class="in-room"><small>artist</small><b>Moss Records</b><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#4a4a2a"></i></div></div>
-                <div class="in-room"><small>record shop</small><b>All City</b><div class="m"><i style="--c:#3a2a3a"></i><i style="--c:#2a4a3a"></i><i style="--c:#5a3a2a"></i></div></div>
+                <div class="in-room"><small>artist</small><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#4a4a2a"></i></div></div>
+                <div class="in-room"><small>label</small><div class="m"><i style="--c:#3a2a3a"></i><i style="--c:#2a4a3a"></i><i style="--c:#5a3a2a"></i></div></div>
+                <div class="in-room"><small>venue</small><div class="m"><i style="--c:#2a2a3a"></i><i style="--c:#6a5a3a"></i><i style="--c:#3a4a5a"></i></div></div>
+                <div class="in-room"><small>record shop</small><div class="m"><i style="--c:#4a2a2a"></i><i style="--c:#2a3a2a"></i><i style="--c:#5a4a4a"></i></div></div>
             </div></div>
         </section>
 
         <section class="in-step">
             <div>
-                <div class="in-step__n">5 · Your public room</div>
-                <h1 class="in-step__h">Make a room <em>others</em> can visit.</h1>
-                <p class="in-step__p">Choose what to show and how it looks. Keep it private while you work on it; make it public when it's ready.</p>
+                <div class="in-step__n" id="in-get-n">3 · Credits</div>
+                <h1 class="in-step__h" id="in-get-h">Bring a record home, or buy it.</h1>
+                <p class="in-step__p" id="in-get-p">In the shop each record plays once. Then bring it home, where it plays in your room, or buy it.</p>
             </div>
-            <div class="in-art"><div class="in-you"><em>listener · music room</em><b id="in-you-name">Your name</b><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#3a2a3a"></i><i style="--c:#4a4a2a"></i></div></div></div>
+            <div class="in-art"><div class="in-lock">
+                <i class="b" data-l="home" style="--c:#7a4a2a"></i><i class="b" data-l="home" style="--c:#2a3a4a"></i><i class="y" data-l="bought" style="--c:#4a4a2a"></i>
+            </div></div>
         </section>
 
         <section class="in-step">
             <div>
-                <div class="in-step__n">6 · One more thing</div>
-                <h1 class="in-step__h">Tell us what you <em>think.</em></h1>
-                <p class="in-step__p">This is a trial. The small button in the corner of every page sends a thought, a bug, an idea — straight to the people making this.</p>
+                <div class="in-step__n">4 · Feedback</div>
+                <h1 class="in-step__h">Tell me what you think.</h1>
+                <p class="in-step__p">This is a trial. The button in the corner of every page sends a thought, a bug or an idea.</p>
             </div>
-            <div class="in-art"><div class="in-fb">💬</div></div>
+            <div class="in-art"><div class="in-fb" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 5h16v11H9l-5 4z"/></svg></div></div>
         </section>
     </div>
 
@@ -144,7 +122,20 @@ const steps = [...document.querySelectorAll('.in-step')];
 let i = 0, busy = false;
 const motion = !!window.gsap && !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-fetch('/api/gr/status').then(r => r.json()).then(s => { if (s.name) document.getElementById('in-you-name').textContent = s.name; }).catch(() => {});
+// the third screen says how getting a record works on THIS server: its own numbers while the
+// credits trial runs, borrowing when it doesn't
+fetch('/api/gr/sim/me').then(r => r.json()).then(m => {
+    const p = document.getElementById('in-get-p');
+    if (m && m.on && m.rules) {
+        const n = v => (+v || 0).toLocaleString(), c = v => n(v) + (+v === 1 ? ' credit' : ' credits');
+        p.textContent = `You have ${c(m.credits)}. In the shop each record plays once. Then a track is ${c(m.rules.home_cost)} to bring home, where it plays in your room, or ${n(m.rules.buy_cost)} to buy.`;
+    } else if (m && m.on === false) {
+        document.getElementById('in-get-n').textContent = '3 · Borrow or buy';
+        document.getElementById('in-get-h').textContent = 'Borrow a record, or buy it.';
+        p.textContent = 'A borrowed record plays in your room. A bought one is a file of yours. It all runs on play money.';
+        document.querySelectorAll('.in-lock i.b').forEach(i => { i.dataset.l = 'borrowed'; });
+    }
+}).catch(() => {});
 
 function paint(){
     document.getElementById('line').style.width = ((i + 1) / steps.length * 100) + '%';
@@ -173,7 +164,8 @@ function finish(){
     try { fetch('/api/gr/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'intro_done', data: { step: i + 1, of: steps.length } }), keepalive: true }); } catch (_) {}
     location.href = NEXT_URL;
 }
-addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'Enter') step(1); if (e.key === 'ArrowLeft') step(-1); if (e.key === 'Escape') finish(); });
+addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest && e.target.closest('button')) return;
+    if (e.key === 'ArrowRight' || e.key === 'Enter') step(1); if (e.key === 'ArrowLeft') step(-1); if (e.key === 'Escape') finish(); });
 paint();
 if (motion) {
     gsap.from('.in-step.on .in-step__n, .in-step.on .in-step__h, .in-step.on .in-step__p', { y: 22, opacity: 0, duration: .8, stagger: .08, ease: 'power3.out' });

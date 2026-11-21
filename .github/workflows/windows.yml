@@ -58,7 +58,8 @@ jobs:
         run: |
           $failed = @()
           foreach ($t in @("test_gr_server", "test_gr_master", "test_gr_shop", "test_gr_client", "test_record_shop",
-                           "test_plugins", "test_grupa", "test_isles_map", "test_globe", "test_os")) {
+                           "test_plugins", "test_grupa", "test_isles_map", "test_globe", "test_os", "test_text",
+                           "test_gr_sim", "test_gr_sim_app", "test_deck_once")) {
             $out = python "$t.py" 2>&1 | Out-String
             $last = ($out.Trim() -split "`n")[-1]
             Write-Host "$t : $last"

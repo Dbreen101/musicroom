@@ -4006,8 +4006,7 @@ function renderTrackPanel(data) {
     <div class="track-panel__section">
         <div class="track-panel__section-heading">Borrowed</div>
         <div style="font-size:0.82rem; color:var(--muted); margin-bottom:8px;">
-            ${b.on_disk ? 'On this laptop — plays only in the Music Room.' : 'Not downloaded — the record is kept, its file is off this laptop.'}
-            ${b.price_cents != null ? ` Buy outright for €${(b.price_cents / 100).toFixed(2)} or less, with this month's credit.` : ''}
+            ${b.on_disk ? 'On this laptop' : 'Not downloaded'}
         </div>
         <div class="file-version-actions" style="display:flex; gap:6px; flex-wrap:wrap;">
             ${btn('buy', '✦ buy', 'Buy it outright — the locked file becomes a normal file you own')}

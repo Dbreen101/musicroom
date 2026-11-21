@@ -3,7 +3,7 @@
   "name": "Shelves",
   "version": "1.0.0",
   "author": "The Music Room",
-  "description": "Every record for sale in the Music Room on shelves you choose: by seller, label, genre, decade or place. Tick up to 25 and make a crate of them.",
+  "description": "Every record for sale, on shelves you choose.",
   "entry": "main.js",
   "style": "style.css",
   "wants": ["catalogue"]

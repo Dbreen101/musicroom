@@ -2023,9 +2023,12 @@ function facetPass(t){
 }
 // the search box: every word typed is somewhere in the title, the artist, the
 // album or the label — in any order ("stott luxury" finds Luxury Problems)
+// a name in plain letters — accents off, the letter kept — so "roisin" finds Róisín
+function mrFold(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ø/g, 'o').replace(/ß/g, 'ss').replace(/ł/g, 'l').replace(/[đð]/g, 'd').replace(/æ/g, 'ae').replace(/œ/g, 'oe'); }
 function textHit(t, q){
   if (!q) return true;
-  const hay = ((t.title||'') + ' ' + (t.artist_name||'') + ' ' + (t.album||'') + ' ' + (t.label||'')).toLowerCase();
+  q = mrFold(q);
+  const hay = mrFold((t.title||'') + ' ' + (t.artist_name||'') + ' ' + (t.album||'') + ' ' + (t.label||''));
   for (const w of q.split(/\s+/)) if (w && hay.indexOf(w) === -1) return false;
   return true;
 }
@@ -2223,7 +2226,7 @@ function refreshRoomCount(){          // the header counts what's actually in th
       if (s.covers){ coversOn = true;
         say(`keeping your covers on this laptop — ${s.covers.done.toLocaleString()} of ${s.covers.total.toLocaleString()}`, '', true, 'covers'); }
       else if (coversOn){ coversOn = false;
-        say('your covers are on this laptop now — they stay sharp with the drive away', 'r3d-drivenote--wake', false);
+        say('your covers are on this laptop now', 'r3d-drivenote--wake', false);
         setTimeout(restingBanner, 9500); }
       const sig = (s.volumes || []).join('|');
       if (volSig === null){ volSig = sig; restingBanner(); return; }
@@ -3212,19 +3215,19 @@ function roomSearchPop(ico){
   const esc = escapeHtml;
   function suggest(){
     if (!shown()) return;
-    const q = searchInput.value.trim().toLowerCase();
+    const q = mrFold(searchInput.value.trim());
     sel = -1;
-    if (!q){ list.innerHTML = `<div class="r3d-spop__hint">Type a title, an artist, an album or a label.</div>`; place(); return; }
+    if (!q){ list.innerHTML = ''; place(); return; }
     // the records are the ones the grid is showing now; the best matches lead
     const first = q.split(/\s+/)[0], hits = [];
     for (let k = 0; k < orderLen; k++){
       const i = order[k], t = tracks[i];
-      const ti = (t.title||'').toLowerCase(), ar = (t.artist_name||'').toLowerCase();
+      const ti = mrFold(t.title), ar = mrFold(t.artist_name);
       hits.push([ti.startsWith(q) ? 0 : ar.startsWith(q) ? 1 : ti.includes(first) ? 2 : ar.includes(first) ? 3 : 4, k, i]);
     }
     hits.sort((a, b)=> a[0] - b[0] || a[1] - b[1]);
     const recs = hits.slice(0, 8);
-    const gs = grupai.filter(g => q.split(/\s+/).every(w => ((g.name||'') + ' ' + (g.description||'')).toLowerCase().includes(w))).slice(0, 5);
+    const gs = grupai.filter(g => q.split(/\s+/).every(w => mrFold((g.name||'') + ' ' + (g.description||'')).includes(w))).slice(0, 5);
     let html = '';
     if (recs.length){
       html += `<div class="r3d-spop__h"><span>Records</span><span>${hits.length > recs.length ? recs.length + ' of ' + hits.length.toLocaleString() : hits.length}</span></div>`;
@@ -3243,7 +3246,7 @@ function roomSearchPop(ico){
           <span class="r3d-sg__k">Grúpa</span></button>`).join('');
     }
     if (!recs.length && !gs.length) html = `<div class="r3d-spop__hint">Nothing in your room matches “${esc(searchInput.value.trim())}”.</div>`;
-    else if (hits.length > recs.length) html += `<div class="r3d-spop__hint">All ${hits.length.toLocaleString()} are in the grid behind. Enter keeps them there.</div>`;
+    else if (hits.length > recs.length) html += `<div class="r3d-spop__hint">${hits.length.toLocaleString()} in the grid behind</div>`;
     list.innerHTML = html; list.scrollTop = 0;
     place();
   }
@@ -6083,22 +6086,15 @@ addEventListener('resize', ()=>{
 <script src="/static/js/r3d_atmosphere.js"></script>
 
 {% if is_gr %}
-<script>/* the trial's room: two tabs, no cloud, no places — its own short walk (plain words; David re-voices) */
-window.MR_TIP = { key:'room', title:'My Room', steps:[
-  { title:'This is your room',
-    body:'Every record you bring in is here. One minute shows you how to move around it — or press ✕ and explore on your own; the ? in the corner brings this back any time.' },
-  { sel:'#r3d-top-views', title:'Records and grúpaí',
-    body:'The record tab is home: everything you have, with your grúpaí first. The <b>Grúpaí</b> tab is where you make and edit them. The slider sets the size; slide it to 1 and one record fills the screen.' },
-  { sel:'#r3d-top-arr', title:'Arrange by what matters',
-    body:'BPM, key, year, cover colour, title or artist. Press one to sort by it; press it again to turn the order round.' },
-  { sel:'.r3d-search', title:'Find and narrow',
-    body:'⌕ searches titles and artists as you type. ⊞ filters by your tags, genres, BPM, key or year — and they stack. The same panel shows or hides your grúpaí.' },
-  { title:'When you’ve narrowed the room',
-    body:'Buttons appear beside the count: <b>＋ cue all</b> and <b>▶ play all</b> queue everything in hand, <b>＋ tag all</b> puts your chosen tags on all of them at once, and <b>＋ grúpa</b> puts them in a grúpa.' },
-  { title:'Click a record, or a grúpa',
-    body:'A record opens its panel — play it, tag it, write notes, pick its cover. A grúpa opens its own — what is in it, play it, or add it to the cue. On every card, <b>+▶</b> queues it. Right-click a record for the quick menu.' },
-  { title:'The player',
-    body:'The deck follows you to every page and never stops between them. <b>–</b> folds it away to its edge. It remembers your cue even after you quit.' },
+<script>/* the trial's room: three short tips, and none while the room is empty (they would point at
+   controls that aren't there). Plain words; Daithí re-voices. */
+window.MR_TIP = { key:'room', title:'My Room', when: () => !document.body.classList.contains('r3d-emptyroom'), steps:[
+  { sel:'#r3d-top-views', title:'Three tabs',
+    body:'<b>Your records</b> is everything you have brought in. <b>Grúpaí</b> are playlists that hold anything: your records, and links from Spotify or SoundCloud. <b>From the shop</b> is what you have brought home or bought.' },
+  { sel:'#r3d-top-arr', title:'Order, find, select',
+    body:'Press an order to sort by it; press it again to turn it round. <b>⌕</b> finds a record or a grúpa. <b>Select</b> ticks several records, to cue, tag or put in a grúpa together.' },
+  { title:'Click a record',
+    body:'Its panel opens: play it, tag it, write notes, pick its cover. The deck at the bottom keeps playing on every page.' },
 ]};</script>
 {% else %}
 <script>window.MR_TIP = { key:'room', title:'The Music Room', steps:[
