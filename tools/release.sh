@@ -24,6 +24,8 @@ REPO="${MR_PUBLIC_GITHUB:-Dbreen101/musicroom}"
 SERVER="${MR_GR_SERVER_FOR_BUILD:-http://$(scutil --get LocalHostName).local:5300}"
 
 git -C "$PUBLIC" rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "There is already a release called $TAG."; exit 1; }
+# both repos must commit (and tag) as your own GitHub account — asked of GitHub, never guessed
+python3 tools/publish_public.py --check-identity || exit 1
 
 echo "── 1. the version"
 printf '%s\n' "${TAG#v}" > VERSION
@@ -52,14 +54,14 @@ MR_DATA_NAME = "Music Room GR"
 PY
   OUT="$(mktemp -d)/$TAG"; mkdir -p "$OUT"
   MR_BAKED_ENV="$BAKE/baked_env.py" ./native/build.sh
-  ditto -c -k --sequesterRsrc --keepParent "native/dist/Music Room.app" "$OUT/Music Room (Apple Silicon).zip"
+  ditto -c -k --sequesterRsrc --keepParent "native/dist/Music Room GR.app" "$OUT/Music Room GR (Apple Silicon).zip"
   if [ -x native/build-intel.sh ] && [ -d native/pyx86 ]; then
     MR_BAKED_ENV="$BAKE/baked_env.py" ./native/build-intel.sh
-    ditto -c -k --sequesterRsrc --keepParent "native/dist-intel/Music Room.app" "$OUT/Music Room (Intel).zip"
+    ditto -c -k --sequesterRsrc --keepParent "native/dist-intel/Music Room GR.app" "$OUT/Music Room GR (Intel).zip"
   else
     echo "   (no Intel build here — native/pyx86 is missing; the release has the Apple Silicon app only)"
   fi
-  cp "native/Read me first.txt" "$OUT/" 2>/dev/null || true
+  cp "native/Read me first (GR).txt" "$OUT/Read me first.txt"
   ASSETS=("$OUT"/*)
   rm -rf "$BAKE"
 fi
@@ -67,9 +69,9 @@ fi
 echo "── 5. the release page"
 NOTES="$NOTE
 
-**Mac**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
+**Mac**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag *Music Room GR* to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
 
-**Windows PC**: download *Music Room (Windows).zip* (it arrives a few minutes after the Mac ones), unzip, open the Music Room folder, double-click Music Room.exe. The first time Windows may say it protected your PC: More info → Run anyway.
+**Windows PC**: download *Music Room GR (Windows).zip* (it arrives a few minutes after the Mac ones), unzip, open the Music Room GR folder, double-click Music Room GR.exe. The first time Windows may say it protected your PC: More info → Run anyway.
 
 **From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\` (Mac) or \`run_gr.bat\` (Windows)."
 # (GitHub's Windows build may have made the page already: then add to it)

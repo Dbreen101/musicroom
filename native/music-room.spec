@@ -31,6 +31,17 @@ for py in glob.glob(os.path.join(PROJ, "*.py")):
 # (MR_BAKED_ENV points at another one — tools/release.sh writes the Green Room's;
 #  it must be called baked_env.py, which is what the launcher imports)
 BAKED = os.environ.get("MR_BAKED_ENV") or os.path.join(SPECPATH, "baked_env.py")
+# The Green Room app (the trial switched on in its baked settings) is its OWN app: its own name,
+# icon (the GR wordmark — native/gen_icon_gr.py) and bundle id, so a Mac never mistakes it for
+# the old P1 "Music Room" (same id = macOS opens or replaces the old one).
+IS_GR_BUILD = os.path.isfile(BAKED) and 'MR_GREEN_ROOM = "1"' in open(BAKED, encoding="utf-8").read()
+if IS_GR_BUILD:
+    APP_NAME, APP_ICON, APP_ID = "Music Room GR", "AppIcon-GR.icns", "com.daithi.musicroom.gr"
+    _v = os.path.join(PROJ, "VERSION")
+    APP_VERSION = open(_v).read().strip() if os.path.isfile(_v) else "1.0"
+else:
+    APP_NAME, APP_ICON, APP_ID, APP_VERSION = "Music Room", "AppIcon.icns", "com.daithi.musicroom", "0.3"
+print(f"[spec] building {APP_NAME}.app ({APP_ID} {APP_VERSION})")
 if os.path.isfile(BAKED):
     if os.path.basename(BAKED) != "baked_env.py":
         raise SystemExit("[spec] MR_BAKED_ENV must point at a file called baked_env.py")
@@ -169,16 +180,16 @@ coll = COLLECT(
 
 app = BUNDLE(
     coll,
-    name="Music Room.app",
-    icon="AppIcon.icns",
-    bundle_identifier="com.daithi.musicroom",
-    version="0.3",
+    name=f"{APP_NAME}.app",
+    icon=APP_ICON,
+    bundle_identifier=APP_ID,
+    version=APP_VERSION,
     info_plist={
-        "CFBundleName":               "Music Room",
-        "CFBundleDisplayName":        "Music Room",
-        "CFBundleIdentifier":         "com.daithi.musicroom",
-        "CFBundleVersion":            "0.3",
-        "CFBundleShortVersionString": "0.3",
+        "CFBundleName":               APP_NAME,
+        "CFBundleDisplayName":        APP_NAME,
+        "CFBundleIdentifier":         APP_ID,
+        "CFBundleVersion":            APP_VERSION,
+        "CFBundleShortVersionString": APP_VERSION,
         "CFBundlePackageType":        "APPL",
         "CFBundleExecutable":         "music-room",
         "LSMinimumSystemVersion":     "11.0",

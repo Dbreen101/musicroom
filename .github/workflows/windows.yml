@@ -5,7 +5,7 @@
 #   1. the tests that matter for the trial, on Windows
 #   2. the app (native/music-room-win.spec), with the Green Room's settings baked in
 #   3. the built app is started with no window and asked a few things
-#   4. "Music Room (Windows).zip" goes on the release's page
+#   4. "Music Room GR (Windows).zip" goes on the release's page
 name: Windows app
 
 on:
@@ -73,7 +73,7 @@ jobs:
           from PIL import Image
           os.makedirs("native/bin", exist_ok=True)
           shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), "native/bin/ffmpeg.exe")
-          Image.open("native/AppIcon_1024.png").save("native/AppIcon.ico",
+          Image.open("native/AppIcon-GR_1024.png").save("native/AppIcon.ico",
               sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
           os.makedirs("build_bake", exist_ok=True)
           tag, server = os.environ["TAG"], os.environ["MR_GR_SERVER"]
@@ -96,7 +96,7 @@ jobs:
           $env:MUSICROOM_DATA = Join-Path $env:RUNNER_TEMP "mrdata"
           $env:MUSICROOM_PORT = "5199"
           $env:SDL_AUDIODRIVER = "dummy"
-          $p = Start-Process -FilePath "native\dist\Music Room\Music Room.exe" -PassThru
+          $p = Start-Process -FilePath "native\dist\Music Room GR\Music Room GR.exe" -PassThru
           $up = $false
           foreach ($i in 1..180) {
             try { Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5199/login" -TimeoutSec 2 | Out-Null; $up = $true; break } catch { Start-Sleep -Seconds 1 }
@@ -107,7 +107,7 @@ jobs:
           $ver = Invoke-RestMethod "http://127.0.0.1:5199/api/gr/version"
           Write-Host "server: $($status.default_server) · version: $($ver.mine) · house rules: $($rules -match 'Only put up music you made')"
           $ok = ($status.default_server -eq $env:MR_GR_SERVER) -and ($rules -match 'Only put up music you made') -and $ver.mine
-          $ff = Test-Path "native\dist\Music Room\_internal\ffmpeg.exe"
+          $ff = Test-Path "native\dist\Music Room GR\_internal\ffmpeg.exe"
           Write-Host "ffmpeg inside: $ff"
           Stop-Process -Id $p.Id -Force
           if (-not $ok) { exit 1 }
@@ -115,15 +115,15 @@ jobs:
       - name: Zip it
         shell: pwsh
         run: |
-          Copy-Item "native\Read me first (Windows).txt" "native\dist\Music Room\" -ErrorAction SilentlyContinue
-          Compress-Archive -Path "native\dist\Music Room" -DestinationPath "Music Room (Windows).zip"
-          Get-Item "Music Room (Windows).zip" | Select-Object Name, Length
+          Copy-Item "native\Read me first (Windows).txt" "native\dist\Music Room GR\" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "native\dist\Music Room GR" -DestinationPath "Music Room GR (Windows).zip"
+          Get-Item "Music Room GR (Windows).zip" | Select-Object Name, Length
 
       - name: Keep it with this run (for a trial build, or if the release step fails)
         uses: actions/upload-artifact@v4
         with:
-          name: Music Room (Windows)
-          path: Music Room (Windows).zip
+          name: Music Room GR (Windows)
+          path: Music Room GR (Windows).zip
           retention-days: 14
 
       - name: Put it on the release
@@ -136,7 +136,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:TAG --title "The Music Room $env:TAG" --notes "The Windows app is here; the Mac apps follow."
           }
-          gh release upload $env:TAG "Music Room (Windows).zip" --clobber
+          gh release upload $env:TAG "Music Room GR (Windows).zip" --clobber
 
       - name: Say how the tests went
         if: steps.tests.outcome == 'failure'

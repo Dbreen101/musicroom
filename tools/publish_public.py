@@ -42,7 +42,7 @@ PRIVATE = [
     "tools/google_sheet_endpoint.gs", "tools/pull_feedback.py", "tools/ingest_feedback.py", "tools/preflight.sh",
     "telemetry_server/*", "native/Tester guide.txt",
     "rekey_all.py", "remove_ableton_tracks.py", "reset_itunes_artwork.py", "generate_research_library.py",
-    "make_usb.py", "tools/publish_never.txt",
+    "make_usb.py", "tools/publish_never.txt", "docs/commit-map-*",
 ]
 # a published file must not hold any of these (it stops, and says where). The words that are
 # private in themselves (an email address, people's names, this Mac's home folder) are kept in
@@ -63,6 +63,41 @@ TEXT = {".py", ".js", ".css", ".html", ".md", ".txt", ".json", ".sh", ".command"
 
 def git(*a, cwd=HERE, check=True):
     return subprocess.run(["git", *a], cwd=cwd, check=check, capture_output=True, text=True).stdout
+
+
+def account_email():
+    """(owner, address): the GitHub account that owns the public repo, and that account's own
+    private commit address (id+login@users.noreply.github.com) — ASKED OF GITHUB, never typed
+    in or guessed from a name. A guessed address once put a stranger's account on every commit
+    (a name-only noreply address belongs to whoever owns that name). (None, why) if it can't be told."""
+    url = git("remote", "get-url", "origin", cwd=PUBLIC, check=False).strip()
+    m = re.search(r"github\.com[:/]([^/]+)/", url)
+    if not m:
+        return None, f"can't tell the public repo's owner from its address ({url or 'none'})"
+    owner = m.group(1)
+    r = subprocess.run(["gh", "api", "user", "--jq", '"\\(.id)+\\(.login)"'],
+                       capture_output=True, text=True)
+    who = r.stdout.strip()
+    if r.returncode != 0 or "+" not in who:
+        return None, "GitHub didn't say which account this Mac is signed in as (gh auth status)"
+    login = who.split("+", 1)[1]
+    if login.lower() != owner.lower():
+        return None, f"this Mac is signed in to GitHub as {login}, but the public repo belongs to {owner}"
+    return owner, f"{who}@users.noreply.github.com"
+
+
+def identity_problems(*repos):
+    """Every repo given must commit as the owner's own account, and nothing else."""
+    owner, address = account_email()
+    if not owner:
+        return [address]
+    out = []
+    for repo in repos:
+        mine = git("config", "--get", "user.email", cwd=repo, check=False).strip()
+        if mine != address:
+            out.append(f"{repo} commits as <{mine or 'nobody'}>, not your GitHub account's <{address}>.\n"
+                       f"      Fix:  git -C '{repo}' config user.email '{address}'")
+    return out
 
 
 def private(path):
@@ -98,7 +133,15 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("-m", "--message")
     ap.add_argument("--push", action="store_true")
+    ap.add_argument("--check-identity", action="store_true",
+                    help="only check that both repos commit as your own GitHub account")
     a = ap.parse_args()
+
+    if a.check_identity:
+        wrong = identity_problems(HERE, PUBLIC)
+        for w in wrong:
+            print("STOP — " + w)
+        return 1 if wrong else 0
 
     keep, left = chosen()
     problems = scan(keep)
@@ -121,6 +164,10 @@ def main():
         return 1
     if git("status", "--porcelain", cwd=PUBLIC).strip():
         print(f"The public clone at {PUBLIC} has changes of its own. Commit or clear them first.")
+        return 1
+    wrong = identity_problems(PUBLIC)
+    if wrong:
+        print("Not published — " + "\n".join(wrong))
         return 1
     # has the public repo moved on since this copy last published? (a merged pull request)
     git("fetch", "--quiet", "origin", cwd=PUBLIC, check=False)
@@ -151,6 +198,13 @@ def main():
     git("commit", "--quiet", "-m", f"{a.message}\n\n(published from the working copy at {src})", cwd=PUBLIC)
     head = git("rev-parse", "HEAD", cwd=PUBLIC).strip()
     print(f"Committed in {PUBLIC}: {git('log', '--oneline', '-1', cwd=PUBLIC).strip()}")
+    # and the commit itself, before anything leaves this Mac
+    _, address = account_email()
+    made = set(git("log", "-1", "--format=%ae%n%ce", cwd=PUBLIC).split())
+    if made != {address}:
+        git("reset", "--quiet", "--soft", "HEAD~1", cwd=PUBLIC, check=False)
+        print(f"Not published — the commit was made as {sorted(made)}, not <{address}>. It was undone.")
+        return 1
     if a.push:
         r = subprocess.run(["git", "push", "origin", "HEAD:main"], cwd=PUBLIC, capture_output=True, text=True)
         if r.returncode != 0:

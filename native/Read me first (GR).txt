@@ -1,0 +1,35 @@
+THE MUSIC ROOM GR — a quick start
+=================================
+
+There are two Mac downloads: "Apple Silicon" for Macs with an M1 chip or
+newer (most Macs from late 2020 on), "Intel" for older Macs.
+(Apple menu → About This Mac shows which chip you have.)
+
+1. Unzip it and drag "Music Room GR.app" to your Applications folder.
+
+2. FIRST LAUNCH: macOS will say it can't check the developer and only offer
+   "Done" or "Move to Bin". That's normal for an app shared outside the App
+   Store. To open it:
+
+      a. Double-click the app once (let macOS refuse it).
+      b. Open System Settings → Privacy & Security.
+      c. Scroll down to: "Music Room GR" was blocked…
+         Click "Open Anyway", then confirm.
+
+   You only do this once. After that, double-click as normal.
+
+   If the button never appears: open Terminal, type
+      xattr -dr com.apple.quarantine
+   then a space, drag the app into the window, press Return, and open it.
+
+3. Make your account on the first screen (or sign in with your account
+   code). The app already knows where the Music Room's server is — you need
+   to be on the same Wi-Fi as it.
+
+Help: the ? in the top bar. Something odd or broken: the feedback button
+in the corner of every page.
+
+Your data lives in:
+   ~/Library/Application Support/Music Room GR
+It is separate from any older "Music Room" app you may have, which is left
+as it is.

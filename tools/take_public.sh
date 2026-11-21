@@ -15,6 +15,7 @@ if [ "${1:-}" = "--sync" ]; then
   exit 0
 fi
 N="${1:-}"; [[ "$N" =~ ^[0-9]+$ ]] || { echo "Which pull request? tools/take_public.sh <number>"; exit 1; }
+python3 tools/publish_public.py --check-identity || exit 1   # commit as your own GitHub account, nothing else
 STATE="$(gh pr view "$N" --repo "$REPO" --json state -q .state)"
 [ "$STATE" = "MERGED" ] || { echo "Pull request $N isn't merged (it is $STATE). Merge it on GitHub first, or not at all."; exit 1; }
 gh pr diff "$N" --repo "$REPO" | git apply --index --whitespace=nowarn

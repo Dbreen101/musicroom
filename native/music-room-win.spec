@@ -40,6 +40,10 @@ for fn in ("VERSION", "HOUSE_RULES.md"):
     if os.path.isfile(os.path.join(PROJ, fn)):
         datas.append((os.path.join(PROJ, fn), "mrsrc"))
 BAKED = os.environ.get("MR_BAKED_ENV") or os.path.join(SPECPATH, "baked_env.py")
+# the Green Room build is its own app: "Music Room GR", with the GR wordmark icon (as on the Mac)
+IS_GR_BUILD = os.path.isfile(BAKED) and 'MR_GREEN_ROOM = "1"' in open(BAKED, encoding="utf-8").read()
+APP_NAME = "Music Room GR" if IS_GR_BUILD else "Music Room"
+print(f"[spec] building {APP_NAME}")
 if os.path.isfile(BAKED):
     if os.path.basename(BAKED) != "baked_env.py":
         raise SystemExit("[spec] MR_BAKED_ENV must point at a file called baked_env.py")
@@ -96,7 +100,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="Music Room",
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -104,4 +108,4 @@ exe = EXE(
     console=False,                      # a window, no black console behind it
     icon=os.path.join(SPECPATH, "AppIcon.ico") if os.path.isfile(os.path.join(SPECPATH, "AppIcon.ico")) else None,
 )
-coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=False, name="Music Room")
+coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=False, name=APP_NAME)
