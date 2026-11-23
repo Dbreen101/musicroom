@@ -60,6 +60,10 @@ function quote(tracks, what) {
 }
 
 // ── one track's buttons ──
+// what a record you hold can do, wherever it is shown: play, go in the cue, go in a grúpa
+const heldActs = id => `<button type="button" class="sim-btn" data-sim-act="play" data-id="${id}" title="Play it">▶ Play</button>`
+    + `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue" data-id="${id}" data-snt-keep title="Add it to the cue">＋ Cue</button>`
+    + `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="grupa" data-id="${id}" title="Add it to a grúpa">＋ Grúpa</button>`;
 function trackActs(t, o) {
     o = o || {};
     const s = t.sim; if (!s) return '';
@@ -68,10 +72,10 @@ function trackActs(t, o) {
     let h = '';
     if (s.state === 'bought') {
         h += `<span class="sim-state">Yours</span>`;
-        if (!o.noPlay && s.url) h += `<button type="button" class="sim-btn" data-sim-act="play" data-id="${id}" title="Play it">▶ Play</button>`;
+        if (!o.noPlay && s.url) h += heldActs(id);
     } else if (s.state === 'home') {
         h += `<span class="sim-state">At home</span>`;
-        if (!o.noPlay && s.url) h += `<button type="button" class="sim-btn" data-sim-act="play" data-id="${id}" title="Play it">▶ Play</button>`;
+        if (!o.noPlay && s.url) h += heldActs(id);
         h += `<button type="button" class="sim-btn" data-sim-act="buy" data-id="${id}" title="Buy it outright: it stays yours and takes no room">Buy · ${s.buy_cost}</button>`;
         if (!o.noOut) h += `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-id="${id}" title="Take it out of your room (no credit back; a week before it can come back)">Take out</button>`;
     } else if (s.state === 'out') {
@@ -96,7 +100,8 @@ function recordActs(key, tracks) {
     if (b.n) out += `<button type="button" class="sim-btn" data-sim-act="buy" data-record="${esc(key)}" title="Buy all of it${b.n >= 2 ? ' — ' + rules().record_share + '% of its tracks' : ''}">Buy ${b.n === all ? 'it all' : 'the rest'} · ${b.cost}</button>`;
     else out += `<span class="sim-state">All yours</span>`;
     const held = tracks.filter(t => t.sim && (t.sim.state === 'home' || t.sim.state === 'bought') && t.sim.url);
-    if (held.length) out = `<button type="button" class="sim-btn" data-sim-act="play-record" data-record="${esc(key)}">▶ Play</button>` + out;
+    if (held.length) out = `<button type="button" class="sim-btn" data-sim-act="play-record" data-record="${esc(key)}">▶ Play</button>`
+        + `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue-record" data-record="${esc(key)}" data-snt-keep title="Add what you hold of it to the cue">＋ Cue</button>` + out;
     return `<span class="sim-acts">${out}</span>`;
 }
 
@@ -188,6 +193,18 @@ async function act(btn) {
     const body = btn.dataset.record ? { record: btn.dataset.record } : { track_id: +btn.dataset.id };
     if (what === 'play') return playTrack(+btn.dataset.id);
     if (what === 'play-record') return playRecord(btn.dataset.record);
+    if (what === 'cue' || what === 'cue-record') {
+        const ts = (what === 'cue' ? [REG.get(+btn.dataset.id)] : (RECS.get(btn.dataset.record) || [])).filter(t => t && (t.sim ? t.sim.url : t.url));
+        const d = deck();
+        if (!d || !ts.length) return;
+        const n = await d.add(ts.map(embedOf));
+        return say(btn, n ? (n === 1 ? 'In the cue' : n + ' in the cue') : 'That couldn’t go in the cue');
+    }
+    if (what === 'grupa') {
+        const t = REG.get(+btn.dataset.id); if (!t) return;
+        const e = embedOf(t);
+        return withGrupaUI(() => GrupaUI.addTo({ url: e.url, title: e.title, subtitle: e.artist, image: e.image_url }, btn));
+    }
     const m = await me();
     if (what === 'out') {
         const r = rules();
@@ -230,6 +247,19 @@ document.addEventListener('click', e => {
     e.preventDefault(); e.stopPropagation();
     act(b);
 }, true);
+
+// the "add to a grúpa" window lives in grupa_ui.js: fetched the first time it is asked for
+function withGrupaUI(cb) {
+    if (window.GrupaUI) return cb();
+    if (!document.querySelector('link[data-grupa-css]')) {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/static/css/grupa.css'; l.setAttribute('data-grupa-css', '1');
+        document.head.appendChild(l);
+    }
+    if (document.querySelector('script[data-grupa-ui]')) { const wait = () => window.GrupaUI ? cb() : setTimeout(wait, 50); return wait(); }
+    const s = document.createElement('script');
+    s.src = '/static/js/grupa_ui.js'; s.setAttribute('data-grupa-ui', '1'); s.onload = cb;
+    document.head.appendChild(s);
+}
 
 // ── playing your own: through the deck (your own Spotify, or Spotify's player on the page) ──
 const embedOf = t => ({ kind: 'embed', url: t.sim ? t.sim.url : t.url, source: 'spotify', stream_type: 'track',
@@ -280,6 +310,7 @@ function mountMine(host, opts) {
             const homeTs = ts.filter(t => t.state === 'home');
             const whole = [];
             if (ts.some(t => t.url)) whole.push(`<button type="button" class="sim-btn" data-sim-act="play-record" data-record="${esc(r.key)}">▶ Play</button>`);
+            if (ts.some(t => t.url)) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue-record" data-record="${esc(r.key)}" data-snt-keep title="Add what you hold of it to the cue">＋ Cue</button>`);
             if (r.owner && r.owner.handle) whole.push(`<a class="sim-btn sim-btn--quiet" href="/rooms/${encodeURIComponent(r.owner.handle)}?overlay=1" data-room="${esc(r.owner.handle)}" title="The rest of the record, and more of theirs">${esc(r.owner.name || r.owner.handle)}’s room ↗</a>`);
             if (homeTs.length > 1) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-record="${esc(r.key)}">Take it all out</button>`);
             h += `<div class="sim-rec">${cov}<div class="sim-rec__body">

@@ -456,7 +456,7 @@ function mount(host, opts) {
                 <h1 class="gp-name gp-name--home">Grúpaí</h1>
                 <span class="gp-home__n"></span>
                 <span class="gp-home__sp"></span>
-                <button type="button" class="gp-btn gp-btn--small" data-home="look" title="The cover every grúpa wears until it is given its own: its name, in a typeface and on a colour you choose">The look</button>
+                <button type="button" class="gp-btn gp-btn--small" data-home="look" title="The cover every grúpa wears until it is given its own: its name, in a typeface and on a colour you choose">The shared look</button>
                 <button type="button" class="gp-btn gp-btn--small" data-home="select" title="Choose several, then make them public or private, or delete them, all at once">Select</button>
             </header>
             <form class="gp-new"><input class="gp-input" placeholder="Name a new grúpa" autocomplete="off" maxlength="200"><button class="gp-btn gp-btn--primary" type="submit">Make it</button></form>
@@ -551,22 +551,31 @@ function mount(host, opts) {
     };
 
     // ── choosing a typeface and a ground: the same few controls for the shared look and for one grúpa's own ──
-    function lookControls(cur) {
+    function lookControls(cur, own) {
         const custom = cur.bg && !SWATCHES.includes(cur.bg);
+        const inkOwn = cur.ink && !SWATCHES.includes(cur.ink);
+        const inkRow = !own ? '' : `<div class="gp-pickrow"><span class="gp-pickrow__k">Writing</span><div class="gp-swatches">
+                <button type="button" class="gp-sw gp-sw--page${cur.ink ? '' : ' on'}" data-ink="" title="Chosen to suit the colour behind it">Auto</button>
+                ${SWATCHES.map(c => `<button type="button" class="gp-sw${c === cur.ink ? ' on' : ''}" data-ink="${c}" style="background:${c}" title="${c}" aria-label="${c}"></button>`).join('')}
+                <label class="gp-sw gp-sw--own${inkOwn ? ' on' : ''}" title="Any other colour"${inkOwn ? ` style="background:${esc(cur.ink)}"` : ''}><span>＋</span><input type="color" data-inkpick value="${esc(inkOwn ? cur.ink : '#c9412f')}"></label>
+            </div></div>`;
         return `<div class="gp-pickrow"><span class="gp-pickrow__k">Typeface</span><div class="gp-fonts">${FONTS.map(f =>
                 `<button type="button" class="gp-font${f === cur.font ? ' on' : ''}" data-font="${esc(f)}" style="font-family:'${esc(f)}', Georgia, serif">${esc(f)}</button>`).join('')}</div></div>
             <div class="gp-pickrow"><span class="gp-pickrow__k">Colour</span><div class="gp-swatches">
                 <button type="button" class="gp-sw gp-sw--page${cur.bg ? '' : ' on'}" data-bg="" title="The page's own colour. It follows the light and dark themes">Page</button>
                 ${SWATCHES.map(c => `<button type="button" class="gp-sw${c === cur.bg ? ' on' : ''}" data-bg="${c}" style="background:${c}" title="${c}" aria-label="${c}"></button>`).join('')}
-                <label class="gp-sw gp-sw--own${custom ? ' on' : ''}" title="Any other colour"${custom ? ` style="background:${esc(cur.bg)}"` : ''}><span>＋</span><input type="color" value="${esc(custom ? cur.bg : '#34557e')}"></label>
-            </div></div>`;
+                <label class="gp-sw gp-sw--own${custom ? ' on' : ''}" title="Any other colour"${custom ? ` style="background:${esc(cur.bg)}"` : ''}><span>＋</span><input type="color" data-bgpick value="${esc(custom ? cur.bg : '#34557e')}"></label>
+            </div></div>${inkRow}`;
     }
     // wire them: `set(patch)` is told {font} or {bg}
     function bindLook(box, set) {
         box.querySelectorAll('[data-font]').forEach(b => { b.onclick = () => set({ font: b.dataset.font }); });
         box.querySelectorAll('[data-bg]').forEach(b => { b.onclick = () => set({ bg: b.dataset.bg }); });
-        const col = box.querySelector('input[type=color]');
+        const col = box.querySelector('input[data-bgpick]');
         if (col) col.onchange = () => set({ bg: col.value });
+        box.querySelectorAll('[data-ink]').forEach(b => { b.onclick = () => set({ ink: b.dataset.ink }); });
+        const ink = box.querySelector('input[data-inkpick]');
+        if (ink) ink.onchange = () => set({ ink: ink.value });
     }
     function drawLook() {
         lookBox.hidden = !lookOpen;
@@ -613,6 +622,7 @@ function mount(host, opts) {
             <div class="gp-bar">
                 <button class="gp-btn gp-btn--primary" data-do="play">Play</button>
                 <button class="gp-btn" data-do="cue" data-snt-keep>Add to the cue</button>
+                <button class="gp-btn" data-do="look" title="This grúpa's own look: its typeface, its colours, or a picture">Look</button>
                 <span class="gp-bar__count"></span>
                 <button type="button" class="gp-switch" data-do="public" role="switch" aria-checked="false"><span class="gp-switch__box" aria-hidden="true"></span><span class="gp-switch__t">Make public</span></button>
                 <button class="gp-btn gp-btn--small gp-btn--danger" data-do="del">Delete</button>
@@ -649,6 +659,12 @@ function mount(host, opts) {
         $('[data-do=cover]', pane).onclick = () => {
             coverOpen = !coverOpen;
             if (coverOpen) coverTab = ({ text: 'text', item: 'item' })[(OWN && OWN.kind) || ''] || 'shared';
+            drawCoverBox();
+        };
+        // "Look" opens straight on this grúpa's OWN look (nothing changes until something is chosen)
+        $('[data-do=look]', pane).onclick = () => {
+            coverOpen = !coverOpen;
+            if (coverOpen) coverTab = (OWN && OWN.kind) === 'item' ? 'item' : 'text';
             drawCoverBox();
         };
         $('[data-do=public]', pane).onclick = togglePublic;
@@ -738,6 +754,7 @@ function mount(host, opts) {
             G = Object.assign(G, d.grupa);
             OWN = Object.assign(OWN || {}, cover.kind === 'shared' ? { kind: '' } : cover);
             if (cover.kind === 'text' && !('bg' in cover)) OWN.bg = '';
+            if (cover.kind === 'text' && !('ink' in cover)) OWN.ink = '';
         } catch (err) { say($('.gp-head__cover', pane), err.message, true); }
         paintCover(); drawCoverBox(); changed(gid);
     }
@@ -750,7 +767,8 @@ function mount(host, opts) {
         box.hidden = !coverOpen;
         if (!coverOpen) { box.innerHTML = ''; return; }
         const saved = (OWN && OWN.kind) || '';
-        const mine = { font: (OWN && OWN.font) || LOOK.font, bg: saved === 'text' ? ((OWN && OWN.bg) || '') : LOOK.bg };
+        const mine = { font: (OWN && OWN.font) || LOOK.font, bg: saved === 'text' ? ((OWN && OWN.bg) || '') : LOOK.bg,
+                       ink: saved === 'text' ? ((OWN && OWN.ink) || '') : '' };
         const picked = G.cover && G.cover.kind === 'image' ? G.cover.item : null;
         box.innerHTML = `<div class="gp-box__h"><span>This grúpa's cover</span><button type="button" class="gp-btn gp-btn--small" data-c="done">Done</button></div>
             <div class="gp-seg">
@@ -758,7 +776,7 @@ function mount(host, opts) {
                 <button type="button" class="${coverTab === 'text' ? 'on' : ''}" data-c="text" title="Its name, in a typeface and on a colour of its own">Its own look</button>
                 <button type="button" class="${coverTab === 'item' ? 'on' : ''}" data-c="item" title="The cover of a record in it, or the picture of anything else in it">A picture</button>
             </div>
-            ${coverTab === 'text' ? lookControls(mine) : ''}
+            ${coverTab === 'text' ? lookControls(mine, true) : ''}
             ${coverTab === 'item' ? (CHOICES.length
                 ? `<div class="gp-pics">${CHOICES.map(c => `<button type="button" class="gp-pic${picked === c.item ? ' on' : ''}" data-item="${c.item}" title="${esc(c.title)}"><img src="${esc(c.image)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></button>`).join('')}</div>`
                 : '<p class="gp-box__p">Nothing in it has a picture yet.</p>') : ''}`;
@@ -767,11 +785,11 @@ function mount(host, opts) {
             if (c === 'done') { coverOpen = false; drawCoverBox(); return; }
             coverTab = c;
             if (c === 'shared') saveCover({ kind: 'shared' });
-            else if (c === 'text') saveCover({ kind: 'text', font: mine.font, bg: mine.bg });
+            else if (c === 'text') saveCover({ kind: 'text', font: mine.font, bg: mine.bg, ink: mine.ink });
             else drawCoverBox();
         }; });
         box.querySelectorAll('[data-item]').forEach(b => { b.onclick = () => saveCover({ kind: 'item', item: parseInt(b.dataset.item, 10) }); });
-        if (coverTab === 'text') bindLook(box, patch => saveCover(Object.assign({ kind: 'text', font: mine.font, bg: mine.bg }, patch)));
+        if (coverTab === 'text') bindLook(box, patch => saveCover(Object.assign({ kind: 'text', font: mine.font, bg: mine.bg, ink: mine.ink }, patch)));
     }
 
     // ── public: off until its owner turns it on ──

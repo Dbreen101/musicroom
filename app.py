@@ -15507,7 +15507,8 @@ def api_grupa_get(gid):
             seen.add(img)
             choices.append({"item": it["id"], "image": img, "title": it["title"] or ""})
     own = {"kind": g.get("cover_kind") or "", "item": g.get("cover_item"),
-           "font": _grupa_mod.clean_font(g.get("cover_font")), "bg": _grupa_mod.clean_hex(g.get("cover_bg"))}
+           "font": _grupa_mod.clean_font(g.get("cover_font")), "bg": _grupa_mod.clean_hex(g.get("cover_bg")),
+           "ink": _grupa_mod.clean_hex(g.get("cover_ink"))}
     return jsonify({"grupa": _grupa_card(g), "items": [_grupa_hydrate(i, marks) for i in rows],
                     "cover_own": own, "cover_choices": choices, "look": _grupa_look(),
                     "fonts": list(_grupa_mod.FONTS), "swatches": list(_grupa_mod.SWATCHES)})
@@ -15537,8 +15538,9 @@ def api_grupa_patch(gid):
                 return jsonify({"error": "that one has no picture"}), 400
             execute("UPDATE grupa SET cover_kind='item', cover_item=? WHERE id=?", (it["id"], gid))
         elif kind == "text":
-            execute("UPDATE grupa SET cover_kind='text', cover_font=?, cover_bg=? WHERE id=?",
-                    (_grupa_mod.clean_font(c.get("font")), _grupa_mod.clean_hex(c.get("bg")), gid))
+            execute("UPDATE grupa SET cover_kind='text', cover_font=?, cover_bg=?, cover_ink=? WHERE id=?",
+                    (_grupa_mod.clean_font(c.get("font")), _grupa_mod.clean_hex(c.get("bg")),
+                     _grupa_mod.clean_hex(c.get("ink")), gid))
         else:
             execute("UPDATE grupa SET cover_kind='' WHERE id=?", (gid,))
     _grupa_touch(gid)

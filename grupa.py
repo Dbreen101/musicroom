@@ -52,6 +52,7 @@ ADDED = (
     ("grupa", "cover_item", "INTEGER"),              # grupa_items.id, when cover_kind = 'item'
     ("grupa", "cover_font", "TEXT DEFAULT ''"),
     ("grupa", "cover_bg", "TEXT DEFAULT ''"),
+    ("grupa", "cover_ink", "TEXT DEFAULT ''"),       # 2026-11-23 — its own colour of writing ('' = chosen to suit the ground)
     ("grupa", "is_public", "INTEGER DEFAULT 0"),     # off unless its owner turns it on
     ("grupa", "public_dirty", "INTEGER DEFAULT 0"),  # changed since it was last sent to the rooms server
     ("grupa", "public_error", "TEXT DEFAULT ''"),    # why the last send didn't go, in plain words
@@ -118,7 +119,8 @@ def cover_of(row, look, item_image=None):
     own = kind == "text"
     font = (clean_font(row.get("cover_font")) if own else "") or clean_font(look.get("font")) or FONTS[0]
     bg = (clean_hex(row.get("cover_bg")) if own else "") or clean_hex(look.get("bg"))
-    return {"kind": "text", "own": own, "font": font, "bg": bg, "ink": ink_for(bg)}
+    ink = clean_hex(row.get("cover_ink")) if own else ""
+    return {"kind": "text", "own": own, "font": font, "bg": bg, "ink": ink or ink_for(bg)}
 
 
 def ensure(cursor):
