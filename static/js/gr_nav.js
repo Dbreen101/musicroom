@@ -97,11 +97,36 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
     const x = document.createElement('button');
     x.type = 'button'; x.textContent = '✕'; x.title = 'Not now'; x.setAttribute('aria-label', 'Not now');
     x.addEventListener('click', () => { bar.remove(); try { sessionStorage.setItem(key, '1'); } catch (_) {} });
-    if (v.want.url) bar.append(say, get, x); else bar.append(say, x);      // (no address given → no link that leads nowhere)
+    // "Update now": the app fetches the new version, puts it where this one is, and opens it again
+    // (the person's room and sign-in are not in the app, so nothing of theirs is touched)
+    const now = document.createElement('button');
+    now.type = 'button'; now.className = 'mr-update__go'; now.textContent = 'Update now';
+    const page = () => fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: v.want.url || v.page }) });
+    const failed = why => { say.textContent = (why || 'The update could not be fetched.') + ' '; get.textContent = 'Get it by hand'; get.onclick = e => { e.preventDefault(); page(); }; now.remove(); bar.insertBefore(get, x); };
+    now.addEventListener('click', async () => {
+      now.disabled = true; now.textContent = 'Starting…';
+      try { await fetch('/api/gr/update/start', { method: 'POST' }); } catch (_) { return failed(); }
+      const tick = async () => {
+        let s; try { s = await (await fetch('/api/gr/update')).json(); } catch (_) { return failed(); }
+        if (s.step === 'error') return failed(s.error);
+        if (s.step === 'ready') {
+          now.textContent = 'Restarting…';
+          try { await fetch('/api/gr/update/apply', { method: 'POST' }); } catch (_) {}
+          say.textContent = `Version ${v.want.version} is going in. The Music Room will reopen by itself. `;
+          return;
+        }
+        now.textContent = s.step === 'downloading' && s.total ? `Downloading ${Math.floor(100 * s.done / s.total)}%` : s.step === 'unpacking' ? 'Unpacking…' : 'Starting…';
+        setTimeout(tick, 700);
+      };
+      tick();
+    });
+    if (v.self) bar.append(say, now, x);
+    else if (v.want.url) bar.append(say, get, x); else bar.append(say, x);      // (no address given → no link that leads nowhere)
     const css = document.createElement('style');
     css.textContent = `.mr-update{position:fixed;left:50%;top:calc(var(--nav-h,54px) + 8px);transform:translateX(-50%);z-index:9400;display:flex;align-items:center;gap:10px;
       max-width:calc(100vw - 24px);padding:8px 10px 8px 14px;background:var(--text,#161513);color:var(--bg,#f2efe8);font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.68rem;line-height:1.4}
       .mr-update a{color:inherit;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+      .mr-update__go{appearance:none;border:1px solid currentColor;background:none;color:inherit;font:inherit;text-transform:uppercase;letter-spacing:.08em;padding:4px 9px;cursor:pointer;white-space:nowrap}.mr-update__go:disabled{opacity:.75;cursor:default}
       .mr-update button{appearance:none;border:1px solid currentColor;border-radius:0;background:none;color:inherit;width:22px;height:22px;padding:0;cursor:pointer;font-size:.62rem}`;
     document.head.append(css);
     document.body.append(bar);

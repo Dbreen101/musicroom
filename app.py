@@ -15108,9 +15108,46 @@ def api_gr_version():
         _version_seen["at"] = _t.time()
     want = _version_seen["v"] or {}
     other = (want.get("version") or "").strip()
+    differs = bool(other and APP_VERSION and other.lstrip("v") != APP_VERSION.lstrip("v"))
+    can = app_update.where()
     return jsonify({"mine": APP_VERSION, "want": want,
-                    "update": bool(other and APP_VERSION and other.lstrip("v") != APP_VERSION.lstrip("v")
-                                   and (want.get("url") or "").startswith("https://"))})
+                    # a notice shows when this app can put the new version in by itself, or there is
+                    # an address to send the person to
+                    "update": differs and (can["can"] or (want.get("url") or "").startswith("https://")),
+                    "self": differs and can["can"], "why_not": "" if can["can"] else can["why"],
+                    "page": app_update.PAGE})
+
+
+# ── the app updating itself: "Update now" on the new-version notice (app_update.py) ──
+import app_update  # noqa: E402
+
+
+@app.route("/api/gr/update")
+def api_gr_update():
+    return jsonify(app_update.state())
+
+
+@app.route("/api/gr/update/start", methods=["POST"])
+def api_gr_update_start():
+    """Fetch the version the Music Room names — never one the page names."""
+    api_gr_version()                                   # (makes sure the server has been asked)
+    want = ((_version_seen["v"] or {}).get("version") or "").strip().lstrip("v")
+    if not want or want == (APP_VERSION or "").lstrip("v"):
+        return jsonify({"error": "This is already the version to be on."}), 409
+    app_update.start(want, DATA_DIR)
+    return jsonify(app_update.state())
+
+
+@app.route("/api/gr/update/apply", methods=["POST"])
+def api_gr_update_apply():
+    ok = app_update.apply()
+    try:
+        if ok:
+            green_room.track("app_update", {"from": APP_VERSION, "to": app_update.state().get("version")})
+            green_room.flush_events()
+    except Exception:
+        pass
+    return jsonify(app_update.state()), (200 if ok else 409)
 
 
 @app.route("/house-rules")
