@@ -216,6 +216,12 @@ def _ensure_database():
 
 def _bail(msg: str):
     sys.stderr.write(f"Music Room: {msg}\n")
+    try:        # (a windowed app has nowhere to say why it didn't start: leave the reason in its data folder)
+        import traceback
+        with open(os.path.join(os.environ.get("MUSICROOM_DATA") or ".", "startup-error.txt"), "w", encoding="utf-8") as fh:
+            fh.write(msg + "\n\n" + traceback.format_exc())
+    except Exception:
+        pass
     try:
         import webview
         webview.create_window(

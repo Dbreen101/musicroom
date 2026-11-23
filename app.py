@@ -15119,7 +15119,17 @@ def api_gr_version():
 
 
 # ── the app updating itself: "Update now" on the new-version notice (app_update.py) ──
-import app_update  # noqa: E402
+try:
+    import app_update  # noqa: E402
+except Exception as _e:                      # (a packed app missing a piece must still START: it just can't update itself)
+    print(f"[update] not available: {_e}")
+
+    class app_update:                        # noqa: N801
+        PAGE = "https://github.com/Dbreen101/musicroom/releases/latest"
+        where = staticmethod(lambda: {"can": False, "why": "This copy can't update itself.", "app": ""})
+        state = staticmethod(lambda: {"step": "error", "error": "This copy can't update itself.", "done": 0, "total": 0, "version": "", "staged": ""})
+        start = staticmethod(lambda *a, **k: False)
+        apply = staticmethod(lambda: False)
 
 
 @app.route("/api/gr/update")

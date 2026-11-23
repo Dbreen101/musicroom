@@ -102,7 +102,12 @@ jobs:
           foreach ($i in 1..180) {
             try { Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5199/login" -TimeoutSec 2 | Out-Null; $up = $true; break } catch { Start-Sleep -Seconds 1 }
           }
-          if (-not $up) { Write-Host "It didn't come up."; Stop-Process -Id $p.Id -Force; exit 1 }
+          if (-not $up) {
+            Write-Host "It didn't come up."
+            $why = Join-Path $env:MUSICROOM_DATA "startup-error.txt"
+            if (Test-Path $why) { Get-Content $why | Write-Host }
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; exit 1
+          }
           $status = Invoke-RestMethod "http://127.0.0.1:5199/api/gr/status"
           $rules = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5199/house-rules").Content
           $ver = Invoke-RestMethod "http://127.0.0.1:5199/api/gr/version"

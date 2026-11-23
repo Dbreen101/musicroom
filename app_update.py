@@ -18,14 +18,12 @@ What it will and won't do:
 import hashlib
 import json
 import os
-import plistlib
 import shutil
 import subprocess
 import sys
 import threading
 import time
 import urllib.request
-import zipfile
 
 REPO = "Dbreen101/musicroom"
 BUNDLE_ID = "com.daithi.musicroom.gr"
@@ -125,6 +123,7 @@ def _unpack(zip_path, into, version):
     """→ the path of the new app inside `into`, checked to be this app at this version."""
     _set(step="unpacking")
     if _is_win():
+        import zipfile
         with zipfile.ZipFile(zip_path) as z:
             base = os.path.realpath(into)
             for n in z.namelist():                   # nothing may land outside the folder
@@ -140,6 +139,7 @@ def _unpack(zip_path, into, version):
     apps = [os.path.join(into, n) for n in os.listdir(into) if n.endswith(".app")]
     if len(apps) != 1:
         raise RuntimeError("the download didn't hold the app")
+    import plistlib        # (here, not at the top: the Windows app is packed without it, and could not start)
     with open(os.path.join(apps[0], "Contents", "Info.plist"), "rb") as fh:
         info = plistlib.load(fh)
     if info.get("CFBundleIdentifier") != BUNDLE_ID:
