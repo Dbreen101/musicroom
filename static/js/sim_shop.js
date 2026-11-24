@@ -284,6 +284,16 @@ function playTrack(id) {
 function playRecord(key) { const ts = RECS.get(key) || []; return playList(ts, (ts.find(t => t.sim && t.sim.url) || {}).id, 'record'); }
 
 // ── My Room → From the shop ──
+// the works this person has bought from digital artists, under their records (works.js draws them)
+let worksAsk = null;
+function mountArt(el, opts) {
+    if (!el) return;
+    if (!worksAsk) worksAsk = window.Works ? Promise.resolve() : new Promise(done => {
+        const s = document.createElement('script'); s.src = '/static/js/works.js'; s.onload = done; s.onerror = done; document.head.appendChild(s);
+    });
+    worksAsk.then(() => { if (window.Works && el.isConnected) Works.mountBought(el, opts); });
+}
+
 function mountMine(host, opts) {
     opts = opts || {};
     let want = 'all', data = null;
@@ -323,8 +333,9 @@ function mountMine(host, opts) {
                     <span class="sim-tr__d">${mmss(t.duration_s)}</span>${trackActs(t)}</li>`).join('')}</ol>
               </div></div>`;
         }
-        h += `</div>`;
+        h += `<div class="sim-art" data-sim-art></div></div>`;
         host.innerHTML = h;
+        mountArt(host.querySelector('[data-sim-art]'), opts);       // works bought from digital artists (works.js)
         host.querySelectorAll('[data-want]').forEach(b => b.onclick = () => { want = b.dataset.want; paint(); });
         if (opts.openPage) host.querySelectorAll('[data-room], [data-page]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); opts.openPage(a.getAttribute('href')); }));
     };

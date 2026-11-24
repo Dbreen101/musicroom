@@ -725,11 +725,13 @@
     <div class="rooms__kinds" id="rooms-kinds">
       <button class="chip active" data-kind="">all</button>
       <button class="chip" data-kind="artist">artists</button>
+      <button class="chip" data-kind="digital artist">digital artists</button>
       <button class="chip" data-kind="label">labels</button>
       <button class="chip" data-kind="shop">record shops</button>
       <button class="chip" data-kind="venue">venues</button>
       <button class="chip" data-kind="business">businesses</button>
       <button class="chip" data-kind="listener">listeners</button>
+      <button class="chip" data-open="1" id="rooms-open" title="Digital artists who say they are open to work">open to work</button>
     </div>
   </div>
   <div class="rooms__hint" id="rooms-hint"></div>
@@ -1351,27 +1353,31 @@ function globeShow(on){
 }
 
 // ── MUSIC ROOMS: the directory of public rooms on the Green Room server ──
-let roomsKind = '', roomsTimer = null;
+let roomsKind = '', roomsOpen = false, roomsTimer = null;
 const escR = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function roomsQueued(){ clearTimeout(roomsTimer); roomsTimer = setTimeout(buildRooms, 220); }
 document.getElementById('rooms-kinds').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
+  if (b.dataset.open) { roomsOpen = !roomsOpen; b.classList.toggle('active', roomsOpen); buildRooms(); return; }   // (a switch of its own, beside the kinds)
   roomsKind = b.dataset.kind || '';
-  document.querySelectorAll('#rooms-kinds .chip').forEach(c => c.classList.toggle('active', c === b));
+  document.querySelectorAll('#rooms-kinds .chip:not([data-open])').forEach(c => c.classList.toggle('active', c === b));
   buildRooms();
 });
 async function buildRooms(){
   const q = document.getElementById('rooms-q').value.trim();
   if (window.grTrack && (q || roomsKind)) grTrack('rooms_search', { q, kind: roomsKind });
   const grid = document.getElementById('rooms-grid'), hint = document.getElementById('rooms-hint');
-  const r = await fetch(`/api/gr/rooms?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(roomsKind)}`);
+  const r = await fetch(`/api/gr/rooms?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(roomsKind)}${roomsOpen ? '&open=1' : ''}`);
   const d = await r.json();
   if (!r.ok){ grid.innerHTML = ''; hint.innerHTML = `${escR(d.error || "the directory can't be read")} — sign in under <a href="/settings#gr-settings" style="color:var(--gold)">Settings → Account</a>.`; return; }
   const rooms = d.rooms || [];
-  hint.textContent = rooms.length ? `${rooms.length} music room${rooms.length === 1 ? '' : 's'}` : (q || roomsKind ? 'No rooms match.' : 'No public rooms yet.');
+  hint.textContent = rooms.length ? `${rooms.length} music room${rooms.length === 1 ? '' : 's'}` : (q || roomsKind || roomsOpen ? 'No rooms match.' : 'No public rooms yet.');
   grid.innerHTML = rooms.map(rm => {
-    const ids = (rm.cover_track_ids || []).slice(0, 4);
-    const tiles = ids.length ? ids.map(id => `<img src="/api/gr/art/${id}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${escR((rm.name||'♪').charAt(0).toUpperCase())}'}))">`).join('')
+    // a digital artist's card shows their latest works; everyone else's, their records' covers
+    const works = (rm.cover_work_ids || []).slice(0, 4);
+    const ids = works.length ? works : (rm.cover_track_ids || []).slice(0, 4);
+    const src = id => works.length ? `/api/gr/work-img/${id}?size=thumb` : `/api/gr/art/${id}`;
+    const tiles = ids.length ? ids.map(id => `<img src="${src(id)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${escR((rm.name||'♪').charAt(0).toUpperCase())}'}))">`).join('')
                              : `<span>${escR((rm.name || '♪').charAt(0).toUpperCase())}</span>`;
     return `<div class="rcard" onclick="openRoom('${escR(rm.handle)}')">
       ${window.GrupaUI ? `<button type="button" class="rcard__grupa" data-handle="${escR(rm.handle)}" data-name="${escR(rm.name)}" data-kind="${escR(rm.kind)}" title="Add this room to one or more of your grúpaí">＋ grúpa</button>` : ''}
@@ -1380,7 +1386,10 @@ async function buildRooms(){
         <div class="rcard__kind">${escR(rm.kind)}</div>
         <div class="rcard__name">${escR(rm.name)}</div>
         ${rm.bio ? `<div class="rcard__bio">${escR(rm.bio)}</div>` : ''}
-        <div class="rcard__meta">${rm.track_count ? `${rm.track_count} record${rm.track_count === 1 ? '' : 's'}` : 'no records for sale'}</div>
+        ${rm.work_line ? `<div class="rcard__bio">${escR(rm.work_line)}</div>` : ''}
+        <div class="rcard__meta">${rm.kind === 'digital artist'
+            ? `${rm.work_count || 0} work${rm.work_count === 1 ? '' : 's'}${rm.open_to_work ? ' · open to work' : ''}`
+            : (rm.track_count ? `${rm.track_count} record${rm.track_count === 1 ? '' : 's'}` : 'no records for sale')}</div>
       </div></div>`;
   }).join('');
   if (window.gsap && rooms.length && !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches)

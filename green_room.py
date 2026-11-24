@@ -697,9 +697,12 @@ def _json_or_raise(r, fallback):
     return r.json()
 
 
-def rooms(q="", kind=""):
+def rooms(q="", kind="", open_only=False):
     with closing(_db()) as conn:
-        r = _get(conn, "/api/rooms", params={"q": q or "", "kind": kind or ""})
+        params = {"q": q or "", "kind": kind or ""}
+        if open_only:
+            params["open"] = "1"          # digital artists who say they are open to work
+        r = _get(conn, "/api/rooms", params=params)
         return _json_or_raise(r, "the directory can't be read right now").get("rooms", [])
 
 

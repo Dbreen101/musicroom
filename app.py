@@ -5126,6 +5126,13 @@ def api_open_url():
     url = (d.get("url") or "").strip()
     if not url:
         return jsonify({"error": "url required"}), 400
+    if _re.fullmatch(r"mailto:[^\s/@?]+@[^\s/@?]+", url):
+        # a plain email address (a digital artist's "how to reach me"): the mail program writes to it
+        try:
+            mr_os.open_target(url)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        return jsonify({"ok": True, "opened": url, "native": True, "intent_id": None})
     if not url.startswith(("http://", "https://", "spotify:", "music:", "tidal:")):
         url = "https://" + url
     native = _rewrite_to_native_uri(url)
@@ -14627,7 +14634,8 @@ def api_gr_buy_track():
 @app.route("/api/gr/rooms")
 def api_gr_rooms():
     return _gr_guard(lambda: {"rooms": green_room.rooms(request.args.get("q", ""),
-                                                          request.args.get("kind", ""))})
+                                                          request.args.get("kind", ""),
+                                                          open_only=request.args.get("open") == "1")})
 
 
 @app.route("/api/gr/rooms/lookup")
@@ -15034,6 +15042,11 @@ _MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|rep
 import gr_sim_app  # noqa: E402
 gr_sim_app.register(app, get_setting=_get_setting_threadsafe, set_setting=_set_setting_threadsafe,
                     spotify=lambda: _get_spotify(), is_gr=IS_GR)
+
+
+# digital artists (gr_art.py on the server): works, open to work, artwork credits, buying a work
+import gr_art_app  # noqa: E402
+gr_art_app.register(app)
 
 
 def _app_version():

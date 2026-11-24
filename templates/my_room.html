@@ -126,6 +126,7 @@
         <button data-tab="theme" onclick="tab('theme')">Look</button>
         <button data-tab="who" onclick="tab('who')">Who</button>
         <button data-tab="images" onclick="tab('images')">Images</button>
+        <button data-tab="works" id="tab-works" onclick="tab('works')" style="display:none">Works</button>
         <button data-tab="records" id="tab-records" onclick="tab('records')">Records</button>
         <button data-tab="crates" id="tab-crates" onclick="tab('crates')" title="Crates of records for people shopping in Explore">Crates</button>
         <button data-tab="code" onclick="tab('code')">Code</button>
@@ -196,6 +197,30 @@
         </div>
     </div>
 
+    <!-- a digital artist's works (gr_art.py on the rooms server): pictures to show and, with a price, to sell -->
+    <div class="ds-panel" id="p-works">
+        <div class="sec-h">Working with you</div>
+        <div class="f"><label class="toggle"><input type="checkbox" id="w-open"> <span>Open to work</span></label></div>
+        <div class="f"><label>What you do</label><input type="text" id="w-line" maxlength="200" placeholder="covers, visuals for live sets…"></div>
+        <div class="f"><label>How to reach you (a web or email address)</label><input type="text" id="w-contact" maxlength="200" autocapitalize="off" spellcheck="false"></div>
+        <div class="f"><button class="gr-btn gr-btn--small" onclick="saveWorkProfile()">Save</button> <span class="err" id="w-perr"></span></div>
+
+        <div id="w-asks"></div>
+
+        <div class="sec-h" style="margin-top: var(--gr-s4)">Add a work</div>
+        <div class="f"><label>Picture (JPEG · PNG · WebP · GIF, up to 25 MB)</label><input type="file" id="w-file" accept="image/jpeg,image/png,image/webp,image/gif"></div>
+        <div class="f"><label>Title</label><input type="text" id="w-title" placeholder="the file's name if blank"></div>
+        <div class="f"><div class="row"><div><label>Year</label><input type="number" id="w-year" min="1900" max="2100" step="1"></div><div><label>Medium</label><input type="text" id="w-medium" placeholder="3D render, collage…"></div></div></div>
+        <div class="f"><label>About it</label><textarea id="w-note" style="min-height:60px"></textarea></div>
+        <div class="f"><label>Link (the moving version, your site — optional)</label><input type="text" id="w-url" placeholder="https://"></div>
+        <div class="f" id="w-price-f"><label>Price in credits (blank = not for sale)</label><input type="number" id="w-price" min="1" max="1000" step="1"><div class="hint">A buyer gets the file as you sent it.</div></div>
+        <div class="f"><label class="tick"><input type="checkbox" id="w-rights"> I made this work, and it is mine to show and to sell.</label></div>
+        <div class="f"><button class="gr-btn gr-btn--primary gr-btn--small" id="w-go" onclick="uploadWork()">Add it</button> <span class="err" id="w-err"></span></div>
+
+        <div class="sec-h" style="margin-top: var(--gr-s4)">Your works <span id="w-sum" style="font-weight:400"></span></div>
+        <div id="works"></div>
+    </div>
+
     <div class="ds-panel" id="p-crates"><div id="crates-host"></div></div>
 
     <div class="ds-panel" id="p-code">
@@ -232,6 +257,7 @@ function tab(t){
     document.querySelectorAll('.ds-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
     document.querySelectorAll('.ds-panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
     if (t === 'records') loadRecords();
+    if (t === 'works') loadWorks();
     if (t === 'who') placeMount();
     if (t === 'crates') { if (!window._crates) window._crates = CrateMaker.mount($('crates-host')); else window._crates.refresh(); }
 }
@@ -249,6 +275,7 @@ async function load(){
     $('p-handle-hint').textContent = d.handle ? `Your room: /rooms/${d.handle}` : '';
     placeFill();
     $('tab-records').style.display = ['artist', 'label', 'shop'].includes(d.kind) ? '' : '';
+    $('tab-works').style.display = d.kind === 'digital artist' ? '' : 'none';
     ASSETS = await (await fetch('/api/gr/my/assets')).json().then(x => x.assets || []).catch(() => []);
     renderAssets();
     MY_GRUPAI = d.handle ? await fetch('/api/gr/grupai?handle=' + encodeURIComponent(d.handle)).then(x => x.ok ? x.json() : {}).then(x => x.grupai || []).catch(() => []) : [];
@@ -480,7 +507,16 @@ async function deleteAsset(id){
 
 // ── records (artists, labels, shops) ──
 const REC_STATUS = { pending: 'Waiting for the Music Room to look at it', refused: 'Not put out', hidden: 'Taken down' };
+let ART_BY = {};                   // record id → {handle, name, state}: the digital artist named for its artwork
+const ART_STATE = { asked: 'asked — waiting for them to say yes', yes: 'agreed', no: 'they said no' };
+async function setArtBy(id, v){
+    const r = await fetch(`/api/gr/my/records/${id}/art-by`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ handle: v }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.error || 'not saved'); }
+    await loadRecords(); refreshPreview(); status(r.ok ? 'saved' : '');
+}
 async function loadRecords(){
+    ART_BY = await fetch('/api/gr/my/records/art-by').then(x => x.ok ? x.json() : {}).then(x => x.art_by || {}).catch(() => ({}));
     const r = await fetch('/api/gr/my/records'); RECORDS = await r.json();
     if (!r.ok) { $('records').innerHTML = `<div class="err">${esc(RECORDS.error || '')}</div>`; return RECORDS; }
     $('rec-can').style.display = RECORDS.can_sell ? '' : 'none'; $('rec-cant').style.display = RECORDS.can_sell ? 'none' : '';
@@ -494,7 +530,10 @@ async function loadRecords(){
         <div class="rec rec--printed" title="What is printed on it: how people shopping can ask for a crate">
           <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="genre" aria-label="Genre" value="${esc(x.genre || '')}" onchange="setPrinted(${x.id}, 'genre', this.value)">
           <input type="number" style="flex:0 0 64px" placeholder="year" aria-label="Year" min="1900" max="2100" value="${x.year || ''}" onchange="setPrinted(${x.id}, 'year', this.value)">
-          <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="label" aria-label="Label" value="${esc(x.label || '')}" onchange="setPrinted(${x.id}, 'label', this.value)"></div>`).join('')
+          <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="label" aria-label="Label" value="${esc(x.label || '')}" onchange="setPrinted(${x.id}, 'label', this.value)"></div>
+        <div class="rec rec--printed" title="The digital artist who made its artwork: their room's address. It shows once they agree.">
+          <input type="text" style="flex:1 1 0;width:auto;min-width:0" placeholder="artwork by — a digital artist's address" aria-label="Artwork by" autocapitalize="off" spellcheck="false" value="${esc((ART_BY[x.id] || {}).handle || '')}" onchange="setArtBy(${x.id}, this.value)">
+          ${ART_BY[x.id] ? `<span class="rec__st" style="flex:none">${esc(ART_BY[x.id].name)} · ${ART_STATE[ART_BY[x.id].state] || ''}</span>` : ''}</div>`).join('')
       : '<div class="empty">No records yet.</div>';
     return RECORDS;
 }
@@ -522,6 +561,63 @@ async function deleteRecord(id){
     const r = await fetch(`/api/gr/my/records/${id}`, { method: 'DELETE' }); const d = await r.json();
     if (!r.ok) { alert(d.error || 'not removed'); return; }
     loadRecords(); refreshPreview();
+}
+
+// ── works (digital artists) ──
+let WORKS = null;
+async function loadWorks(){
+    const r = await fetch('/api/gr/works/mine'); WORKS = await r.json();
+    if (!r.ok) { $('works').innerHTML = `<div class="err">${esc(WORKS.error || '')}</div>`; return; }
+    const p = WORKS.profile || {};
+    $('w-open').checked = !!p.open; $('w-line').value = p.line || ''; $('w-contact').value = p.contact || '';
+    $('w-price-f').style.display = WORKS.selling ? '' : 'none';
+    const asks = (WORKS.credits || []).filter(c => c.state === 'asked');
+    $('w-asks').innerHTML = asks.length ? `<div class="sec-h" style="margin-top: var(--gr-s4)">Named on a record</div>` + asks.map(c => `<div class="rec">
+        <div class="rec__m"><div class="rec__t">${esc(c.album || c.title)}</div><div class="rec__s">${esc(c.owner_name)} says you made its artwork</div></div>
+        <button class="gr-btn gr-btn--small" onclick="answerCredit(${c.id}, true)">Yes</button>
+        <button class="gr-btn gr-btn--small" onclick="answerCredit(${c.id}, false)">Not me</button></div>`).join('') : '';
+    const ws = WORKS.works || [];
+    $('w-sum').textContent = WORKS.sold ? `· ${WORKS.sold} sold · ${WORKS.earned} credit${WORKS.earned === 1 ? '' : 's'} earned` : '';
+    $('works').innerHTML = ws.length ? ws.map(w => `<div class="rec">
+        <img src="/api/gr/work-img/${w.id}?size=thumb" alt="">
+        <div class="rec__m"><div class="rec__t">${esc(w.title)}</div><div class="rec__s">${esc([w.year, w.medium, (w.file_bytes / 1048576).toFixed(1) + ' MB', w.sold ? w.sold + ' sold' : ''].filter(Boolean).join(' · '))}</div>
+          ${w.withdrawn ? `<div class="rec__st">Taken out. Its buyers keep it.</div>` : ''}${w.hidden ? `<div class="rec__st">Taken down${w.hidden_note ? ': ' + esc(w.hidden_note) : ''}</div>` : ''}</div>
+        ${w.withdrawn ? '' : `${WORKS.selling ? `<input type="number" min="1" max="1000" step="1" placeholder="—" title="Price in credits (blank = not for sale)" aria-label="Price in credits" value="${w.price == null ? '' : w.price}" onchange="setWork(${w.id}, { price: this.value })">` : ''}
+        <button class="gr-btn gr-btn--small" onclick="deleteWork(${w.id}, ${w.sold || 0})" title="Take it out">✕</button>`}</div>`).join('')
+      : '<div class="empty">No works yet.</div>';
+}
+async function saveWorkProfile(){
+    const r = await fetch('/api/gr/works/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ open: $('w-open').checked, line: $('w-line').value, contact: $('w-contact').value }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('w-perr').textContent = d.error || 'not saved'; return; }
+    $('w-perr').textContent = ''; $('w-contact').value = (d.profile || {}).contact || ''; status('saved'); refreshPreview();
+}
+async function uploadWork(){
+    const f = $('w-file').files[0]; if (!f) { $('w-err').textContent = 'choose a picture'; return; }
+    if (!$('w-rights').checked) { $('w-err').textContent = 'tick the box to say the work is yours'; return; }
+    $('w-err').textContent = ''; $('w-go').disabled = true; $('w-go').textContent = 'sending…';
+    const fd = new FormData(); fd.append('image', f); fd.append('rights', '1');
+    ['title', 'year', 'medium', 'note', 'url', 'price'].forEach(k => fd.append(k, $('w-' + k).value));
+    let d = {}, ok = false;
+    try { const r = await fetch('/api/gr/works/mine', { method: 'POST', body: fd }); d = await r.json(); ok = r.ok; } catch (_) { d = { error: 'That was interrupted. Try again.' }; }
+    $('w-go').disabled = false; $('w-go').textContent = 'Add it';
+    if (!ok) { $('w-err').textContent = d.error || 'it wasn’t accepted'; return; }
+    ['file', 'title', 'year', 'medium', 'note', 'url', 'price'].forEach(k => $('w-' + k).value = ''); $('w-rights').checked = false;
+    await loadWorks(); refreshPreview(); status('added');
+}
+async function setWork(id, fields){
+    const r = await fetch(`/api/gr/works/mine/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+    status(r.ok ? 'saved' : 'not saved'); refreshPreview();
+}
+async function deleteWork(id, sold){
+    if (!confirm(sold ? 'Take this work out of your room? The people who bought it keep it.' : 'Delete this work?')) return;
+    const r = await fetch(`/api/gr/works/mine/${id}`, { method: 'DELETE' }); const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.error || 'not removed'); return; }
+    loadWorks(); refreshPreview();
+}
+async function answerCredit(id, yes){
+    await fetch(`/api/gr/works/credits/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ yes }) });
+    loadWorks(); refreshPreview();
 }
 
 load();

@@ -58,7 +58,12 @@ window.RoomBlocks = (function () {
     render(b, ctx) {
       const r = ctx.room || {};
       const img = b.image ? assetUrl(ctx, b.image) : (b.image_url || '');
-      const kind = r.kind ? `${esc(r.kind)}${r.kind !== 'listener' ? '’s music room' : ' · music room'}` : '';
+      const kind = r.kind === 'digital artist' ? 'digital artist'
+                 : r.kind ? `${esc(r.kind)}${r.kind !== 'listener' ? '’s music room' : ' · music room'}` : '';
+      // a digital artist who says they are open to work: what they do, and how to reach them
+      const w = r.work || {};
+      const open = w.open ? `<div class="wk-open"><span class="wk-open__k">Open to work</span>${w.line ? `<span class="wk-open__l">${esc(w.line)}</span>` : ''}${
+          w.contact ? `<a href="#" data-open="${esc(/^[^\s/@]+@[^\s/@]+$/.test(w.contact) ? 'mailto:' + w.contact : w.contact)}">${esc(w.contact.replace(/^https?:\/\//, ''))} ↗</a>` : ''}</div>` : '';
       const links = (b.show_links !== false && (r.links || []).length)
         ? `<div class="rb-links">${r.links.map(l => `<a href="#" data-open="${esc(l.url)}">${esc(l.label || l.url)} ↗</a>`).join('')}</div>` : '';
       const text = `<div class="rb-hero__text">
@@ -66,7 +71,7 @@ window.RoomBlocks = (function () {
           <h1 class="rb-name">${esc((b.heading || '').trim() || r.name || '')}</h1>
           ${b.tagline ? `<div class="rb-tag">${esc(b.tagline)}</div>` : ''}
           ${b.show_bio !== false && r.bio ? `<p class="rb-bio">${esc(r.bio)}</p>` : ''}
-          ${links}</div>`;
+          ${links}${open}</div>`;
       if (b.layout === 'cover' && img) return `<section class="rb rb-hero rb-hero--cover" style="--img:url('${esc(img)}')">${text}</section>`;
       if (b.layout === 'plain' || !img) return `<section class="rb rb-hero rb-hero--plain">${text}</section>`;
       return `<section class="rb rb-hero rb-hero--side">${text}<img class="rb-hero__img" src="${esc(img)}" alt=""></section>`;
@@ -140,6 +145,37 @@ window.RoomBlocks = (function () {
     render(b) { const items = b.items || []; return items.length ? `<section class="rb rb-places">${heading(b, 'Places')}<div class="rb-places__grid">${items.map(p => `<div class="rb-place" style="--c:${esc(p.colour || '#5a4a3a')}"><i></i><div class="rb-place__n">${esc(p.name)}</div><div class="rb-place__c">${p.n != null ? `${p.n} record${p.n === 1 ? '' : 's'}` : ''}</div></div>`).join('')}</div></section>` : ''; },
   });
 
+  // A digital artist's works (gr_art.py on the rooms server; works.js opens one). ctx.works =
+  // what the server sent with the room. A room with works shows them even if this block was
+  // never added (see render below); adding it is how their maker chooses WHERE and how.
+  register('works', {
+    label: 'Works', hint: 'Digital artists',
+    schema: [
+      { key: 'heading', type: 'text', label: 'Heading', default: 'Works' },
+      { key: 'layout', type: 'select', label: 'Layout', options: [['grid', 'a grid'], ['large', 'large'], ['wall', 'a wall, each at its own shape']], default: 'grid' },
+      { key: 'which', type: 'select', label: 'Which', options: [['all', 'all of them'], ['sale', 'only those for sale']], default: 'all' },
+    ],
+    render(b, ctx) {
+      let works = ctx.works || [];
+      if (b.which === 'sale') works = works.filter(w => w.for_sale);
+      if (!works.length) return '';
+      const tile = ctx.workTile || (w => `<a href="#" class="wk-tile" data-work="${esc(w.id)}"><span class="wk-tile__pic"><img src="/api/gr/work-img/${esc(w.id)}?size=thumb" alt="" loading="lazy"></span><span class="wk-tile__t">${esc(w.title)}</span></a>`);
+      return `<section class="rb rb-works">${heading(b, 'Works')}<div class="wk-grid wk-grid--${esc(b.layout || 'grid')}">${works.map(tile).join('')}</div></section>`;
+    },
+  });
+
+  // Records whose artwork a digital artist made: named by the record's owner, agreed by the artist.
+  register('credits', {
+    label: 'On records', hint: 'Records you made the artwork for',
+    schema: [{ key: 'heading', type: 'text', label: 'Heading', default: 'On records' }],
+    render(b, ctx) {
+      const list = ctx.artCredits || [];
+      if (!list.length) return '';
+      return `<section class="rb rb-credits">${heading(b, 'On records')}<div class="wk-credits">${list.map(c =>
+        `<a href="#" class="wk-credit" ${c.owner_handle ? `data-room-handle="${esc(c.owner_handle)}"` : ''}>${c.has_art ? `<img src="/api/gr/art/${esc(c.track_id)}" alt="" loading="lazy">` : '<span class="wk-credit__none"></span>'}<span class="wk-credit__t">${esc(c.album || c.title || '')}</span><span class="wk-credit__s">${esc(c.artist || c.owner_name || '')}</span></a>`).join('')}</div></section>`;
+    },
+  });
+
   // The grúpaí their owner has made public (each one's switch is inside it, in
   // My Room). ctx.grupai = the cards the rooms server sent with the room;
   // ctx.grupaCover(g) draws a cover (grupa_ui.js) — a plain name without it.
@@ -199,6 +235,9 @@ window.RoomBlocks = (function () {
     // public grúpaí are part of the room without being asked for: last, until
     // their owner places the Grúpaí block (or switches it off) in the builder
     if ((ctx.grupai || []).length && !blocks.some(b => b.type === 'grupai')) blocks = blocks.concat([newBlock('grupai')]);
+    // a digital artist's works and the records they are credited on, likewise
+    if ((ctx.works || []).length && !blocks.some(b => b.type === 'works')) blocks = blocks.concat([newBlock('works')]);
+    if ((ctx.artCredits || []).length && !blocks.some(b => b.type === 'credits')) blocks = blocks.concat([newBlock('credits')]);
     return blocks.filter(b => b.on !== false && BLOCKS[b.type]).map(b => {
       try { return BLOCKS[b.type].render(b, ctx); } catch (e) { return ''; }
     }).join('');

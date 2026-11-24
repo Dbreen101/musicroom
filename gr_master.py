@@ -53,7 +53,7 @@ from flask import jsonify, request, send_file
 
 S = None          # the gr_server module, given in register()
 
-KINDS_TO_ASK = ("artist", "label", "venue", "business", "shop")
+KINDS_TO_ASK = ("artist", "label", "venue", "business", "shop", "digital artist")
 STATUSES = ("pending", "live", "refused", "hidden")
 REPORT_WHAT = ("room", "record", "grupa")
 REPORT_REASONS = {

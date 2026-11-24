@@ -37,7 +37,7 @@ PRIVATE = [
     "P1_GAP_AUDIT.md", "P1_JULY7_PLAN.md", "P1_MUST_HAVES.md",
     "research/*", ".claude/*",
     "docs/greenroom-*", "docs/interview-*", "docs/CONTEXT_FOR_PRESENTATION*", "docs/PRICING_GR.md",
-    "docs/GR1_PLAN.md", "docs/P1_TESTERS.md", "docs/DATA_TRACKING.md", "docs/OMO_BRIEF.md",
+    "docs/GR1_PLAN.md", "docs/P1_TESTERS.md", "docs/DATA_TRACKING.md", "docs/OMO_BRIEF.md", "docs/SERVER_SCALING*", "tools/make_server_scaling.py",
     "docs/*.pages", "docs/*.pdf", "docs/reference/*",
     "tools/google_sheet_endpoint.gs", "tools/pull_feedback.py", "tools/ingest_feedback.py", "tools/preflight.sh",
     "telemetry_server/*", "native/Tester guide.txt",

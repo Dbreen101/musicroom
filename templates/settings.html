@@ -1125,7 +1125,7 @@ async function grSettingsLoad() {
     }
     if (me) {
         lines.push(`Your account code: <code>${st.invite_code || '—'}</code> Keep it private: it is your password.`);
-        const kinds = { artist: 'an artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
+        const kinds = { artist: 'an artist', 'digital artist': 'a digital artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
         if (me.kind_requested) lines.push(`Your request to be ${kinds[me.kind_requested] || me.kind_requested} is waiting for the Music Room.`);
         if (me.room_hidden) lines.push(`<span style="color:var(--red, #c9412f);">Your public room has been taken down</span>${me.room_hidden_note ? ': ' + escHtml(me.room_hidden_note) : ''}. Change it, then say so with the feedback button.`);
         if (me.is_master) lines.push(`<a href="/master" style="color:var(--accent);">Open the master page</a>`);

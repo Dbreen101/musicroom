@@ -110,7 +110,9 @@ start() {
   [ -L "$HOME_DIR/current" ] || die "no release in place yet — tools/server.sh deploy <tag>"
   if installed; then
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$PLIST"
+    # (asked again if the Mac says no: straight after a stop it can still be letting go of the old
+    #  one — "Bootstrap failed: 5" — and the server was left not running after a deploy, 2026-11-23)
+    n=0; until launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null; do n=$((n+1)); [ $n -ge 8 ] && { launchctl bootstrap "gui/$(id -u)" "$PLIST"; break; }; sleep 1; done
   else
     if [ -f "$HOME_DIR/server.pid" ] && kill -0 "$(cat "$HOME_DIR/server.pid")" 2>/dev/null; then say "already running"; return 0; fi
     ( cd "$HOME_DIR/current" && MR_GR_DB="$DB" MR_LIBRARY_DB="$HOME_DIR/data/no-library.db" PYTHONDONTWRITEBYTECODE=1 \

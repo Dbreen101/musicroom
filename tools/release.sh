@@ -30,7 +30,7 @@ python3 tools/publish_public.py --check-identity || exit 1
 echo "── 1. the version"
 printf '%s\n' "${TAG#v}" > VERSION
 git add VERSION
-git commit -q -m "Release $TAG: $NOTE" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" || true
+git commit -q -m "Release $TAG: $NOTE" -m "Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>" || true
 
 echo "── 2. publishing the code"
 python3 tools/publish_public.py -m "Release $TAG: $NOTE" --push

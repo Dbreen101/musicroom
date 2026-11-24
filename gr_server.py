@@ -230,9 +230,10 @@ def init_db(conn: sqlite3.Connection) -> None:
     gr_shop.ensure(conn)      # record shopping: crates, the counter, blind (gr_shop.py)
     gr_master.ensure(conn)    # the master account, approvals, reports, the version (gr_master.py)
     gr_sim.ensure(conn)       # the credits trial: bring home, buy, the room's space (gr_sim.py)
+    gr_art.ensure(conn)       # digital artists: works, artwork credits (gr_art.py)
 
 
-ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "business")
+ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "business", "digital artist")
 
 
 CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"     # no 0/o, 1/l/i: read aloud and typed by hand
@@ -819,6 +820,7 @@ def _catalogue_rows(conn, acct, owner_id=None, everything=False):
                 "year": _opt(t, "year"), "genre": _opt(t, "genre"), "label": _opt(t, "label"),
             }
         )
+    gr_art.attach_tracks(conn, out)       # "artwork by …", where a digital artist agreed to the credit
     return gr_sim.attach(conn, acct, out, db_rows)
 
 
@@ -1147,6 +1149,7 @@ def _room_public(conn, acct_row, include_tracks_for=None, design_id=None):
     }
     if include_tracks_for is not None:
         out["tracks"] = _catalogue_rows(conn, include_tracks_for, owner_id=acct_row["id"])
+    gr_art.attach_room(conn, acct_row, out, viewer=include_tracks_for)     # a digital artist's works (gr_art.py)
     return out
 
 
@@ -1160,6 +1163,8 @@ def api_rooms():
             return _unauthorized()
         q = (request.args.get("q") or "").strip()
         kind = (request.args.get("kind") or "").strip().lower()
+        open_only = request.args.get("open") == "1"          # digital artists who say they are open to work
+        gr_art.ensure(conn)
         rows = conn.execute(
             f"SELECT a.*, (SELECT COUNT(*) FROM gr_tracks t WHERE t.owner_account_id=a.id AND {gr_master.LIVE})"
             "  AS track_count,"
@@ -1174,18 +1179,20 @@ def api_rooms():
         for a in rows:
             if kind and a["kind"] != kind:
                 continue
-            if q and not mr_text.holds(f"{a['name']} {a['handle']} {a['bio'] or ''}", q):
+            if open_only and not (gr_art.profile_of(a) or {}).get("open"):
+                continue
+            if q and not mr_text.holds(f"{a['name']} {a['handle']} {a['bio'] or ''} {(gr_art.profile_of(a) or {}).get('line', '')}", q):
                 continue
             cover = conn.execute(
                 "SELECT id, art_path FROM gr_tracks t WHERE owner_account_id=? AND art_path IS NOT NULL"
                 f" AND {gr_master.LIVE} ORDER BY added_at DESC LIMIT 4", (a["id"],)).fetchall()
-            rooms.append({
+            rooms.append(gr_art.room_card(conn, a, {
                 "handle": a["handle"], "name": a["name"], "kind": a["kind"],
                 "bio": a["bio"] or "", "track_count": a["track_count"],
                 "updated_at": a["room_updated_at"],
                 "cover_track_ids": [c["id"] for c in cover],
                 "place": _place_of(a),
-            })
+            }))
         return jsonify({"rooms": rooms})
 
 
@@ -2280,6 +2287,12 @@ gr_master.register(app, sys.modules[__name__])
 import gr_sim  # noqa: E402
 
 gr_sim.register(app, sys.modules[__name__])
+
+# digital artists — works, open to work, artwork credits on records, selling a
+# work for credits — live in gr_art.py
+import gr_art  # noqa: E402
+
+gr_art.register(app, sys.modules[__name__])
 
 
 if __name__ == "__main__":

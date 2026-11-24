@@ -225,7 +225,7 @@
   }
   const KIND_MANY = { room: 'Music rooms', publication: 'Publications', station: 'Stations', website: 'Websites' };
   const KIND_ONE = { room: 'music room', publication: 'publication', station: 'station', website: 'website' };
-  const SUB_MANY = { artist: 'artists', label: 'labels', shop: 'record shops', venue: 'venues', business: 'businesses', listener: 'listeners' };
+  const SUB_MANY = { artist: 'artists', 'digital artist': 'digital artists', label: 'labels', shop: 'record shops', venue: 'venues', business: 'businesses', listener: 'listeners' };
   const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'));
   const glyph = kind => h('i', { class: 'gx-g gx-g--' + kind, 'aria-hidden': 'true' });
   const PREFS_KEY = 'mr_map';

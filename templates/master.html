@@ -81,7 +81,7 @@
 <script>
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = s => s ? String(s).replace('T', ' ').slice(0, 16) : '';
-const KINDS = ['listener', 'artist', 'label', 'shop', 'venue', 'business'];
+const KINDS = ['listener', 'artist', 'digital artist', 'label', 'shop', 'venue', 'business'];
 let TAB = (location.hash || '#accounts').slice(1), STATUS = {};
 const body = document.getElementById('ms-body'), said = document.getElementById('ms-said');
 async function api(path, data) {
