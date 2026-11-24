@@ -50,13 +50,13 @@ play money.
 
 Download the latest build from the [Releases](https://github.com/Dbreen101/musicroom/releases) page:
 
-- **Mac**: *Music Room (Apple Silicon).zip* for Macs from late 2020 on, or
-  *Music Room (Intel).zip* for older Macs (check Apple menu, About This Mac,
+- **Mac**: *Music.Room.GR.Apple.Silicon.zip* for Macs from late 2020 on, or
+  *Music.Room.GR.Intel.zip* for older Macs (check Apple menu, About This Mac,
   Chip). Unzip, drag it to Applications, and open it. Because it isn't signed
   by Apple yet, macOS stops it the first time: open **System Settings**, go to
   **Privacy & Security**, scroll down, and press **Open Anyway**.
-- **Windows PC** (Windows 10 or 11): *Music Room (Windows).zip*. Unzip it, open
-  the *Music Room* folder, and double-click **Music Room.exe**. The first time,
+- **Windows PC** (Windows 10 or 11): *Music.Room.GR.Windows.zip*. Unzip it, open
+  the *Music Room GR* folder, and double-click **Music Room GR.exe**. The first time,
   Windows may say *Windows protected your PC*: press **More info**, then **Run
   anyway**.
 
@@ -175,7 +175,7 @@ issue to talk it through first.
 
 `main` is protected, so nobody pushes to it directly. Fork the repo, make your
 change on a small branch, and open a pull request; GitHub runs the test suite
-automatically on every PR. David (`@Dbreen101`) reviews and approves every
+automatically on every PR. Daithí (`@Dbreen101`) reviews and approves every
 change before it merges, and approved work goes out in tagged releases that
 keep older versions ready if a rollback is ever needed.
 
@@ -200,8 +200,10 @@ keep older versions ready if a rollback is ever needed.
   files in a *Removed* folder, and you can bring it back any time. Duplicate
   files go to the Trash or Recycle Bin. When a file can't be moved safely, it
   stays where it is.
-- **Privacy by default.** Your files and local listening history stay on your
-  laptop. Off-device telemetry is off by default, gated behind separate opt-in
+- **Privacy by default.** Your files stay on your laptop, and what you play in
+  your own room is not sent anywhere. The rooms server knows only what you do
+  with it: what you bring home or buy, the one play of a record in the shop,
+  the rooms you open. Off-device telemetry is off by default, gated behind separate opt-in
   consents, and limited to coarse monthly counts under an anonymous ID that
   changes every month. It never includes titles, file paths, search terms or
   IP addresses.
@@ -210,7 +212,7 @@ keep older versions ready if a rollback is ever needed.
 
 ## Licence
 
-Made by David (Daithí) Breen. The Music Room's code is open under the **GNU
+Made by Daithí Breen. The Music Room's code is open under the **GNU
 AGPL-3.0** ([LICENSE](LICENSE)): you may read, use, and change it, and if you
 run a changed version over a network for other people, you must share your
 changes too.
