@@ -21,7 +21,10 @@ TAG="${1:-}"; NOTE="${2:-}"; BUILD=1
 [ -n "$NOTE" ] || { echo "Say what changed, in a line."; exit 1; }
 PUBLIC="${MR_PUBLIC_REPO:-$HOME/Projects/musicroom}"
 REPO="${MR_PUBLIC_GITHUB:-Dbreen101/musicroom}"
-SERVER="${MR_GR_SERVER_FOR_BUILD:-http://$(scutil --get LocalHostName).local:5300}"
+# The address every built app carries. Since 2026-11-24 it is the tunnel's (Tailscale Funnel from
+# the server's Mac): it works from anywhere, over https. Before, it was the Mac's own name on
+# the Wi-Fi (http://<LocalHostName>.local:5300), which still answers inside the building.
+SERVER="${MR_GR_SERVER_FOR_BUILD:-https://musicroom.tail323912.ts.net}"
 
 git -C "$PUBLIC" rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "There is already a release called $TAG."; exit 1; }
 # both repos must commit (and tag) as your own GitHub account — asked of GitHub, never guessed

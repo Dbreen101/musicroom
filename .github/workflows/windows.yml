@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 75
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
-      MR_GR_SERVER: ${{ vars.MR_GR_SERVER || 'http://Davids-MacBook-Pro-2.local:5300' }}
+      MR_GR_SERVER: ${{ vars.MR_GR_SERVER || 'https://musicroom.tail323912.ts.net' }}
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: "1"
     steps:

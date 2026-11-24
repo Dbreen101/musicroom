@@ -64,6 +64,8 @@ REPORT_REASONS = {
 }
 HOUSE_RULES_VERSION = "2026-11-20"
 SIGNUPS_PER_HOUR = 6          # from one address; twenty fellows never come near it
+SIGNUPS_PER_HOUR_WITH_CODE = 40   # …but with an invite code set the code is the lock, and a whole
+                                  # building reaches a tunnel from ONE address (the Wi-Fi's own)
 
 # the one way every query asks "may anyone see this record?"
 LIVE = "COALESCE(t.status,'live')='live'"
@@ -283,6 +285,14 @@ def rate_ok(key, most, window_s):
         hits.append(now)
         _rate[key] = hits
         return True
+
+
+def rate_full(key, most, window_s):
+    """True when `key` has already been seen `most` times in the last window
+    (a look only: nothing is counted)."""
+    now = time.time()
+    with _rate_lock:
+        return len([t for t in _rate.get(key, []) if now - t < window_s]) >= most
 
 
 def _txt(v, n):

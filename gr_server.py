@@ -762,11 +762,17 @@ def api_signup():
             given = (data.get("door_code") or "").strip()
             if not given:
                 return jsonify({"error": "This Music Room needs an invite code.", "need_code": True}), 403
-            if not gr_master.rate_ok("door:" + gr_master.asker(), 12, 600):
+            # (only WRONG codes are counted: a room full of people with the right one, all
+            #  behind the building's single address, must not shut each other out)
+            if gr_master.rate_full("door:" + gr_master.asker(), 12, 600):
                 return jsonify({"error": "too many tries from here — wait ten minutes", "need_code": True}), 429
             if not gr_master.door_code_ok(conn, given):
+                gr_master.rate_ok("door:" + gr_master.asker(), 12, 600)
                 return jsonify({"error": "That invite code isn't right.", "need_code": True}), 403
-    if not gr_master.rate_ok("signup:" + gr_master.asker(), gr_master.SIGNUPS_PER_HOUR, 3600):
+            per_hour = gr_master.SIGNUPS_PER_HOUR_WITH_CODE
+        else:
+            per_hour = gr_master.SIGNUPS_PER_HOUR
+    if not gr_master.rate_ok("signup:" + gr_master.asker(), per_hour, 3600):
         return jsonify({"error": "too many new accounts from here in one hour — try again later"}), 429
     with closing(db()) as conn:
         base = _slug(name)

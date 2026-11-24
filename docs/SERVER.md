@@ -160,10 +160,26 @@ that address is handed out:
    new address (`MR_GR_SERVER` in `tools/release.sh`, and the repo variable of
    the same name for the Windows build).
 
+**With Tailscale Funnel** (free; what the Green Room trial uses since
+2026-11-24): install Tailscale on the server's Mac and sign in, switch Funnel on
+for the account (the first `funnel` command prints the link), then
+
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg 5300
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel status
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --https=443 off
+
+The address is `https://<this Mac's Tailscale name>.<your tailnet>.ts.net`
+(`tailscale set --hostname=musicroom` picks the first part: do it BEFORE the
+address is handed out). The tunnel lasts as long as Tailscale is running and
+signed in, so tick *Launch at login* in Tailscale's settings. The address by
+the Mac's own name on the Wi-Fi keeps working beside it.
+
 Limits on sign-ups and wrong codes count each visitor's own address, also
 through a relay on the same computer (the relay's note of who it took the
 request from is used; a visitor who comes straight in can't claim another
-address).
+address). A whole building reaches a tunnel from ONE address, its Wi-Fi's own:
+with an invite code set, 40 new accounts an hour are allowed from one address
+(6 without), and only wrong codes are counted against it.
 
 `tools/server.sh` starts the server with macOS's own tools (a LaunchAgent,
 `caffeinate`). On a Linux machine it needs a systemd unit instead; that is not

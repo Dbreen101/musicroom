@@ -109,6 +109,12 @@ got = [signup(f"Guess {i}", json={"door_code": f"guess-{i:04d}"}, **via("198.51.
 chk(got[:12] == [403] * 12 and got[12] == 429, "guesses at the code are counted per address, twelve in ten minutes")
 r = signup("Meanwhile", json={"door_code": "Green Room 2026"}, **via("198.51.100.21"))
 chk(r.status_code == 200, "and a person elsewhere with the right code is not held up by them")
+gr_master._rate.clear()
+got = [signup(f"Fellow {i}", json={"door_code": "Green Room 2026"}, **via("198.51.100.40")).status_code for i in range(20)]
+chk(got == [200] * 20, "twenty people with the right code behind ONE address (a building's Wi-Fi, through a tunnel) all get in")
+chk(signup("One Slip", json={"door_code": "green room 2062"}, **via("198.51.100.40")).status_code == 403
+    and signup("Then Right", json={"door_code": "Green Room 2026"}, **via("198.51.100.40")).status_code == 200,
+    "only wrong codes are counted: a slip of the fingers doesn't use up the right ones")
 client.post("/api/master/door", json={"code": ""}, headers=hdr(master))
 gr_master._rate.clear()
 chk(signup("Open Again").status_code == 200, "with the code cleared, anyone who reaches the server can make an account again")

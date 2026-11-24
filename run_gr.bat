@@ -16,7 +16,7 @@ if not exist venv\Scripts\python.exe (
 set MUSICROOM_3D=1
 set MR_GREEN_ROOM=1
 set MR_GR_VERSION=GR1
-if "%MR_GR_SERVER%"=="" set MR_GR_SERVER=http://Davids-MacBook-Pro-2.local:5300
+if "%MR_GR_SERVER%"=="" set MR_GR_SERVER=https://musicroom.tail323912.ts.net
 if "%MUSICROOM_DATA%"=="" set "MUSICROOM_DATA=%APPDATA%\Music Room GR"
 if "%MUSICROOM_PORT%"=="" set MUSICROOM_PORT=5177
 if not exist "%MUSICROOM_DATA%" mkdir "%MUSICROOM_DATA%"

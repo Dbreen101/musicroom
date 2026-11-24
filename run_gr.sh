@@ -16,7 +16,7 @@ cd "$(dirname "$0")" || exit 1
 export MUSICROOM_3D=1
 export MR_GREEN_ROOM=1
 export MR_GR_VERSION=GR1
-export MR_GR_SERVER="${MR_GR_SERVER:-http://Davids-MacBook-Pro-2.local:5300}"
+export MR_GR_SERVER="${MR_GR_SERVER:-https://musicroom.tail323912.ts.net}"
 export MUSICROOM_DATA="${MUSICROOM_DATA:-$HOME/Library/Application Support/Music Room GR}"
 export MUSICROOM_PORT="${MUSICROOM_PORT:-5177}"
 mkdir -p "$MUSICROOM_DATA"
