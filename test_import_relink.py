@@ -1,9 +1,9 @@
 """Proves the REAL run_import (Option B): a broken track whose file is gone gets
 its row relinked to a found copy, and a genuine duplicate is safely Trashed (not
-hard-deleted), with no duplicate track created. Uses a temp DB + a real audio
+hard-deleted), with no duplicate track created. Uses a temp DB + a generated audio
 file copied into a temp folder. Touches nothing in the live library.
 
-Run:  /opt/anaconda3/bin/python test_import_relink.py
+Run:  venv/bin/python test_import_relink.py
 """
 import os, sys, sqlite3, tempfile, shutil, subprocess
 
@@ -15,24 +15,11 @@ PY = sys.executable
 fails = []
 def chk(c, m): print(("  PASS  " if c else "  FAIL  ") + m); (None if c else fails.append(m))
 
-# 1) a real, PARSEABLE present audio file from the LIVE library. The library
-#    contains some empty stubs + files mutagen can't read (FLACs only ffmpeg
-#    decodes); those make a bad fixture, so we verify metadata actually extracts.
+# 1) a real, PARSEABLE audio file, made here
 import importer
-real = sqlite3.connect(f"file:{PROJ}/library.db?mode=ro", uri=True); real.row_factory = sqlite3.Row
-src = None
-for r in real.execute("SELECT file_path FROM files WHERE is_primary=1 AND is_deleted=0 "
-                      "AND duration_sec > 10 AND content_hash IS NOT NULL ORDER BY file_size_mb DESC"):
-    p = r["file_path"]
-    if not (p and os.path.isfile(p) and p.lower().endswith((".flac", ".mp3"))
-            and 500_000 < os.path.getsize(p) < 60_000_000):
-        continue
-    m = importer.extract_file_metadata(p)
-    if m and (m.get("duration_sec") or 0) > 10:
-        src = p; break
-real.close()
-assert src, "no real, parseable audio file available to test with"
-print("real test file:", os.path.basename(src))
+from audio_fixture import make_flac
+src = make_flac(os.path.join(TMP, "fixture.flac"))
+assert (importer.extract_file_metadata(src) or {}).get("duration_sec", 0) > 10, "fixture audio didn't parse"
 
 # 2) temp DB schema (+ migrate for content_hash etc.)
 subprocess.run([PY, "schema.py"], env=os.environ, capture_output=True)

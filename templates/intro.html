@@ -62,7 +62,7 @@
             <div>
                 <div class="in-step__n">1 · Your room</div>
                 <h1 class="in-step__h">Your own records, in a place.</h1>
-                <p class="in-step__p">Bring in the music files on your computer. They are read where they are: nothing is moved, nothing is uploaded.</p>
+                <p class="in-step__p">Bring in the music on your computer. Nothing is moved or uploaded.</p>
             </div>
             <div class="in-art"><div class="in-grid">
                 <i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#3a2a3a"></i><i style="--c:#4a4a2a"></i>
@@ -75,7 +75,7 @@
             <div>
                 <div class="in-step__n">2 · Explore</div>
                 <h1 class="in-step__h">No algorithm.</h1>
-                <p class="in-step__p">You find music through other people: their rooms, the crates they put out, the plug-ins they make, and by chance. You can make a public room of your own.</p>
+                <p class="in-step__p">You find music through other people's rooms and crates.</p>
             </div>
             <div class="in-art"><div class="in-rooms">
                 <div class="in-room"><small>artist</small><div class="m"><i style="--c:#7a4a2a"></i><i style="--c:#2a3a4a"></i><i style="--c:#4a4a2a"></i></div></div>
@@ -89,7 +89,7 @@
             <div>
                 <div class="in-step__n" id="in-get-n">3 · Credits</div>
                 <h1 class="in-step__h" id="in-get-h">Bring a record home, or buy it.</h1>
-                <p class="in-step__p" id="in-get-p">In the shop each record plays once. Then bring it home, where it plays in your room, or buy it.</p>
+                <p class="in-step__p" id="in-get-p">In the shop, each record plays once.</p>
             </div>
             <div class="in-art"><div class="in-lock">
                 <i class="b" data-l="home" style="--c:#7a4a2a"></i><i class="b" data-l="home" style="--c:#2a3a4a"></i><i class="y" data-l="bought" style="--c:#4a4a2a"></i>
@@ -100,7 +100,7 @@
             <div>
                 <div class="in-step__n">4 · Feedback</div>
                 <h1 class="in-step__h">Tell me what you think.</h1>
-                <p class="in-step__p">This is a trial. The button in the corner of every page sends a thought, a bug or an idea.</p>
+                <p class="in-step__p">The button in the corner sends a thought, a bug or an idea.</p>
             </div>
             <div class="in-art"><div class="in-fb" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 5h16v11H9l-5 4z"/></svg></div></div>
         </section>
@@ -128,11 +128,11 @@ fetch('/api/gr/sim/me').then(r => r.json()).then(m => {
     const p = document.getElementById('in-get-p');
     if (m && m.on && m.rules) {
         const n = v => (+v || 0).toLocaleString(), c = v => n(v) + (+v === 1 ? ' credit' : ' credits');
-        p.textContent = `You have ${c(m.credits)}. In the shop each record plays once. Then a track is ${c(m.rules.home_cost)} to bring home, where it plays in your room, or ${n(m.rules.buy_cost)} to buy.`;
+        p.textContent = `You have ${c(m.credits)}. A track is ${c(m.rules.home_cost)} to bring home, ${n(m.rules.buy_cost)} to buy.`;
     } else if (m && m.on === false) {
         document.getElementById('in-get-n').textContent = '3 · Borrow or buy';
         document.getElementById('in-get-h').textContent = 'Borrow a record, or buy it.';
-        p.textContent = 'A borrowed record plays in your room. A bought one is a file of yours. It all runs on play money.';
+        p.textContent = 'Borrowed records play in your room. Bought ones are yours.';
         document.querySelectorAll('.in-lock i.b').forEach(i => { i.dataset.l = 'borrowed'; });
     }
 }).catch(() => {});

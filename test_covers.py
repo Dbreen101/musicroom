@@ -38,6 +38,7 @@ db.commit(); db.close()
 def size_of(resp):
     with Image.open(io.BytesIO(resp.data)) as im: return im.size
 TH = Path(mr._THUMB_DIR)
+mr._artwork_warm_state["last"] = time.time()   # no pass of its own yet: one racing the pass below left a size missing
 
 # ── with the drive in: the sizes the room asks for ──
 r = c.get("/api/artwork/1?s=300")

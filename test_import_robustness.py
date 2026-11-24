@@ -17,22 +17,12 @@ PY = sys.executable
 fails = []
 def chk(c, m): print(("  PASS  " if c else "  FAIL  ") + m); (None if c else fails.append(m))
 
-# A real, PARSEABLE file from the live library to use as the "good" track.
+# 3 DISTINCT real, PARSEABLE files as the "good" tracks, so dedup doesn't merge them.
 import importer
-real = sqlite3.connect(f"file:{PROJ}/library.db?mode=ro", uri=True); real.row_factory = sqlite3.Row
-goods = []   # 3 DISTINCT parseable files so dedup doesn't merge them
-for r in real.execute("SELECT file_path FROM files WHERE is_primary=1 AND is_deleted=0 "
-                      "AND duration_sec > 10 AND content_hash IS NOT NULL ORDER BY file_size_mb DESC"):
-    p = r["file_path"]
-    if (p and os.path.isfile(p) and p.lower().endswith((".flac", ".mp3"))
-            and 500_000 < os.path.getsize(p) < 60_000_000):
-        m = importer.extract_file_metadata(p)
-        if m and (m.get("duration_sec") or 0) > 10:
-            goods.append(p)
-            if len(goods) >= 3: break
-real.close()
-assert len(goods) >= 3, "need 3 real, parseable audio files to test with"
-print("good files:", [os.path.basename(g) for g in goods])
+from audio_fixture import make_flac
+FIX = os.path.join(TMP, "fixtures"); os.makedirs(FIX)
+goods = [make_flac(os.path.join(FIX, f"good{i}.flac"), seed=i) for i in range(3)]
+assert all((importer.extract_file_metadata(g) or {}).get("duration_sec", 0) > 10 for g in goods), "fixture audio didn't parse"
 
 subprocess.run([PY, "schema.py"], env=os.environ, capture_output=True)
 subprocess.run([PY, "migrate.py"], env=os.environ, capture_output=True)
