@@ -186,6 +186,84 @@ def start(version, data_dir):
     return True
 
 
+# ---------- nothing left behind ----------
+# After an update the helper deletes the app it replaced and the download. What can still be left:
+# that same old app if the helper was cut short (a restart mid-swap), a download that never finished,
+# the helper itself — and OTHER copies of this app the person has lying about (the one they first
+# unzipped in Downloads). tidy() clears the first three by itself, a while after the app starts;
+# other copies are only ever moved to the Bin when the person says so (they are files of theirs,
+# outside anything this app made).
+
+def tidy(data_dir, wait_s=0):
+    """Remove what an update can leave: "<app>.before-update", the update folder, the helper.
+    → the paths removed. Never touches the running app or anything else."""
+    if wait_s:
+        time.sleep(wait_s)             # (the helper of an update just made may still be at work)
+    with _lock:
+        if _state["step"] in ("looking", "downloading", "unpacking", "ready", "restarting"):
+            return []                  # an update is under way: its folder is in use
+    gone = []
+    w = where()
+    targets = [os.path.join(data_dir, "update"), os.path.join(data_dir, "update-helper")]
+    if w.get("app"):
+        targets.insert(0, w["app"] + ".before-update")
+    for p in targets:
+        if not os.path.lexists(p):
+            continue
+        try:
+            shutil.rmtree(p) if os.path.isdir(p) and not os.path.islink(p) else os.remove(p)
+            gone.append(p)
+        except OSError:
+            pass
+    return gone
+
+
+def other_copies():
+    """Other copies of this app on this Mac (by what the app IS — its bundle id — not its name),
+    wherever they are: Downloads, the Desktop, a second one in Applications. Asked of Spotlight,
+    which answers without this app opening anyone's folders. Mac only; [] elsewhere."""
+    if _is_win() or sys.platform != "darwin":
+        return []
+    here = where().get("app") or ""
+    if not here:
+        return []                      # (run from the code, or not somewhere it can speak for: it names nothing)
+    try:
+        r = subprocess.run(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{BUNDLE_ID}'"],
+                           capture_output=True, text=True, timeout=12)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    out = []
+    for p in r.stdout.splitlines():
+        p = p.strip()
+        if not p.endswith(".app") or "/.Trash/" in p or "/AppTranslocation/" in p:
+            continue
+        if here and os.path.realpath(p) == os.path.realpath(here):
+            continue
+        if p.endswith(".before-update"):
+            continue
+        out.append(p)
+    return sorted(set(out))
+
+
+def bin_copies(paths=None):
+    """Move other copies of this app to the Bin (they can be put back from there). Only paths that
+    other_copies() itself finds now are ever touched. → {"binned": [...], "left": [...]}"""
+    found = other_copies()
+    want = [p for p in found if paths is None or p in paths]
+    binned, left = [], []
+    for p in want:
+        ok = False
+        try:
+            r = subprocess.run(["/usr/bin/osascript", "-e", "on run argv", "-e",
+                                'tell application "Finder" to delete (POSIX file (item 1 of argv) as alias)', "-e", "end run", p],
+                               capture_output=True, text=True, timeout=30)
+            ok = r.returncode == 0 and not os.path.exists(p)
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+        (binned if ok else left).append(p)
+    return {"binned": binned, "left": left}
+
+
 _MAC = r"""#!/bin/sh
 # Music Room: put the new app where the old one is, once the old one has closed.
 PID="$1"; OLD="$2"; NEW="$3"; WORK="$4"; OPEN="$5"

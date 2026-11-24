@@ -64,6 +64,9 @@ PY
   cp "native/Read me first (GR).txt" "$OUT/Read me first.txt"
   ASSETS=("$OUT"/*)
   rm -rf "$BAKE"
+  # the apps are in their zips now: the built copies go, so this Mac has ONE Music Room GR (the
+  # one in Applications) and Spotlight, Launchpad and "Open with" don't offer the others
+  rm -rf "native/dist/Music Room GR.app" "native/dist-intel/Music Room GR.app"
 fi
 
 echo "── 5. the release page"

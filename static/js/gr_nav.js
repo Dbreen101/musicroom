@@ -80,10 +80,49 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
 // the top bar, until it is closed for this session. ──
 (function(){
   if (window.self !== window.top) return;                 // (not inside an overlay or a plug-in's frame)
+  function dress(){                                        // the notice's look, once
+    if (document.getElementById('mr-update-css')) return;
+    const css = document.createElement('style'); css.id = 'mr-update-css';
+    css.textContent = `.mr-update{position:fixed;left:50%;top:calc(var(--nav-h,54px) + 8px);transform:translateX(-50%);z-index:9400;display:flex;align-items:center;gap:10px;
+      max-width:calc(100vw - 24px);padding:8px 10px 8px 14px;background:var(--text,#161513);color:var(--bg,#f2efe8);font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.68rem;line-height:1.4}
+      .mr-update a{color:inherit;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+      .mr-update__go{appearance:none;border:1px solid currentColor;background:none;color:inherit;font:inherit;text-transform:uppercase;letter-spacing:.08em;padding:4px 9px;cursor:pointer;white-space:nowrap}.mr-update__go:disabled{opacity:.75;cursor:default}
+      .mr-update button:not(.mr-update__go){appearance:none;border:1px solid currentColor;border-radius:0;background:none;color:inherit;width:22px;height:22px;padding:0;cursor:pointer;font-size:.62rem}`;
+    document.head.append(css);
+  }
+  // Another copy of this app on the computer (the one first unzipped in Downloads, say): one line
+  // names where it is and offers to move it to the Bin. Closed, it stays closed for those copies.
+  async function copies(){
+    let d;
+    try { d = await (await fetch('/api/gr/update/copies')).json(); } catch (_) { return; }
+    const list = (d && d.copies) || [];
+    if (!list.length) return;
+    const key = 'mr_copies_closed', sig = list.map(c => c.path).sort().join('|');
+    try { if (localStorage.getItem(key) === sig) return; } catch (_) {}
+    const places = [...new Set(list.map(c => c.where))];
+    const bar = document.createElement('div'); bar.className = 'mr-update'; bar.setAttribute('role', 'status');
+    const say = document.createElement('span');
+    say.textContent = (list.length === 1 ? 'Another copy of this app is in ' : `${list.length} other copies of this app are in `) + places.join(', ') + '. ';
+    const go = document.createElement('button');
+    go.type = 'button'; go.className = 'mr-update__go'; go.textContent = list.length === 1 ? 'Move it to the Bin' : 'Move them to the Bin';
+    const x = document.createElement('button');
+    x.type = 'button'; x.textContent = '✕'; x.title = 'Leave them'; x.setAttribute('aria-label', 'Leave them');
+    x.addEventListener('click', () => { bar.remove(); try { localStorage.setItem(key, sig); } catch (_) {} });
+    go.addEventListener('click', async () => {
+      go.disabled = true; go.textContent = 'Moving…';
+      let r = {}; try { r = await (await fetch('/api/gr/update/copies/bin', { method: 'POST' })).json(); } catch (_) {}
+      const left = (r.left || []).length;
+      go.remove();
+      say.textContent = left ? `Couldn’t move ${left === 1 ? 'it' : left + ' of them'}. Drag ${left === 1 ? 'it' : 'them'} to the Bin yourself: ${places.join(', ')}. ` : 'Moved to the Bin. ';
+      if (!left) setTimeout(() => bar.remove(), 2500);
+    });
+    bar.append(say, go, x);
+    dress(); document.body.append(bar);
+  }
   async function look(){
     let v;
     try { v = await (await fetch('/api/gr/version')).json(); } catch (_) { return; }
-    if (!v || !v.update) return;
+    if (!v || !v.update) return copies();                 // (no update to offer: is there another copy lying about?)
     const key = 'mr_update_closed_' + v.want.version;
     try { if (sessionStorage.getItem(key)) return; } catch (_) {}
     const bar = document.createElement('div');
@@ -122,13 +161,7 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
     });
     if (v.self) bar.append(say, now, x);
     else if (v.want.url) bar.append(say, get, x); else bar.append(say, x);      // (no address given → no link that leads nowhere)
-    const css = document.createElement('style');
-    css.textContent = `.mr-update{position:fixed;left:50%;top:calc(var(--nav-h,54px) + 8px);transform:translateX(-50%);z-index:9400;display:flex;align-items:center;gap:10px;
-      max-width:calc(100vw - 24px);padding:8px 10px 8px 14px;background:var(--text,#161513);color:var(--bg,#f2efe8);font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.68rem;line-height:1.4}
-      .mr-update a{color:inherit;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
-      .mr-update__go{appearance:none;border:1px solid currentColor;background:none;color:inherit;font:inherit;text-transform:uppercase;letter-spacing:.08em;padding:4px 9px;cursor:pointer;white-space:nowrap}.mr-update__go:disabled{opacity:.75;cursor:default}
-      .mr-update button{appearance:none;border:1px solid currentColor;border-radius:0;background:none;color:inherit;width:22px;height:22px;padding:0;cursor:pointer;font-size:.62rem}`;
-    document.head.append(css);
+    dress();
     document.body.append(bar);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', look); else look();

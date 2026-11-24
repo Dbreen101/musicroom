@@ -62,6 +62,49 @@ if sys.platform == "darwin":
         ok = True
     chk(ok, "a download that doesn't match the release's fingerprint is thrown away")
 
+# ── nothing left behind after an update ──
+data = tempfile.mkdtemp(dir=tmp)
+apps = tempfile.mkdtemp(dir=tmp); mine = os.path.join(apps, "Music Room GR.app"); os.makedirs(mine)
+left = mine + ".before-update"; os.makedirs(os.path.join(left, "Contents"))
+os.makedirs(os.path.join(data, "update", "new")); open(os.path.join(data, "update", "app.zip"), "w").write("half a download")
+os.makedirs(os.path.join(data, "update-helper")); open(os.path.join(data, "update-helper", "swap.sh"), "w").write("#")
+keep = os.path.join(data, "library.db"); open(keep, "w").write("the person's records")
+real_where, real_run = U.where, U.subprocess.run
+U.where = lambda: {"can": True, "why": "", "app": mine}
+U._set(step="idle")
+gone = U.tidy(data)
+chk(not os.path.exists(left) and not os.path.exists(os.path.join(data, "update")) and not os.path.exists(os.path.join(data, "update-helper")),
+    "an old app left by a cut-short update, a half download and the helper are cleared away")
+chk(os.path.isdir(mine) and open(keep).read() == "the person's records" and len(gone) == 3, "…and the running app and the person's own things are not touched")
+os.makedirs(os.path.join(data, "update")); U._set(step="downloading")
+chk(U.tidy(data) == [] and os.path.isdir(os.path.join(data, "update")), "nothing is cleared while an update is under way")
+U._set(step="idle")
+
+if sys.platform == "darwin":
+    other = os.path.join(tempfile.mkdtemp(dir=tmp), "Music Room GR-2.app"); os.makedirs(other)
+    stranger = os.path.join(tempfile.mkdtemp(dir=tmp), "Someone Else.app"); os.makedirs(stranger)
+    class R:                                             # what Spotlight would answer
+        returncode = 0
+        stdout = "\n".join([mine, other, mine + ".before-update", "/Users/x/.Trash/Music Room GR.app", "/private/var/folders/AppTranslocation/1/d/Music Room GR.app"])
+    asked = []
+    def fake_run(cmd, **k):
+        asked.append(cmd)
+        if cmd[0].endswith("mdfind"):
+            return R
+        if cmd[0].endswith("osascript"):                 # "Finder, move this to the Bin"
+            os.rmdir(cmd[-1]); return type("X", (), {"returncode": 0, "stdout": ""})
+        return real_run(cmd, **k)
+    U.subprocess.run = fake_run
+    chk(U.other_copies() == [other], "other copies: found by what the app is; never this app, the Bin, or what an update is clearing")
+    chk(U.BUNDLE_ID in asked[0][1], "…asked of Spotlight by the app's own id, not by its name")
+    out = U.bin_copies([other, stranger])
+    chk(out == {"binned": [other], "left": []} and not os.path.exists(other) and os.path.isdir(stranger) and os.path.isdir(mine),
+        "only a copy it found itself goes to the Bin — never a path handed to it, never the running app")
+    U.where = real_where
+    chk(U.other_copies() == [], "run from the code, it names no copies at all")
+    U.subprocess.run = real_run
+U.where = real_where
+
 print()
 print(f"{'ALL PASS' if not fails else str(len(fails)) + ' FAILURES'}")
 sys.exit(1 if fails else 0)

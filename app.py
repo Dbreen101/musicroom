@@ -15175,6 +15175,41 @@ def api_gr_update_apply():
     return jsonify(app_update.state()), (200 if ok else 409)
 
 
+# One Music Room GR on a computer (2026-11-24): what an update can leave behind is cleared a
+# while after the app starts; other copies of the app (the one first unzipped in Downloads…) are
+# named on the page, and go to the Bin when the person says so.
+import sys as _sys_frozen  # noqa: E402
+if getattr(_sys_frozen, "frozen", False) and hasattr(app_update, "tidy"):
+    threading.Thread(target=lambda: app_update.tidy(DATA_DIR, wait_s=90), daemon=True).start()
+
+_copies_seen = {"at": 0.0, "list": []}
+
+
+@app.route("/api/gr/update/copies")
+def api_gr_update_copies():
+    import time as _t
+    if not hasattr(app_update, "other_copies"):
+        return jsonify({"copies": []})
+    if request.args.get("fresh") == "1" or _t.time() - _copies_seen["at"] > 1800:
+        _copies_seen.update(at=_t.time(), list=app_update.other_copies())
+    home = os.path.expanduser("~")
+    return jsonify({"copies": [{"path": p, "where": os.path.dirname(p).replace(home, "~")} for p in _copies_seen["list"]]})
+
+
+@app.route("/api/gr/update/copies/bin", methods=["POST"])
+def api_gr_update_copies_bin():
+    if not hasattr(app_update, "bin_copies"):
+        return jsonify({"error": "not on this computer"}), 409
+    out = app_update.bin_copies()
+    _copies_seen.update(at=0.0, list=[])
+    if IS_GR:
+        try:
+            green_room.track("app_copies_binned", {"binned": len(out["binned"]), "left": len(out["left"])})
+        except Exception:
+            pass
+    return jsonify(out)
+
+
 @app.route("/house-rules")
 def house_rules_page():
     return render_template("house_rules.html", body=_md_page(os.path.join(BASE_DIR, "HOUSE_RULES.md")),
