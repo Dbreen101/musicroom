@@ -19,8 +19,13 @@ Uses its own sqlite connections (like seinnteoir_player) so it works from
 both request handlers and the player thread.
 """
 
+import hashlib
+import hmac
 import os
+import secrets
 import sqlite3
+import threading
+import time
 import uuid
 from contextlib import closing
 from pathlib import Path
@@ -112,6 +117,89 @@ def follow_move(new_url):
         return False
 
 
+# ── the way back ──
+# An app that followed the server to a new address (follow_move) keeps the address it
+# had before. If the new one stops answering (a tunnel that is down while the server's
+# computer is up) and the old one still does, the app goes back by itself. It moves
+# forward again the same way it did the first time: the server at the old address
+# still says where it lives, and follow_move goes there once that address answers.
+
+_BACK_EVERY = 60        # seconds between two looks at the address before
+_BACK_TIMEOUT = 4       # seconds for each question asked of it
+_back = {"at": 0.0, "thread": None}
+_back_lock = threading.Lock()
+
+
+def _proof_of(token, ask):
+    """`ask` signed with this app's sign-in (the same sum as the server's gr_master.proof_of)."""
+    return hmac.new(str(token).encode("utf-8"), str(ask).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def go_back():
+    """The address this app moved to does not answer: return to the one it had
+    before, if that one is the same Music Room. → True when this app went back.
+
+    The address before is usually plain http on a Wi-Fi, and a laptop can be on
+    any Wi-Fi by now. So the sign-in is NOT sent to find out: the app asks the
+    old address to sign some made-up words with it (/api/knows), which only a
+    server that holds the sign-in can do. Only then is the sign-in used there,
+    and only if it is accepted does the app go back. Never raises."""
+    try:
+        with closing(_db()) as conn:
+            now = _server_url(conn)
+            before = (_get_setting(conn, "gr_server_url_before") or "").strip().rstrip("/")
+            tok = _get_setting(conn, "gr_token")
+            fp = _get_setting(conn, "gr_fingerprint")
+        if not tok or not fp or not now or not before or before == now or not before.startswith("http"):
+            return False
+        try:
+            # (is the address the app is on really away? a look that needs no sign-in)
+            requests.get(now + "/api/version", timeout=_BACK_TIMEOUT)
+            return False                    # it answers: nothing to go back from
+        except requests.RequestException:
+            pass
+        ask = secrets.token_hex(16)
+        try:
+            r = requests.get(before + "/api/knows", params={"device": fp, "ask": ask}, timeout=_BACK_TIMEOUT)
+            proofs = r.json().get("proofs") if r.status_code == 200 else None
+        except (requests.RequestException, ValueError, AttributeError):
+            return False
+        mine = _proof_of(tok, ask)
+        if not isinstance(proofs, list) or not any(hmac.compare_digest(mine, str(p)) for p in proofs):
+            return False
+        try:
+            r = requests.get(before + "/api/me", headers={"Authorization": f"Bearer {tok}"}, timeout=_BACK_TIMEOUT)
+        except requests.RequestException:
+            return False
+        if r.status_code != 200:
+            return False
+        with closing(_db()) as conn:
+            if _server_url(conn) != now:    # something else moved the app meanwhile
+                return False
+            _set_setting(conn, "gr_server_url", before)
+            _set_setting(conn, "gr_server_url_before", now)
+        track("server_back", {"from": now, "to": before})
+        return True
+    except Exception:
+        return False
+
+
+def _lost():
+    """A call to the rooms server got no answer. If this app has an address from
+    before, look there, in the background (the call that failed is not held up),
+    and not more than once a minute. Never raises."""
+    try:
+        with _back_lock:
+            t = _back["thread"]
+            if (t and t.is_alive()) or time.time() - _back["at"] < _BACK_EVERY:
+                return
+            _back["at"] = time.time()
+            t = _back["thread"] = threading.Thread(target=go_back, name="gr-way-back", daemon=True)
+        t.start()
+    except Exception:
+        pass
+
+
 def _fingerprint(conn):
     """A stable id for THIS install — the server's device limit keys on it."""
     fp = _get_setting(conn, "gr_fingerprint")
@@ -129,6 +217,7 @@ def _get(conn, path, **kw):
         r = requests.get(url + path, headers=_headers(conn),
                          timeout=kw.pop("timeout", _TIMEOUT), **kw)
     except requests.RequestException:
+        _lost()
         raise GRError("the Green Room server can't be reached")
     return r
 
@@ -141,6 +230,7 @@ def _post(conn, path, payload):
         r = requests.post(url + path, json=payload, headers=_headers(conn),
                           timeout=_TIMEOUT)
     except requests.RequestException:
+        _lost()
         raise GRError("the Green Room server can't be reached")
     return r
 
@@ -946,6 +1036,7 @@ def _delete(conn, path):
     try:
         return requests.delete(url + path, headers=_headers(conn), timeout=_TIMEOUT)
     except requests.RequestException:
+        _lost()
         raise GRError("the server can't be reached")
 
 
@@ -957,6 +1048,7 @@ def _post_files(conn, path, files, data=None):
         return requests.post(url + path, files=files, data=data or {}, headers=_headers(conn),
                              timeout=_DL_TIMEOUT)
     except requests.RequestException:
+        _lost()
         raise GRError("the server can't be reached")
 
 

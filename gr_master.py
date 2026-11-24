@@ -295,6 +295,15 @@ def rate_full(key, most, window_s):
         return len([t for t in _rate.get(key, []) if now - t < window_s]) >= most
 
 
+def proof_of(token, ask):
+    """`ask` signed with a laptop's sign-in (HMAC-SHA256): only someone who holds
+    the sign-in can make it, and it gives nothing of the sign-in away. The app
+    makes the same sum itself (green_room._proof_of) and compares."""
+    import hashlib
+    import hmac
+    return hmac.new(str(token).encode("utf-8"), str(ask).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def _txt(v, n):
     return str(v or "").strip()[:n]
 
@@ -429,6 +438,24 @@ def register(app, server):
                         "house_rules": HOUSE_RULES_VERSION,
                         # (never the code itself: only that one is needed)
                         "invite": bool(d["code"]), "moved_to": d["moved_to"]})
+
+    # ── open to anyone: proof that this server holds a laptop's sign-in ──
+    @app.get("/api/knows")
+    def knows():
+        """An app that is thinking of coming (back) to this address asks first: do you
+        hold my sign-in? It names its laptop and sends words it made up; the answer is
+        those words signed with that laptop's sign-in. So the app never has to send
+        the sign-in itself to an address it is not sure of, and a stranger's server
+        can't answer. A laptop nobody knows gets an empty answer."""
+        device = _txt(request.args.get("device"), 80)
+        ask = _txt(request.args.get("ask"), 80)
+        if not device or len(ask) < 16:
+            return jsonify({"error": "name the laptop and send at least 16 letters to sign"}), 400
+        if not rate_ok("knows:" + asker(), 30, 600):
+            return jsonify({"error": "Too many tries. Wait ten minutes."}), 429
+        with closing(S.db()) as conn:
+            rows = conn.execute("SELECT token FROM gr_devices WHERE fingerprint=? LIMIT 5", (device,)).fetchall()
+        return jsonify({"proofs": [proof_of(r["token"], ask) for r in rows if r["token"]]})
 
     # ── anyone signed in: report something ──
     @app.post("/api/report")

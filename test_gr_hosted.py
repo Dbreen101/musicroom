@@ -207,11 +207,108 @@ chk(green_room.follow_move(NEW + "/") is True and app_setting("gr_server_url") =
     and app_setting("gr_server_url_before") == OLD,
     "to the same Music Room at its new address, it moves (and remembers where it was)")
 chk(green_room.follow_move(NEW) is False, "told again, there is nothing to do")
+
+# ═══ the way back: the new address stops answering, the one before still does ═══
+import requests as _rq
+world = {"new": "up", "old": "same"}      # new: up | down    old: same | away | stranger | liar | yes-man | older
+sent_old = []                             # everything asked of the address before, with its headers
+def fake_world(url, **kw):
+    if url.startswith(NEW):
+        if world["new"] == "down":
+            raise _rq.ConnectionError("the tunnel is down")
+        return real_get(SERVER + url[len(NEW):], **kw)
+    if url.startswith(OLD):
+        sent_old.append((url[len(OLD):], dict(kw.get("headers") or {})))
+        how = world["old"]
+        if how == "away":
+            raise _rq.ConnectionError("nothing at that name on this Wi-Fi")
+        if how == "same":
+            return real_get(SERVER + url[len(OLD):], **kw)
+        if how == "older":                 # the same Music Room on a release from before /api/knows
+            return real_get(SERVER + "/api/no-such-thing", **{k: v for k, v in kw.items() if k != "params"})
+        r = real_get(SERVER + "/api/version", timeout=5)           # some other server answering at that name
+        body = {"stranger": {"proofs": []}, "liar": {"proofs": ["0" * 64]}, "yes-man": {"proofs": "yes", "ok": True}}[how]
+        r._content = __import__("json").dumps(body).encode()
+        return r
+    return real_get(url, **kw)
+green_room.requests.get = fake_world
+def where(): return app_setting("gr_server_url"), app_setting("gr_server_url_before")
+def token_sent(): return any("Authorization" in h for _, h in sent_old)
+
+chk(green_room.go_back() is False and where() == (NEW, OLD) and not sent_old,
+    "while the new address answers, the app stays there and asks nothing of the old one")
+world["new"] = "down"
+for how, words in (("away", "the old address doesn't answer either (a laptop away from the building)"),
+                   ("stranger", "another server answers at the old name and doesn't know this laptop"),
+                   ("liar", "another server answers with a made-up proof"),
+                   ("yes-man", "another server says yes to everything"),
+                   ("older", "the old address runs a release from before the question existed")):
+    world["old"] = how
+    chk(green_room.go_back() is False and where() == (NEW, OLD), f"the new address is down and {words}: the app stays put")
+chk(not token_sent(), "and through all of that the app's sign-in was never sent to the old address")
+with closing(appdb()) as x:
+    queued = x.execute("SELECT COUNT(*) FROM gr_events_outbox WHERE kind='server_back'").fetchone()[0]
+chk(queued == 0, "and nothing was noted as a move")
+
+world["old"] = "same"; sent_old.clear()
+chk(green_room.go_back() is True and where() == (OLD, NEW),
+    "the new address is down and the old one is the same Music Room: the app goes back (and remembers the new one)")
+chk([p for p, _ in sent_old][:1] == ["/api/knows"] and "Authorization" not in sent_old[0][1] and token_sent(),
+    "it asked for the proof first, without its sign-in, and used the sign-in only after the proof")
+with closing(appdb()) as x:
+    queued = x.execute("SELECT data FROM gr_events_outbox WHERE kind='server_back'").fetchall()
+chk(len(queued) == 1 and NEW in queued[0][0] and OLD in queued[0][0], "going back is noted once, for the activity log")
+chk(green_room.go_back() is False and where() == (OLD, NEW), "asked again while the tunnel is still down, it does not swing to and fro")
+chk(green_room.follow_move(NEW) is False and where() == (OLD, NEW), "and it does not follow the server forward while the new address is down")
+world["new"] = "up"
+chk(green_room.follow_move(NEW) is True and where() == (NEW, OLD),
+    "the tunnel comes back: the app follows the server forward again, as it did the first time")
+
+# a call that gets no answer starts the look by itself, in the background, at most once a minute
+world["new"] = "down"; sent_old.clear(); green_room._back["at"] = 0
+try:
+    green_room.shop_call("GET", "/api/version"); chk(False, "a call to a server that is down fails as before")
+except green_room.GRError:
+    chk(True, "a call to a server that is down fails as before")
+green_room._back["thread"].join(20)
+chk(where() == (OLD, NEW), "and a moment later the app has gone back by itself")
+world["new"] = "up"; green_room.follow_move(NEW); world["new"] = "down"; sent_old.clear()
+try: green_room.shop_call("GET", "/api/version")
+except green_room.GRError: pass
+t = green_room._back["thread"]; t and t.join(20)
+chk(where() == (NEW, OLD) and not sent_old, "a second failure inside the same minute does not ask the old address again")
+green_room._back["at"] = 0
+try: green_room.flush_events() ; green_room.shop_call("POST", "/api/report", {})
+except green_room.GRError: pass
+green_room._back["thread"].join(20)
+chk(where() == (OLD, NEW), "after the minute, the next failed call (of any kind) does")
+world["new"] = "up"; green_room.follow_move(NEW)
+chk(where() == (NEW, OLD), "(forward again for what follows)")
+
+# the server's side of the question
+with closing(appdb()) as x:
+    fp, tok = (x.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone()[0] for k in ("gr_fingerprint", "gr_token"))
+gr_master._rate.clear()
+ask = "a" * 32
+r = client.get("/api/knows", query_string={"device": fp, "ask": ask}, environ_base=FAR)
+chk(r.status_code == 200 and r.get_json()["proofs"] == [gr_master.proof_of(tok, ask)] == [green_room._proof_of(tok, ask)],
+    "the server signs the words it is sent with that laptop's sign-in, and the app makes the same sum")
+chk(tok not in r.get_data(as_text=True), "the answer does not hold the sign-in itself")
+chk(client.get("/api/knows", query_string={"device": "nobody-knows-me", "ask": ask}, environ_base=FAR).get_json() == {"proofs": []},
+    "a laptop the server doesn't know gets an empty answer")
+chk(client.get("/api/knows", query_string={"device": fp, "ask": "short"}, environ_base=FAR).status_code == 400
+    and client.get("/api/knows", query_string={"ask": ask}, environ_base=FAR).status_code == 400,
+    "too few words to sign, or no laptop named, is refused")
+codes = [client.get("/api/knows", query_string={"device": fp, "ask": ask}, environ_base=FAR).status_code for _ in range(40)]
+chk(codes[0] == 200 and codes[-1] == 429, "one address may ask only so many times in ten minutes")
+gr_master._rate.clear()
 with closing(appdb()) as x:
     x.execute("DELETE FROM settings WHERE key='gr_token'"); x.commit()
     x.execute("INSERT OR REPLACE INTO settings(key, value) VALUES('gr_server_url', ?)", (OLD,)); x.commit()
 chk(green_room.follow_move(NEW) is False and app_setting("gr_server_url") == OLD,
     "an app that isn't signed in is not moved")
+world["new"] = "down"; world["old"] = "same"; sent_old.clear(); green_room._back["at"] = 0
+chk(green_room.go_back() is False and not sent_old, "nor does an app that isn't signed in go back anywhere")
 green_room.requests.get = real_get
 srv.shutdown()
 

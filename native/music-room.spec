@@ -118,7 +118,7 @@ hiddenimports = [
     # stdlib stragglers PyInstaller sometimes drops
     "sqlite3", "urllib.request", "urllib.error", "urllib.parse",
     "ssl", "json", "xml.etree.ElementTree", "wave", "struct",
-    "http.client", "email.utils", "secrets", "hashlib", "unicodedata",
+    "http.client", "email.utils", "secrets", "hashlib", "hmac", "unicodedata",
     "zipfile", "shutil", "plistlib", "html", "mimetypes",
 ]
 

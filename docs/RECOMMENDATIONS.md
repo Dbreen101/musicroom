@@ -69,7 +69,7 @@ Measured on `v2026.11.24-2`.
 | Templates | `place.html` 9,736 lines, `room3d.html` 6,125 | Move inline `<script>` blocks into `static/js/` files, so they can be cached and read on their own. |
 | three.js | two copies shipped (`three.module.js` 1.3 MB, `three.r128.min.js` 0.6 MB) | Use one version on every page. |
 | App size | ~247 MB, mostly scipy, librosa and numpy | Check which librosa features are used; the BPM and key code may need much less. |
-| Backup at launch | `_rsync_data_to` copies `library.db` with rsync while the app has it open in WAL mode. On 24 Nov the backup was skipped (`library.db-wal: No such file`), and a copy made mid-write can be out of date. | Copy the database with `sqlite3.Connection.backup()`, then rsync everything else without `library.db*`. |
+| Backup at launch | `_rsync_data_to` copies `library.db` with rsync while the app has it open in WAL mode. On 24 Nov the backup was skipped (`library.db-wal: No such file`), and a copy made mid-write can be out of date. | Copy the database with `sqlite3.Connection.backup()`, then rsync everything else without `library.db*`. **Done 2026-11-24** (`_copy_database_to` in `app.py`, `test_backup_database.py`). |
 | Server | Flask's development server, over plain HTTP | gunicorn or waitress, with HTTPS (see above). |
 | Tests | 51 files, all passing; `test_grupa` takes ~40 s because it sleeps in real time | Drive the fake player's clock instead of sleeping. |
 | Lint | 28 unused imports (some are imported on purpose, for their side effects) | Run `ruff --select F401` per file and keep the deliberate ones marked `# noqa`. |

@@ -159,6 +159,15 @@ that address is handed out:
    its sign-in, and moves. Nobody signs up again. New builds should carry the
    new address (`MR_GR_SERVER` in `tools/release.sh`, and the repo variable of
    the same name for the Windows build).
+4. **The way back.** An app that moved keeps the address it had before. If the
+   new address stops answering (a tunnel that is down while the server's
+   computer is up) and the old one still does, the app goes back by itself
+   within a minute of its next call. It does not send its sign-in to find out:
+   it asks the old address to sign some made-up words with it
+   (`GET /api/knows`), which only the real server can do. When the new address
+   answers again, the app moves forward as it did the first time. An app that
+   was installed with the new address already in it has no address from before,
+   and waits.
 
 **With Tailscale Funnel** (free; what the Green Room trial uses since
 2026-11-24): install Tailscale on the server's Mac and sign in, switch Funnel on

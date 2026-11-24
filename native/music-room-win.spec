@@ -74,7 +74,7 @@ hiddenimports = [
     # the window: pywebview with Microsoft Edge's WebView2 (through pythonnet)
     "webview", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr", "clr_loader",
     "sqlite3", "urllib.request", "urllib.error", "urllib.parse", "ssl", "json", "xml.etree.ElementTree",
-    "wave", "struct", "http.client", "email.utils", "secrets", "hashlib", "unicodedata", "ctypes.wintypes",
+    "wave", "struct", "http.client", "email.utils", "secrets", "hashlib", "hmac", "unicodedata", "ctypes.wintypes",
     "zipfile", "shutil", "plistlib", "winreg", "html", "mimetypes",      # (the app's own code is read at run time: what it imports must be named here)
     "tkinter",
 ]

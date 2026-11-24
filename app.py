@@ -377,11 +377,68 @@ _backup_running  = False
 _backup_lock     = threading.Lock()
 
 
+# The database is never copied as a plain file while the app has it open. A copy made
+# mid-write can be torn or out of date (what was saved last still sits in its -wal side
+# file), and those side files come and go under rsync: on 24 Nov 2026 a launch backup was
+# skipped whole ("library.db-wal: No such file"). Found by Kristian Vastveit
+# (docs/RECOMMENDATIONS.md). SQLite makes the copy itself (_copy_database_to), and rsync
+# is told to leave these names alone.
+_DB_FILE = os.path.basename(DB_PATH)
+_DB_SIDE = ("-wal", "-shm", "-journal")
+_BACKUP_DB_EXCLUDES = [f"--exclude=/{_DB_FILE}", f"--exclude=/{_DB_FILE}-*", f"--exclude=/{_DB_FILE}.copying*"]
+
+
+def _copy_database_to(dest_dir):
+    """A whole copy of the database, as it stands at this moment, into dest_dir — made by
+    SQLite (Connection.backup), so it is right even while the app is writing. It is
+    written beside its place, checked, and only then put in place: stopped at any point,
+    the copy from last time is still there. Returns (ok, err)."""
+    dest = Path(dest_dir) / _DB_FILE
+    part = dest.with_name(_DB_FILE + ".copying")
+    try:
+        if not os.path.isfile(DB_PATH):
+            return True, None                           # no database yet: nothing to copy
+        if dest.exists() and os.path.samefile(dest, DB_PATH):
+            return True, None                           # the data folder itself: never onto itself
+        for s in ("",) + _DB_SIDE:                      # what a copy that was cut short left
+            Path(str(part) + s).unlink(missing_ok=True)
+        src = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            dst = sqlite3.connect(str(part))
+            try:
+                src.backup(dst)
+            finally:
+                dst.close()
+        finally:
+            src.close()
+        look = sqlite3.connect(part.resolve().as_uri() + "?immutable=1", uri=True)
+        try:
+            good = look.execute("PRAGMA quick_check(1)").fetchone()[0] == "ok"
+        finally:
+            look.close()
+        if not good:
+            part.unlink(missing_ok=True)
+            return False, "the copy of the database did not pass its check; the one from last time was kept"
+        for s in _DB_SIDE:                              # side files from an older backup belong to an older
+            Path(str(dest) + s).unlink(missing_ok=True) # database: they must not sit beside this one
+            Path(str(part) + s).unlink(missing_ok=True)
+        os.replace(part, dest)
+        return True, None
+    except Exception as e:
+        try:
+            part.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return False, f"the database was not copied: {e}"
+
+
 # DB + metadata only — never audio (music lives on the drive's Library), never
-# the build / recovery snapshots / the backup folder itself. --delete +
-# --delete-excluded ⇒ the destination is an exact, single, most-recent mirror.
+# the build / recovery snapshots / the backup folder itself. --delete ⇒ the
+# destination is a single, most-recent mirror. (Not --delete-excluded: that would
+# delete the database copy SQLite has just put there, since rsync is told to pass
+# over it. Nothing on the list below is ever copied, so there is nothing of it to clear.)
 _BACKUP_RSYNC_FLAGS = [
-    "-a", "--delete", "--delete-excluded",
+    "-a", "--delete",
     "--exclude=venv/", "--exclude=__pycache__/", "--exclude=*.pyc",
     "--exclude=.DS_Store", "--exclude=.git/", "--exclude=backups/",
     "--exclude=native/", "--exclude=*.before_*",
@@ -398,9 +455,14 @@ def _rsync_data_to(dest_path):
         return False, f"volume not mounted: /Volumes/{parts[2]}"
     try:
         dest_path.mkdir(parents=True, exist_ok=True)
+        db_ok, db_err = _copy_database_to(dest_path)    # the database first, by SQLite …
         src = str(DATA_DIR).rstrip("/") + "/"
-        r = subprocess.run(["rsync", *_BACKUP_RSYNC_FLAGS, src, str(dest_path) + "/"],
-                           capture_output=True, text=True, timeout=600)
+        r = subprocess.run(["rsync", *_BACKUP_RSYNC_FLAGS, *_BACKUP_DB_EXCLUDES, src, str(dest_path) + "/"],
+                           capture_output=True, text=True, timeout=600)   # … then everything else
+        if db_ok and os.path.isfile(DB_PATH) and not (dest_path / _DB_FILE).exists():
+            db_ok, db_err = _copy_database_to(dest_path)    # (an rsync that cleared it all the same)
+        if not db_ok:
+            return False, db_err
         return (r.returncode in (0, 24)), (None if r.returncode in (0, 24) else r.stderr[:300])
     except Exception as e:
         return False, str(e)
@@ -519,13 +581,13 @@ def _run_full_backup(dest_root):
         if library and os.path.normpath(library).startswith(os.path.normpath(str(dest)) + os.sep):
             raise ValueError("Backup drive is inside the music library — choose a different drive")
 
-        def _rsync(src, sub):
+        def _rsync(src, sub, also=()):
             d = dest / sub
             d.mkdir(parents=True, exist_ok=True)
             r = subprocess.run(
                 ["rsync", "-a", "--delete", "--exclude=.DS_Store", "--exclude=.Trashes/",
                  "--exclude=venv/", "--exclude=__pycache__/", "--exclude=*.pyc",
-                 "--exclude=.git/", "--exclude=backups/", "--exclude=*.before_*",
+                 "--exclude=.git/", "--exclude=backups/", "--exclude=*.before_*", *also,
                  str(src).rstrip("/") + "/", str(d) + "/"],
                 capture_output=True, text=True, timeout=7200)
             if r.returncode not in (0, 24):   # 24 = some source files vanished mid-copy; tolerable
@@ -533,7 +595,12 @@ def _run_full_backup(dest_root):
 
         with _full_backup_lock:
             _full_backup_state["phase"] = "app data"
-        _rsync(DATA_DIR, mr_paths.DRIVE_APPDATA_FOLDER)
+        # (the database by SQLite, the rest by rsync: see _copy_database_to)
+        (dest / mr_paths.DRIVE_APPDATA_FOLDER).mkdir(parents=True, exist_ok=True)
+        db_ok, db_err = _copy_database_to(dest / mr_paths.DRIVE_APPDATA_FOLDER)
+        if not db_ok:
+            raise RuntimeError(db_err)
+        _rsync(DATA_DIR, mr_paths.DRIVE_APPDATA_FOLDER, also=_BACKUP_DB_EXCLUDES)
 
         if library and os.path.isdir(library):
             with _full_backup_lock:
