@@ -42,13 +42,12 @@ and will be looked at closely. Please open an issue and talk about it first.
 ## Running the tests
 
 ```bash
-./venv/bin/python test_gr_server.py      # the rooms server
-./venv/bin/python test_gr_master.py      # accounts, approvals, reports
-./venv/bin/python test_plugins.py        # plug-ins and the app's guards
+./venv/bin/python tools/run_tests.py                    # all of them
+./venv/bin/python tools/run_tests.py test_gr_server     # just the ones named
 ```
 
-Each test file makes its own throwaway data and needs no network. Run the ones
-that touch what you changed, and say which in your pull request.
+Each test file makes its own throwaway data and needs no network. GitHub runs
+all of them on every pull request (the *Tests* check).
 
 ## Never put in a pull request
 
