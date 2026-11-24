@@ -85,7 +85,8 @@ if sys.platform == "darwin":
     stranger = os.path.join(tempfile.mkdtemp(dir=tmp), "Someone Else.app"); os.makedirs(stranger)
     class R:                                             # what Spotlight would answer
         returncode = 0
-        stdout = "\n".join([mine, other, mine + ".before-update", "/Users/x/.Trash/Music Room GR.app", "/private/var/folders/AppTranslocation/1/d/Music Room GR.app"])
+        stdout = "\n".join([mine, other, mine + ".before-update", "/Users/x/.Trash/Music Room GR.app", "/private/var/folders/AppTranslocation/1/d/Music Room GR.app",
+                            "/Users/x/Projects/music-room/native/dist/Music Room GR.app", "/Users/x/Projects/music-room/native/dist-intel/Music Room GR.app"])
     asked = []
     def fake_run(cmd, **k):
         asked.append(cmd)
@@ -95,7 +96,7 @@ if sys.platform == "darwin":
             os.rmdir(cmd[-1]); return type("X", (), {"returncode": 0, "stdout": ""})
         return real_run(cmd, **k)
     U.subprocess.run = fake_run
-    chk(U.other_copies() == [other], "other copies: found by what the app is; never this app, the Bin, or what an update is clearing")
+    chk(U.other_copies() == [other], "other copies: found by what the app is; never this app, the Bin, what an update is clearing, or an app being built")
     chk(U.BUNDLE_ID in asked[0][1], "…asked of Spotlight by the app's own id, not by its name")
     out = U.bin_copies([other, stranger])
     chk(out == {"binned": [other], "left": []} and not os.path.exists(other) and os.path.isdir(stranger) and os.path.isdir(mine),

@@ -241,8 +241,18 @@ def other_copies():
             continue
         if p.endswith(".before-update"):
             continue
+        if _being_built(p):
+            continue
         out.append(p)
     return sorted(set(out))
+
+
+def _being_built(path):
+    """True for a copy sitting in the code's own build folder (native/dist, native/dist-intel…).
+    That is an app in the making, not a stray copy: on 2026-11-24 the app offered a release that
+    was being built at that moment to the Bin, and the release lost its Intel download."""
+    parts = os.path.normpath(path).split(os.sep)
+    return len(parts) >= 3 and parts[-2].startswith("dist") and parts[-3] == "native"
 
 
 def bin_copies(paths=None):
