@@ -2044,6 +2044,14 @@ def run_migration():
         cursor.execute("ALTER TABLE gr_borrows ADD COLUMN track_id INTEGER")
         print("  ✓ green room: gr_borrows.track_id")
         changes += 1
+    # EXCLUSIVE records (2026-11-24): a record that is only in the Music Room. `exclusive` = the
+    # record is one; `kept` = it was bought, so this locked copy is held for good (it is never
+    # swapped for a plain file, and is not something to give back).
+    if table_exists(cursor, "gr_borrows") and not column_exists(cursor, "gr_borrows", "exclusive"):
+        cursor.execute("ALTER TABLE gr_borrows ADD COLUMN exclusive INTEGER NOT NULL DEFAULT 0")
+        cursor.execute("ALTER TABLE gr_borrows ADD COLUMN kept INTEGER NOT NULL DEFAULT 0")
+        print("  ✓ green room: gr_borrows.exclusive / kept")
+        changes += 1
 
     # GREEN ROOM BASKET: pool records set aside to borrow or buy later. One
     # basket; each line remembers which. Snapshots title/artist/price so the

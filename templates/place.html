@@ -4004,16 +4004,18 @@ function renderTrackPanel(data) {
         return `
     <!-- GREEN ROOM — a borrowed record -->
     <div class="track-panel__section">
-        <div class="track-panel__section-heading">Borrowed</div>
+        <div class="track-panel__section-heading">${b.kept ? 'Yours' : 'Borrowed'}${b.exclusive ? ' <span class="excl">Exclusive</span>' : ''}</div>
         <div style="font-size:0.82rem; color:var(--muted); margin-bottom:8px;">
-            ${b.on_disk ? 'On this laptop' : 'Not downloaded'}
+            ${b.exclusive ? 'Plays only in the Music Room · ' : ''}${b.on_disk ? 'On this laptop' : 'Not downloaded'}
         </div>
         <div class="file-version-actions" style="display:flex; gap:6px; flex-wrap:wrap;">
-            ${btn('buy', '✦ buy', 'Buy it outright — the locked file becomes a normal file you own')}
+            ${b.kept ? '' : b.exclusive
+                ? btn('buy-excl', '✦ buy', 'Buy it: it stays in your Music Room for good, and plays only here')
+                : btn('buy', '✦ buy', 'Buy it outright — the locked file becomes a normal file you own')}
             ${b.on_disk
                 ? btn('offload', '⌁ offload', 'Take the file off this laptop; keep the record')
                 : btn('redownload', '⇣ download', 'Bring the file back onto this laptop')}
-            ${btn('return', '↩ return', 'Give it back to the pool')}
+            ${b.kept ? '' : btn('return', '↩ return', 'Give it back to the pool')}
         </div>
     </div>`; })() : ''}
 
@@ -7943,6 +7945,9 @@ async function playBorrowedInPlayer(fileId, title, artist) {
 async function grPanelAct(action, localId, trackId, btn) {
     if (action === 'return' && !confirm('Give this record back? Its file leaves this laptop.')) return;
     if (action === 'buy' && !confirm('Buy this record outright? Play money — the locked file becomes a normal one you own.')) return;
+    // an exclusive record: bought, it stays in the Music Room (no plain file ever arrives)
+    const exclusive = action === 'buy-excl';
+    if (exclusive) { if (!confirm('Buy this record? It is exclusive to the Music Room: it stays in your room for good, and plays only here.')) return; action = 'buy'; }
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     const r = await fetch('/api/gr/' + action, { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ local_id: localId }) });
@@ -7954,7 +7959,8 @@ async function grPanelAct(action, localId, trackId, btn) {
         closePanel();
         return;
     }
-    if (action === 'buy') showToast(d.paid_cents ? `Bought — €${(d.paid_cents / 100).toFixed(2)} (play money)` : 'Bought — your credit covered it');
+    if (action === 'buy' && (exclusive || d.exclusive)) showToast('Bought. It is yours, in the Music Room.');
+    else if (action === 'buy') showToast(d.paid_cents ? `Bought — €${(d.paid_cents / 100).toFixed(2)} (play money)` : 'Bought — your credit covered it');
     else if (action === 'offload') showToast('File taken off this laptop — the record stays');
     else if (action === 'redownload') showToast('Downloaded again');
     try { window.MRRoomSync && window.MRRoomSync.trackChanged && window.MRRoomSync.trackChanged(trackId); } catch (_) {}

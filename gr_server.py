@@ -226,11 +226,45 @@ def init_db(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    # (the directory of rooms counts each room's records: without this it read every record once per room —
+    #  measured 2026-11-24: 13 seconds at 3,000 rooms and 30,000 records)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_gr_tracks_owner ON gr_tracks(owner_account_id)")
     conn.commit()
     gr_shop.ensure(conn)      # record shopping: crates, the counter, blind (gr_shop.py)
     gr_master.ensure(conn)    # the master account, approvals, reports, the version (gr_master.py)
     gr_sim.ensure(conn)       # the credits trial: bring home, buy, the room's space (gr_sim.py)
     gr_art.ensure(conn)       # digital artists: works, artwork credits (gr_art.py)
+    ensure_exclusive(conn)    # exclusive records
+
+
+# ── EXCLUSIVE records (2026-11-24). Daithí: "records that are only available to be played in the
+# music room and are only available in the music room." A record FILE its owner marks exclusive:
+#   · can be brought home like any other (a locked file that plays only in the app);
+#   · can be BOUGHT, and then it is the buyer's for good — but it stays a locked file in their Music
+#     Room: the plain file is never handed over (api_download_plain refuses), it takes none of the
+#     room's space, and it can be fetched again free on any of their laptops;
+#   · carries no outside link (it is for sale nowhere else).
+# A record that people already hold as a plain file can't be made exclusive. Records from the
+# playlist shop play from Spotify and are never exclusive.
+EXCLUSIVE_WORDS = "This record is exclusive to the Music Room: it plays only there."
+_excl_seen = set()
+
+
+def ensure_exclusive(conn):
+    """gr_tracks.exclusive and gr_borrows.kept_at, on a database from before them (asked once a run)."""
+    key = db_path()
+    if key in _excl_seen:
+        return
+    if "exclusive" not in {r[1] for r in conn.execute("PRAGMA table_info(gr_tracks)")}:
+        conn.execute("ALTER TABLE gr_tracks ADD COLUMN exclusive INTEGER NOT NULL DEFAULT 0")
+    if "kept_at" not in {r[1] for r in conn.execute("PRAGMA table_info(gr_borrows)")}:
+        conn.execute("ALTER TABLE gr_borrows ADD COLUMN kept_at TEXT")     # bought, exclusive: held for good
+    conn.commit()
+    _excl_seen.add(key)
+
+
+def is_exclusive(track) -> bool:
+    return bool(_opt(track, "exclusive")) and not _opt(track, "spotify_uri")
 
 
 ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "business", "digital artist")
@@ -457,6 +491,10 @@ def _auth(conn):
     tok = (request.headers.get("Authorization") or "").removeprefix("Bearer ").strip()
     if not tok:
         return None, None
+    try:
+        ensure_exclusive(conn)          # (every signed-in route passes here: an older database gets the columns first)
+    except sqlite3.OperationalError:
+        pass
     dev = conn.execute("SELECT * FROM gr_devices WHERE token=?", (tok,)).fetchone()
     if not dev:
         return None, None
@@ -818,6 +856,7 @@ def _catalogue_rows(conn, acct, owner_id=None, everything=False):
                 "art_v": int(os.path.getmtime(t["art_path"]))
                          if t["art_path"] and os.path.exists(t["art_path"]) else 0,
                 "year": _opt(t, "year"), "genre": _opt(t, "genre"), "label": _opt(t, "label"),
+                "exclusive": is_exclusive(t),
             }
         )
     gr_art.attach_tracks(conn, out)       # "artwork by …", where a digital artist agreed to the credit
@@ -869,7 +908,11 @@ def api_borrow():
         already_held = conn.execute(
             "SELECT 1 FROM gr_borrows WHERE account_id=? AND track_id=? AND returned_at IS NULL",
             (acct["id"], track_id)).fetchone()
-        if not already_held and ((track["status"] or "live") != "live" or _owner_taken_down(conn, track)):
+        # an exclusive record this person BOUGHT is theirs for good: it comes back free, on any of
+        # their laptops, even if it has since left the shop
+        kept = is_exclusive(track) and bool(conn.execute(
+            "SELECT 1 FROM gr_purchases WHERE account_id=? AND track_id=?", (acct["id"], track_id)).fetchone())
+        if not already_held and not kept and ((track["status"] or "live") != "live" or _owner_taken_down(conn, track)):
             return jsonify({"error": "that record isn't in the shop right now"}), 404
 
         def _payload(borrow_row):
@@ -884,6 +927,8 @@ def api_borrow():
                     "format": track["format"],
                     "size_bytes": track["size_bytes"],
                     "url": f"/api/download/{borrow_row['id']}",
+                    "exclusive": is_exclusive(track),
+                    "kept": bool(_opt(borrow_row, "kept_at")),
                 }
             )
 
@@ -896,7 +941,9 @@ def api_borrow():
         if existing:
             return _payload(existing)
 
-        if gr_sim.is_on(conn):
+        if kept:
+            plan = None                 # paid for already: nothing is charged, no room is taken
+        elif gr_sim.is_on(conn):
             # the credits trial: a record file brought home costs credits and takes room (gr_sim)
             if _opt(track, "spotify_uri"):
                 return jsonify({"error": "bring this one home from the shop instead", "sim": True}), 409
@@ -923,8 +970,8 @@ def api_borrow():
         nonce_hex = secrets.token_hex(16)
         cur = conn.execute(
             "INSERT INTO gr_borrows(account_id, track_id, key_hex, nonce_hex, month,"
-            " borrowed_at) VALUES(?,?,?,?,?,?)",
-            (acct["id"], track_id, key_hex, nonce_hex, _month(), _now()),
+            " borrowed_at, kept_at) VALUES(?,?,?,?,?,?,?)",
+            (acct["id"], track_id, key_hex, nonce_hex, _month(), _now(), _now() if kept else None),
         )
         conn.commit()
         row = conn.execute(
@@ -1021,7 +1068,10 @@ def api_buy():
             "SELECT id FROM gr_purchases WHERE account_id=? AND track_id=?",
             (acct["id"], track["id"]),
         ).fetchone()
+        exclusive = is_exclusive(track)
         if already:
+            if exclusive:               # theirs already: it is in their room, or comes back with /api/borrow
+                return jsonify({"bought": True, "paid_cents": 0, "already": True, "exclusive": True})
             return jsonify({"bought": True, "paid_cents": 0, "already": True,
                             "url": f"/api/download-plain/{track['id']}"})
         if _opt(track, "spotify_uri"):
@@ -1044,14 +1094,25 @@ def api_buy():
         conn.execute(
             "INSERT INTO gr_purchases(account_id, track_id, paid_cents, artist_cents, bought_at)"
             " VALUES(?,?,?,?,?)", (acct["id"], track["id"], to_pay, price, _now()))
-        # the borrow ends with the purchase — the plain file replaces it
-        conn.execute(
-            "UPDATE gr_borrows SET returned_at=? WHERE account_id=? AND track_id=?"
-            " AND returned_at IS NULL", (_now(), acct["id"], track["id"]))
+        if exclusive:
+            # an exclusive record never leaves as a plain file: the locked copy in their room is
+            # now theirs for good (and takes none of the room's space)
+            conn.execute(
+                "UPDATE gr_borrows SET kept_at=? WHERE account_id=? AND track_id=?"
+                " AND returned_at IS NULL", (_now(), acct["id"], track["id"]))
+        else:
+            # the borrow ends with the purchase — the plain file replaces it
+            conn.execute(
+                "UPDATE gr_borrows SET returned_at=? WHERE account_id=? AND track_id=?"
+                " AND returned_at IS NULL", (_now(), acct["id"], track["id"]))
         conn.commit()
         _event(conn, acct["id"], "buy", {"track_id": track["id"], "title": track["title"],
                                           "paid_cents": to_pay, "credit_cents": credit,
-                                          "artist_cents": price, "owner": track["owner_account_id"]})
+                                          "artist_cents": price, "owner": track["owner_account_id"],
+                                          "exclusive": exclusive})
+        if exclusive:
+            return jsonify({"bought": True, "paid_cents": to_pay, "credit_cents": credit, "credits_spent": spent,
+                            "artist_cents": price, "format": track["format"], "exclusive": True})
         return jsonify({"bought": True, "paid_cents": to_pay, "credit_cents": credit,
                         "credits_spent": spent, "artist_cents": price, "format": track["format"],
                         "filename": track["filename"],
@@ -1073,6 +1134,8 @@ def api_download_plain(track_id):
         track = conn.execute("SELECT * FROM gr_tracks WHERE id=?", (track_id,)).fetchone()
     if not owned or not track:
         return jsonify({"error": "you haven't bought this record"}), 403
+    if is_exclusive(track):
+        return jsonify({"error": EXCLUSIVE_WORDS, "exclusive": True}), 403
     path = Path(track["path"])
     if not path.exists():
         return jsonify({"error": "the file is missing on the server"}), 410
@@ -1834,6 +1897,7 @@ def api_my_records():
             "id": r["id"], "title": r["title"], "artist": r["artist"], "album": r["album"],
             "duration_s": r["duration_s"], "format": r["format"], "size_bytes": r["size_bytes"],
             "price_cents": r["price_cents"], "buy_url": r["buy_url"], "has_art": bool(r["art_path"]),
+            "exclusive": is_exclusive(r),
             "art_v": int(os.path.getmtime(r["art_path"])) if r["art_path"] and os.path.exists(r["art_path"]) else 0,
             "borrows": r["borrows"], "purchases": r["purchases"], "added_at": r["added_at"],
             "year": r["year"], "genre": r["genre"] or "", "label": r["label"] or "",
@@ -1900,6 +1964,8 @@ def api_my_records_upload():
              dest.stat().st_size, max(0, price), _now(), acct["id"],
              _web(request.form.get("buy_url")) or None))
         tid = cur.lastrowid
+        if (request.form.get("exclusive") or "").lower() in ("1", "true", "yes", "on"):
+            conn.execute("UPDATE gr_tracks SET exclusive=1, buy_url=NULL WHERE id=?", (tid,))     # (no outside link: it is nowhere else)
         # it waits for the master before anyone else can see it (the master's own go straight out)
         conn.execute("UPDATE gr_tracks SET status=?, rights_note=?, rights_at=? WHERE id=?",
                      ("live" if gr_master.is_master(acct) else "pending",
@@ -1941,9 +2007,24 @@ def api_my_records_edit(tid):
         data = request.form if request.form else (request.get_json(force=True, silent=True) or {})
         sets, params = [], []
         changed_face = False
+        if "exclusive" in data:
+            want = str(data.get("exclusive")).lower() in ("1", "true", "yes", "on")
+            if want and not is_exclusive(row):
+                if _opt(row, "spotify_uri"):
+                    return jsonify({"error": "a record that plays from Spotify can't be exclusive"}), 409
+                n = conn.execute("SELECT COUNT(*) FROM gr_purchases WHERE track_id=?", (tid,)).fetchone()[0]
+                if n:
+                    return jsonify({"error": f"{n} {'person has' if n == 1 else 'people have'} already bought this record as a file"
+                                             " of their own, so it can't be made exclusive now"}), 409
+            sets.append("exclusive=?"); params.append(1 if want else 0)
+            if want:
+                sets.append("buy_url=?"); params.append(None)
+        to_be_exclusive = (str(data.get("exclusive")).lower() in ("1", "true", "yes", "on")) if "exclusive" in data else is_exclusive(row)
         for col in ("title", "artist", "album", "buy_url"):
             if col in data:
                 v = _web(data.get(col)) if col == "buy_url" else (data.get(col) or "").strip()[:300]
+                if col == "buy_url" and to_be_exclusive:
+                    v = ""                      # an exclusive record has no outside link
                 sets.append(f"{col}=?"); params.append(v or None)
                 changed_face = changed_face or (v or None) != row[col]
         if "price_cents" in data:

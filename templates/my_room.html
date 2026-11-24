@@ -188,6 +188,7 @@
             <div class="hint">Two genres: “House; Techno”</div>
             <div class="f"><label>Cover (optional)</label><input type="file" id="r-cover" accept="image/*"></div>
             <div class="f"><label>Outside link (Bandcamp etc., optional)</label><input type="text" id="r-url" placeholder="https://"></div>
+            <div class="f"><label class="tick"><input type="checkbox" id="r-excl" onchange="$('r-url').disabled = this.checked; if (this.checked) $('r-url').value = ''"> <span>Exclusive: it is out nowhere else. It plays only in the Music Room, and a buyer never gets the file.</span></label></div>
             <div class="f"><label class="tick"><input type="checkbox" id="r-rights"> <span id="r-rights-text">I made this record or hold the rights to sell it, and anything in it that isn't mine (samples, artwork, words) is cleared for this.</span></label></div>
             <div class="hint">New and changed records wait for approval.</div>
             <div class="f"><button class="gr-btn gr-btn--primary gr-btn--small" id="r-go" onclick="uploadRecord()">Upload</button> <span class="err" id="r-err"></span></div>
@@ -531,6 +532,7 @@ async function loadRecords(){
           <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="genre" aria-label="Genre" value="${esc(x.genre || '')}" onchange="setPrinted(${x.id}, 'genre', this.value)">
           <input type="number" style="flex:0 0 64px" placeholder="year" aria-label="Year" min="1900" max="2100" value="${x.year || ''}" onchange="setPrinted(${x.id}, 'year', this.value)">
           <input type="text" style="flex:2 1 0;width:auto;min-width:0" placeholder="label" aria-label="Label" value="${esc(x.label || '')}" onchange="setPrinted(${x.id}, 'label', this.value)"></div>
+        <div class="rec rec--printed"><label class="tick" style="flex:1" title="Out nowhere else. It plays only in the Music Room, and a buyer never gets the file."><input type="checkbox" ${x.exclusive ? 'checked' : ''} onchange="setExclusive(${x.id}, this)"> <span>Exclusive to the Music Room</span></label></div>
         <div class="rec rec--printed" title="The digital artist who made its artwork: their room's address. It shows once they agree.">
           <input type="text" style="flex:1 1 0;width:auto;min-width:0" placeholder="artwork by — a digital artist's address" aria-label="Artwork by" autocapitalize="off" spellcheck="false" value="${esc((ART_BY[x.id] || {}).handle || '')}" onchange="setArtBy(${x.id}, this.value)">
           ${ART_BY[x.id] ? `<span class="rec__st" style="flex:none">${esc(ART_BY[x.id].name)} · ${ART_STATE[ART_BY[x.id].state] || ''}</span>` : ''}</div>`).join('')
@@ -547,14 +549,23 @@ async function uploadRecord(){
     fd.append('price_cents', String(Math.round((parseFloat($('r-price').value) || 0) * 100))); fd.append('buy_url', $('r-url').value);
     fd.append('genre', $('r-genre').value); fd.append('year', $('r-year').value); fd.append('label', $('r-label').value);
     fd.append('rights', '1'); fd.append('rights_note', $('r-rights-text').textContent);
+    if ($('r-excl').checked) fd.append('exclusive', '1');
     const r = await fetch('/api/gr/my/records', { method: 'POST', body: fd });
     const d = await r.json(); $('r-go').disabled = false; $('r-go').textContent = 'Upload';
     if (!r.ok) { $('r-err').textContent = d.error || 'upload failed'; return; }
     ['r-audio', 'r-cover', 'r-title', 'r-album', 'r-url', 'r-genre', 'r-year', 'r-label'].forEach(id => $(id).value = '');
-    $('r-rights').checked = false;
+    $('r-rights').checked = false; $('r-excl').checked = false; $('r-url').disabled = false;
     await loadRecords(); refreshPreview(); status('added');
 }
 async function setPrice(id, v){ await fetch(`/api/gr/my/records/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price_cents: Math.round((parseFloat(v) || 0) * 100) }) }); refreshPreview(); status('saved'); }
+async function setExclusive(id, box){
+    // lifting it lets the people who bought it take the file; and once anyone has bought it, it can't be put back
+    if (!box.checked && !confirm('Stop this record being exclusive? People who bought it will be able to have the file, and it may not be possible to make it exclusive again.')) { box.checked = true; return; }
+    const r = await fetch(`/api/gr/my/records/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ exclusive: box.checked }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { box.checked = !box.checked; alert(d.error || 'not saved'); return; }
+    status('saved'); refreshPreview();
+}
 async function setPrinted(id, key, v){ await fetch(`/api/gr/my/records/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: v }) }); status('saved'); }
 async function deleteRecord(id){
     if (!confirm('Remove this record from your room?')) return;

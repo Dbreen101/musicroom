@@ -52,6 +52,7 @@ that week. gr_server hands this module itself at the bottom, like gr_shop.
 """
 
 import csv
+import sqlite3
 import io
 import json
 import math
@@ -214,8 +215,13 @@ def room_count(conn, aid):
     """Brought-home tracks in this person's room: from the playlist shop, and
     any record file brought home (a borrow) that hasn't gone back."""
     n = conn.execute("SELECT COUNT(*) FROM gr_home WHERE account_id=? AND state='home'", (aid,)).fetchone()[0]
-    n += conn.execute("SELECT COUNT(*) FROM gr_borrows WHERE account_id=? AND returned_at IS NULL",
-                      (aid,)).fetchone()[0]
+    # (an exclusive record that was bought is held for good, kept_at, and takes no room — like any bought record)
+    try:
+        n += conn.execute("SELECT COUNT(*) FROM gr_borrows WHERE account_id=? AND returned_at IS NULL AND kept_at IS NULL",
+                          (aid,)).fetchone()[0]
+    except sqlite3.OperationalError:        # a database from before exclusive records
+        n += conn.execute("SELECT COUNT(*) FROM gr_borrows WHERE account_id=? AND returned_at IS NULL",
+                          (aid,)).fetchone()[0]
     return n
 
 

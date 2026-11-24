@@ -255,9 +255,20 @@ def _download_locked(conn, row):
     return str(dest)
 
 
+def _ensure_exclusive_cols(conn):
+    """gr_borrows.exclusive / kept on a library from before exclusive records (migrate.py adds
+    them at start-up; this is for a copy that was already running)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(gr_borrows)")}
+    if cols and "exclusive" not in cols:
+        conn.execute("ALTER TABLE gr_borrows ADD COLUMN exclusive INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE gr_borrows ADD COLUMN kept INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+
+
 def borrow(server_track_id):
     """Borrow a track and download it. Idempotent server-side."""
     with closing(_db()) as conn:
+        _ensure_exclusive_cols(conn)
         r = _post(conn, "/api/borrow", {"track_id": server_track_id})
         if r.status_code != 200:
             raise GRError(_err_of(r, "the server refused the borrow"))
@@ -271,6 +282,10 @@ def borrow(server_track_id):
             "   returned_at=NULL",
             (b["borrow_id"], b["track_id"], b.get("title"), b.get("artist"),
              b.get("format"), b.get("size_bytes"), b["key"], b["nonce"]))
+        conn.commit()
+        # an exclusive record (only in the Music Room), and whether this copy is held for good (bought)
+        conn.execute("UPDATE gr_borrows SET exclusive=?, kept=? WHERE server_borrow_id=?",
+                     (1 if b.get("exclusive") else 0, 1 if b.get("kept") else 0, b["borrow_id"]))
         conn.commit()
         row = conn.execute(
             "SELECT * FROM gr_borrows WHERE server_borrow_id=?",
@@ -380,6 +395,16 @@ def buy(local_id):
         if r.status_code != 200:
             raise GRError(_err_of(r, "the server wouldn't sell it"))
         sale = r.json()
+        if sale.get("exclusive"):
+            # an EXCLUSIVE record is never handed over as a plain file: the locked copy already in
+            # the room is now theirs for good. Nothing is downloaded, nothing is swapped.
+            _ensure_exclusive_cols(conn)
+            conn.execute("UPDATE gr_borrows SET exclusive=1, kept=1 WHERE id=?", (local_id,))
+            conn.commit()
+            _wish_bought(conn, row["server_track_id"], row["track_id"])
+            return {"bought": True, "exclusive": True, "paid_cents": sale.get("paid_cents", 0),
+                    "credit_cents": sale.get("credit_cents", 0), "credits_spent": sale.get("credits_spent"),
+                    "artist_cents": sale.get("artist_cents"), "track_id": row["track_id"]}
         try:
             dl = _get(conn, sale["url"], timeout=_DL_TIMEOUT, stream=True)
         except GRError:
@@ -432,6 +457,21 @@ def buy_track(server_track_id):
         if r.status_code != 200:
             raise GRError(_err_of(r, "the server wouldn't sell it"))
         sale = r.json()
+    if sale.get("exclusive"):
+        # an EXCLUSIVE record: bought, and what arrives is the locked copy (free now — it is
+        # theirs), which plays only in the Music Room. Never a plain file.
+        try:
+            got = borrow(server_track_id)
+        except GRError:
+            raise GRError("Bought — but its copy didn't arrive. Bring it home again from its room: it is free now.")
+        with closing(_db()) as conn:
+            conn.execute("UPDATE gr_borrows SET exclusive=1, kept=1 WHERE id=?", (got["id"],))
+            conn.commit()
+            _wish_bought(conn, server_track_id, got.get("track_id"))
+        return {"bought": True, "exclusive": True, "paid_cents": sale.get("paid_cents", 0),
+                "credit_cents": sale.get("credit_cents", 0), "credits_spent": sale.get("credits_spent"),
+                "artist_cents": sale.get("artist_cents"), "track_id": got.get("track_id")}
+    with closing(_db()) as conn:
         meta = {}
         try:
             for t in (_get(conn, "/api/catalogue").json().get("tracks") or []):

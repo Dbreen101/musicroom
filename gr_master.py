@@ -272,6 +272,7 @@ def record_json(r):
         "duration_s": r["duration_s"], "format": r["format"], "size_bytes": r["size_bytes"],
         "price_cents": r["price_cents"], "added_at": r["added_at"],
         "status": r["status"] or "live", "rights_note": r["rights_note"] or "", "rights_at": r["rights_at"],
+        "exclusive": bool(r["exclusive"]) if _has(r, "exclusive") else False,
         "review_note": r["review_note"] or "", "reviewed_at": r["reviewed_at"],
         "has_art": bool(r["art_path"]) and os.path.exists(r["art_path"]),
         "owner": {"handle": r["o_handle"], "name": r["o_name"], "kind": r["o_kind"]} if _has(r, "o_handle") else None,
@@ -283,7 +284,7 @@ def plugin_catalogue(conn):
     and who sells it — never a file, a path, a price paid, or anyone else's
     account."""
     rows = conn.execute(
-        "SELECT t.id, t.title, t.artist, t.album, t.year, t.genre, t.label, t.duration_s, t.price_cents,"
+        "SELECT t.id, t.title, t.artist, t.album, t.year, t.genre, t.label, t.duration_s, t.price_cents, t.exclusive,"
         " t.added_at, t.art_path, a.handle AS o_handle, a.name AS o_name, a.kind AS o_kind,"
         " a.place_name AS o_place, a.lat AS o_lat, a.lon AS o_lon, a.is_house AS o_is_house"
         " FROM gr_tracks t LEFT JOIN gr_accounts a ON a.id = t.owner_account_id"
@@ -296,6 +297,7 @@ def plugin_catalogue(conn):
     for r in rows:
         out.append({
             "id": r["id"], "title": r["title"] or "", "artist": r["artist"] or "", "album": r["album"] or "",
+            "exclusive": bool(r["exclusive"]) if _has(r, "exclusive") else False,
             "year": r["year"], "genres": gr_shop.genres_of(r["genre"]), "label": r["label"] or "",
             "duration_s": r["duration_s"], "price_cents": r["price_cents"], "added": (r["added_at"] or "")[:10],
             "has_cover": bool(r["art_path"]),

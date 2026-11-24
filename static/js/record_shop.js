@@ -210,6 +210,9 @@ function fileActs(r) {
     // a record FILE (an artist's own upload) while the trial runs: brought home or bought with credits too
     if (r.purchased) return `<span class="rs-state">Yours already</span>`;
     const R = (S.sim && S.sim.rules) || { home_cost: 1, buy_cost: 3 };
+    if (r.exclusive) return `<span class="excl" title="Only in the Music Room: it plays only here, and bought it stays in your room">Exclusive</span>`
+        + (r.borrow_id ? `<span class="rs-state">At home</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Bring home · ${R.home_cost}</button>`)
+        + `<button type="button" class="sim-btn" data-act="file-buy" data-id="${r.id}" data-exclusive="1" title="It stays in your Music Room for good, and plays only here">Buy · ${r.borrow_id ? Math.max(0, R.buy_cost - R.home_cost) : R.buy_cost}</button>`;
     return (r.borrow_id ? `<span class="rs-state">At home</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Bring home · ${R.home_cost}</button>`)
         + `<button type="button" class="sim-btn" data-act="file-buy" data-id="${r.id}">Buy · ${r.borrow_id ? Math.max(0, R.buy_cost - R.home_cost) : R.buy_cost}</button>`;
 }
@@ -654,12 +657,12 @@ function repaintKeepingSound() { paint(); }
 // a record file brought home or bought (the old borrow / buy, paid in credits while the trial runs)
 async function fileDo(t, what) {
     const id = +t.dataset.id, rec = REC.get(id);
-    if (what === 'buy' && !(await SimShop.ask(t, { title: 'Buy “' + ((rec && rec.title) || 'this record') + '”?', html: 'It comes to you as a plain file, yours for good, and takes no room.', yes: 'Buy', no: 'Not now' }))) return;
+    if (what === 'buy' && !(await SimShop.ask(t, { title: 'Buy “' + ((rec && rec.title) || 'this record') + '”?', html: (rec && rec.exclusive) ? 'It is exclusive to the Music Room: it stays in your room for good, and plays only here.' : 'It comes to you as a plain file, yours for good, and takes no room.', yes: 'Buy', no: 'Not now' }))) return;
     t.disabled = true;
     const r = await call(what === 'home' ? '/api/gr/borrow' : '/api/gr/buy-track', 'POST', { track_id: id });
     if (!r.ok) { SimShop.say(t, r.d.error || 'That didn’t work.', true); t.disabled = false; return; }
     if (rec) { if (what === 'home') rec.borrow_id = r.d.borrow_id || 1; else rec.purchased = true; }
-    SimShop.say(t, what === 'home' ? 'Brought home — it’s in your room.' : 'Bought — the file is in your room.');
+    SimShop.say(t, what === 'home' ? 'Brought home — it’s in your room.' : (r.d.exclusive ? 'Bought — it’s yours, in your room.' : 'Bought — the file is in your room.'));
     SimShop.me(true);
     settleKept(id);
     paint();

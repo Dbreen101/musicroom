@@ -6892,7 +6892,9 @@ def api_track(tid):
         if b:
             borrowed = {"local_id": b["id"], "on_disk": b["on_disk"],
                         "price_cents": b.get("price_cents"), "server_track_id": b["server_track_id"],
-                        "borrowed_at": b.get("borrowed_at")}
+                        "borrowed_at": b.get("borrowed_at"),
+                        # an exclusive record (only in the Music Room); kept = bought, held for good
+                        "exclusive": bool(b.get("exclusive")), "kept": bool(b.get("kept"))}
     return jsonify({
         "track":  t,
         "borrowed": borrowed,
@@ -14810,7 +14812,7 @@ def api_gr_my_records_upload():
     audio = (a.filename, a.read(), a.mimetype or "application/octet-stream")
     c = request.files.get("cover")
     cover = (c.filename, c.read(), c.mimetype or "image/jpeg") if c and c.filename else None
-    fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label",
+    fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label", "exclusive",
                                                "rights", "rights_note")
               if request.form.get(k) is not None}
     return _gr_guard(lambda: green_room.upload_record(audio, cover, fields))
@@ -14820,7 +14822,7 @@ def api_gr_my_records_upload():
 def api_gr_my_records_edit(tid):
     c = request.files.get("cover")
     cover = (c.filename, c.read(), c.mimetype or "image/jpeg") if c and c.filename else None
-    fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label")
+    fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label", "exclusive")
               if request.form.get(k) is not None} if request.form else (request.get_json(silent=True) or {})
     return _gr_guard(lambda: green_room.edit_record(tid, fields, cover))
 

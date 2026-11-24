@@ -180,7 +180,7 @@ async function records() {
       <div class="ms-row" data-id="${t.id}">
         <div>
           ${t.has_art ? `<img class="ms-cover" src="/api/gr/master/records/${t.id}/art" alt="">` : ''}
-          <div class="ms-row__t">${esc(t.title || 'Untitled')}</div>
+          <div class="ms-row__t">${esc(t.title || 'Untitled')}${t.exclusive ? ' <span class="excl" title="Its owner says it is only in the Music Room">Exclusive</span>' : ''}</div>
           <div class="ms-row__s">${esc(t.artist || '')}${t.album ? ' · ' + esc(t.album) : ''}${t.label ? ' · ' + esc(t.label) : ''}${t.year ? ' · ' + t.year : ''}${t.genre ? ' · ' + esc(t.genre) : ''}
             <br>by @${esc(t.owner ? t.owner.handle : '—')} (${esc(t.owner ? t.owner.kind : '')}) · ${esc(t.format || '')} · €${((t.price_cents || 0) / 100).toFixed(2)} · added ${when(t.added_at)}</div>
           <div class="ms-row__n" style="clear:both">They said: “${esc(t.rights_note || '—')}”</div>

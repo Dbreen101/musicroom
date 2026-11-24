@@ -445,3 +445,8 @@ html.is-gr body.lg { padding-bottom: 0; }      /* the front door has no deck to 
 .import-card { background: transparent !important; border: 1px solid var(--border) !important; border-radius: 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .iw { --ink: var(--text); --ink2: var(--muted); --line: var(--border); --gold: var(--text); }
 html.is-gr body.view-stream, html.is-gr body.view-wall, html.is-gr body.view-rooms { padding-bottom: 0; }
+
+/* "Exclusive": a record that is only in the Music Room (2026-11-24). A small mark beside its name. */
+.excl { display: inline-block; vertical-align: middle; margin-left: .5em; padding: 1px 6px 0; border: 1px solid currentColor;
+  font-family: var(--f-mono, ui-monospace, Menlo, monospace) !important; font-size: .58rem; font-style: normal; font-weight: 400;
+  letter-spacing: .12em; line-height: 1.5; text-transform: uppercase; white-space: nowrap; }

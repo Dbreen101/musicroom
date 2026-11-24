@@ -289,6 +289,7 @@ def _cards(conn, acct, ids):
             "purchased": t["id"] in bought,
             "mine": t["owner_account_id"] == aid,
             "heard": t["id"] in heard,
+            "exclusive": S.is_exclusive(t),
         })
         if t["id"] in sim:
             out[-1]["sim"] = sim[t["id"]]
