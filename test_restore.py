@@ -1,8 +1,8 @@
 """Proves /api/removed/restore: un-deletes the track, moves the parked file OUT
 of the Removed folder into Library/Restored, relinks it, re-adds to The Well.
-Temp DB + a real audio file copy. Live library untouched.
+Temp DB + a generated audio file. Live library untouched.
 
-Run: /opt/anaconda3/bin/python test_restore.py
+Run: venv/bin/python test_restore.py
 """
 import os, sys, sqlite3, tempfile, shutil, subprocess
 PROJ = os.path.dirname(os.path.abspath(__file__))
@@ -13,14 +13,8 @@ PY = sys.executable
 fails = []
 def chk(c, m): print(("  PASS  " if c else "  FAIL  ") + m); (None if c else fails.append(m))
 
-rdb = sqlite3.connect(f"file:{PROJ}/library.db?mode=ro", uri=True); rdb.row_factory = sqlite3.Row
-real = None
-for r in rdb.execute("SELECT file_path FROM files WHERE is_primary=1 AND is_deleted=0"):
-    p = r["file_path"]
-    if p and os.path.isfile(p) and p.lower().endswith((".flac", ".mp3")) and os.path.getsize(p) < 60_000_000:
-        real = p; break
-rdb.close()
-assert real, "no real audio file to test with"
+from audio_fixture import make_flac
+real = make_flac(os.path.join(TMP, "fixture.flac"))
 
 subprocess.run([PY, "schema.py"], env=os.environ, capture_output=True)
 subprocess.run([PY, "migrate.py"], env=os.environ, capture_output=True)

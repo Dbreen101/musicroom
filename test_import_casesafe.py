@@ -3,10 +3,10 @@ a file ALREADY in the library, re-scanned under a different-case path (the
 external drive mounts as /Volumes or /volumes), must be recognised as the same
 file and SKIPPED — never trashed as a "duplicate" of itself — even with
 dup-policy=delete. Also proves find_duplicate_file prefers a MISSING-file row
-(relink/recovery) over a present one. Temp DB + real audio file. Touches nothing
+(relink/recovery) over a present one. Temp DB + a generated audio file. Touches nothing
 in the live library.
 
-Run:  /opt/anaconda3/bin/python test_import_casesafe.py
+Run:  venv/bin/python test_import_casesafe.py
 """
 import os, sys, sqlite3, tempfile, shutil, subprocess
 
@@ -39,19 +39,9 @@ db.close()
 # ---- Part B: a PRESENT library file re-scanned under a different-case path,
 #              dup-policy=delete  →  SKIPPED, file NOT trashed -----------------
 import importer
-real = sqlite3.connect(f"file:{PROJ}/library.db?mode=ro", uri=True); real.row_factory = sqlite3.Row
-src = None
-for r in real.execute("SELECT file_path FROM files WHERE is_primary=1 AND is_deleted=0 "
-                      "AND duration_sec > 10 AND content_hash IS NOT NULL ORDER BY file_size_mb DESC"):
-    p = r["file_path"]
-    if not (p and os.path.isfile(p) and p.lower().endswith((".flac", ".mp3"))
-            and 500_000 < os.path.getsize(p) < 60_000_000):
-        continue
-    m = importer.extract_file_metadata(p)
-    if m and (m.get("duration_sec") or 0) > 10:
-        src = p; break
-real.close()
-assert src, "no real, parseable audio file available to test with"
+from audio_fixture import make_flac
+src = make_flac(os.path.join(TMP, "fixture.flac"))
+assert (importer.extract_file_metadata(src) or {}).get("duration_sec", 0) > 10, "fixture audio didn't parse"
 ext = os.path.splitext(src)[1]
 
 # case-insensitive FS? (macOS boot vol default). If not, Part B is a no-op.
