@@ -290,7 +290,7 @@
     font-family:inherit; font-size:.78rem; outline:none; margin-left:6px; }
   .r3d-tagall-in::placeholder{ color:var(--muted); font-style:italic; }
   /* ＋ tag all — a real picker: your tags as chips, choose several, or make new
-     (David, 2026-07-08: the bare type-in pill read as broken) */
+     (Daithí, 2026-07-08: the bare type-in pill read as broken) */
   .r3d-tagpop{ flex-direction:column; align-items:stretch; width:330px; gap:9px; }
   .r3d-tagpop .r3d-tagpop__in{ width:100%; box-sizing:border-box; }
   .r3d-tagpop__chips{ display:flex; flex-wrap:wrap; gap:6px; max-height:38vh; overflow-y:auto;
@@ -399,7 +399,7 @@
     max-width:min(680px, calc(100vw - 32px)); }
   .r3d-drivenote.show{ display:inline-flex; }
   .r3d-drivenote__t{ min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* its own way out (David, 2026-11-15): closed, it stays away until what it says changes */
+  /* its own way out (Daithí, 2026-11-15): closed, it stays away until what it says changes */
   .r3d-drivenote__x{ appearance:none; -webkit-appearance:none; flex:none; width:24px; height:24px; padding:0; border-radius:50%;
     border:1px solid transparent; background:none; color:var(--muted); font:inherit; font-style:normal; font-size:.68rem; line-height:1;
     cursor:pointer; transition:color .15s, border-color .15s, background .15s; }
@@ -427,7 +427,7 @@
     transition:opacity .24s ease, transform .28s var(--spring), max-width .3s ease, padding .3s ease; }
   /* the grip — a small labelled tab on the very edge; only shown when minimised.
      CLICK opens it. No hover-peek: hovering used to slide the panel open and
-     shut, which read as a glitch (David, 2026-07-07). */
+     shut, which read as a glitch (Daithí, 2026-07-07). */
   .r3d-explore__grip{ display:none; cursor:pointer; flex-shrink:0; align-items:center;
     justify-content:center; width:26px; min-height:96px; padding:12px 0;
     border-radius:0 9px 9px 0; border:1px solid var(--border2); border-left:none;
@@ -712,7 +712,7 @@
      (WKWebView) a trackpad scroll over an invisible iframe gets routed INTO
      the iframe's blank document and dies there, even under pointer-events:none.
      That made the right side of the screen a scroll dead zone at grid=1
-     (David, 2026-07-08). visibility flips off only after the fade-out ends. */
+     (Daithí, 2026-07-08). visibility flips off only after the fade-out ends. */
   .r3d-detail{ position:fixed; right:0; top:0; height:100%; width:min(42vw,580px);
     z-index:14; opacity:0; transform:translateX(26px); pointer-events:none;
     visibility:hidden;
@@ -1055,7 +1055,7 @@
     }, true);
     // leaving through "go to" while the open record's panel is PLAYING: hand
     // the record to the persistent Player first — exactly the "→ player"
-    // button — so the music carries on wherever you land (David, 2026-07-10).
+    // button — so the music carries on wherever you land (Daithí, 2026-07-10).
     // The panel answers mr-handoff-if-playing either way; a timeout backstop
     // means the click always lands even if the panel can't reply.
     function handoffPanelThen(fn){
@@ -1111,7 +1111,7 @@
       }
       document.getElementById('r3d-tool-close').addEventListener('click', closeRoomTool);
       // A page in the overlay is EXACTLY the standalone page — its own nav and
-      // every button included (David, 2026-07-10: hiding the nav lost buttons,
+      // every button included (Daithí, 2026-07-10: hiding the nav lost buttons,
       // left duplicate "back" affordances, and the floating ✕ sat on top of
       // panel closers). The nav's own links navigate INSIDE the overlay
       // (page → page, the room + music alive behind); only room-bound links
@@ -1159,14 +1159,14 @@
   <div class="r3d-dock" id="r3d-dock">
    <div class="r3d-dock__grip" id="r3d-dock-grip" title="Controls — hover to open, click to keep open"></div>
    <div class="r3d-bar" id="r3d-bar">
-    <!-- FOUR GROUPS so every button's job is obvious (David, 2026-07-07):
+    <!-- FOUR GROUPS so every button's job is obvious (Daithí, 2026-07-07):
          view = which room you're in · arrange = ONE set that applies to the
          active view (a spatial arrangement in the cloud, a sort in the grid —
          no more two Colour/BPM buttons) · tools · show. -->
     <span class="r3d-grp">
       <span class="r3d-grp__cap">view</span>
       {% if is_gr %}
-      {# The trial's room is two tabs (David, 2026-11-14): home = your records as a
+      {# The trial's room is two tabs (Daithí, 2026-11-14): home = your records as a
          grid (the record mark), and Grúpaí. The 3D cloud and the wall of blocks
          are out of this build — their code stays, nothing leads to it. #}
       <button class="r3d-btn r3d-btn--home active" data-layout="grid" title="Your records" aria-label="Your records"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9.6"/><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 9.3a7.1 7.1 0 0 1 3.8-3.8" stroke-linecap="round"/></svg></button>
@@ -1184,7 +1184,7 @@
     <span class="r3d-grp">
       <span class="r3d-grp__cap">arrange</span>
       {% if is_gr %}
-      {# The trial's grid is ordered six ways, in this order (David, 2026-11-15):
+      {# The trial's grid is ordered six ways, in this order (Daithí, 2026-11-15):
          Title · Artist · Year · BPM · Colour · Shuffle. Shuffle is the order the
          room opens in, and a press deals again. #}
       <button class="r3d-btn r3d-arr" data-arr="title" title="Order by title. Press again to turn it off; the arrow flips A–Z and Z–A">Title<span class="r3d-sortdir" aria-hidden="true"></span></button>
@@ -1331,7 +1331,7 @@
 
   <!-- Deep Listening panel markup is injected by static/js/deeplisten.js -->
 
-  <!-- (the 2D list view button was removed at David's request — the list is
+  <!-- (the 2D list view button was removed at Daithí's request — the list is
        still reachable at /place/<id>?list=1, just no longer surfaced here) -->
 
   <!-- the bag of tools, reachable from inside the room (not in the trial build:
@@ -1339,7 +1339,7 @@
   {% if not is_gr %}
   <div class="r3d-mala" id="r3d-mala">
     <div class="r3d-mala__menu">
-      <!-- P1 bag = the tools that earn their place (David, 2026-07-07).
+      <!-- P1 bag = the tools that earn their place (Daithí, 2026-07-07).
            Spectacles / Decks / Repair / Studio are OUT — parked for a P2
            rebuild (nothing deleted; their pages/tools still exist). -->
       <a data-no-transition href="/place/{{ well_id }}?mala=bosca&toolonly=1">Box</a>
@@ -1408,7 +1408,7 @@ if (!PLACE.is_well){
 }
 const tintSrc = PLACE.theme_bg || PLACE.colour_primary;
 // the trial build: the room is the theme's page colour, exactly — the chosen
-// theme is the atmosphere (David, 2026-10-22: no green, follow the theme)
+// theme is the atmosphere (Daithí, 2026-10-22: no green, follow the theme)
 const GR_ROOM = !!window.MR_GR;
 function themeBg(){ const v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   return /^#[0-9a-fA-F]{6}$/.test(v) ? v : '#140f0a'; }
@@ -1502,7 +1502,7 @@ if (!tracks.length){
   if (window.MR_GR && PLACE.is_well) emptyTrialRoom();
   throw new Error('empty');
 }
-// The trial's room with no records of its own (most fellows have none, David
+// The trial's room with no records of its own (most fellows have none, Daithí
 // 2026-11-20) still has its other tabs: Grúpaí, and what came from the shop.
 // The rest of this module needs records, so these three live on their own here.
 function emptyTrialRoom(){
@@ -1546,7 +1546,7 @@ function fmtWeight(s){
        + (s.no_file ? ` · ${s.no_file} fileless` : '');
 }
 fetch(`/api/place/${PLACE_ID}/stats`).then(r=>r.json()).then(s=>{
-  // No Export button here (David, 2026-07-07: it blanked the native webview
+  // No Export button here (Daithí, 2026-07-07: it blanked the native webview
   // and the room isn't where exporting lives) — exporting happens on the
   // Export page (Tools) and via the right-click menu.
   document.getElementById('r3d-stats').textContent = fmtWeight(s);
@@ -1678,7 +1678,7 @@ function cmpColour(a, b){
 }
 // A record with NO album art wears the EXPLORE DESK look: a warm near-black
 // sleeve (a whisper of its own warmth so they aren't identical) with cream/gold
-// type — consistent with /explore3d, instead of the old colourful sleeves. (David)
+// type — consistent with /explore3d, instead of the old colourful sleeves. (Daithí)
 // Worked in plain sRGB (0–255) so the result is predictable and ALWAYS dark — a
 // THREE.Color lerp happens in linear space, where a whisper of a bright gold
 // lifts the sleeve far more than expected. Blend a hair of the record's own
@@ -1755,7 +1755,7 @@ controls.minDistance = 2; controls.maxDistance = 130;   // 2 → zoom-in never f
 controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
 controls.addEventListener('start', ()=>{ controls.autoRotate = false; });
 
-// CLOUD camera (David's latest): you NAVIGATE inside the records with two fingers
+// CLOUD camera (Daithí's latest): you NAVIGATE inside the records with two fingers
 // (the wheel-pan below moves you through the cloud) and LOOK AROUND from where you
 // are by holding left-drag — a first-person look that pivots on the camera, not an
 // orbit around the cloud (see the lookDrag handler near the pointer code). PINCH
@@ -1816,7 +1816,7 @@ const fill = new THREE.DirectionalLight(0x8fa0c8, 0.35); fill.position.set(-16,-
 
 // a floor — the records hang above somewhere, not in a void. A dark, warm,
 // matte ground tinted by the place's colour, fading softly to the room at its
-// edge (a surface, not a glow — placeholder form for David to art-direct).
+// edge (a surface, not a glow — placeholder form for Daithí to art-direct).
 let floorMat = null;                                    // tinted gently by the launch mood
 const _floorIdleCol = MOOD ? new THREE.Color(MOOD.tint).lerp(new THREE.Color('#ffffff'), 0.8)
                            : new THREE.Color('#ffffff');
@@ -2468,7 +2468,7 @@ function layoutCloud(){
   if (cloudGather && orderLen < N && orderLen > 0){
     const M = orderLen;
     // a tight, FLATTISH cluster: closer on every axis than the open cloud, and
-    // shallow front-to-back so there's little depth between records (David).
+    // shallow front-to-back so there's little depth between records (Daithí).
     const Rg = Math.max(6, 4.5 + Math.cbrt(M) * 2.8);
     const DEPTH = 0.42;                              // squash z → less depth
     const GA = Math.PI * (3 - Math.sqrt(5));        // golden angle → even spread
@@ -2561,7 +2561,7 @@ function layoutBpmHist(){
   const withV = [], without = [];
   // only the VISIBLE (filtered/searched) set shapes the axis, so a narrowed room
   // rescales the BPM range to its own min/max rather than spanning the whole
-  // library (David: don't waste the axis on records that aren't shown)
+  // library (Daithí: don't waste the axis on records that aren't shown)
   for (let i=0;i<N;i++){ if (rank[i] < 0) continue; (tracks[i].bpm ? withV : without).push(i); }
   let lo = Infinity, hi = -Infinity;
   for (const i of withV){ const b = tracks[i].bpm; if (b<lo) lo=b; if (b>hi) hi=b; }
@@ -2858,7 +2858,7 @@ function setLayout(name){
   document.body.classList.toggle('r3d-grupaview', name === 'grupa' || name === 'shop');   // (the shop's tab steps the same chrome aside)
   // CLOUD: left-drag LOOKS AROUND in place (first-person; handled below), so
   // OrbitControls' orbit is off. The axis walls still ORBIT (they read best from
-  // angles), so leave rotate on there. (David)
+  // angles), so leave rotate on there. (Daithí)
   controls.enableRotate = (name !== 'cloud');
   document.body.classList.toggle('r3d-noncloud', name !== 'cloud');   // name/stats + cloud hint show only in cloud
   document.body.classList.toggle('r3d-grid', name === 'grid');        // the sort controls live only in the grid
@@ -3032,7 +3032,7 @@ for (let i=0;i<N*3;i++) cur[i]=tgt[i];
     if (dock.classList.contains('open') && !dock.contains(e.target)) dock.classList.remove('open');
   });
 })();
-// ONE arrange row, two meanings (David, 2026-07-07 — no more duplicate
+// ONE arrange row, two meanings (Daithí, 2026-07-07 — no more duplicate
 // BPM/Colour buttons): in the CLOUD an arrange button is a spatial layout
 // (BPM wall, key wheel, timeline, colour wheel — click the active one again
 // to fall back to the plain cloud); in the GRID the same button is a SORT
@@ -3179,7 +3179,7 @@ facetPill.addEventListener('click', clearFacet);
   if (searchInput.value.trim()) wrap.classList.add('open');   // restored view with a query → stay open
 })();
 
-// The trial's search (David, 2026-11-15: "when I press the search button … the
+// The trial's search (Daithí, 2026-11-15: "when I press the search button … the
 // search bar moves and it's hard to see. Have it so that the search bar just
 // appears below the search button … and the suggested records / grúpa and their
 // pictures appear"). The field no longer unfolds inside the bar, pushing its
@@ -3579,7 +3579,7 @@ editIn.addEventListener('keydown', e => { if (e.key === 'Enter') applyEdit(); })
 // open used to blur the search → the field collapsed → the filter button shifted
 // out from under the cursor before the click landed, so filters never opened.
 // pointerdown fires before that reflow, so the filters always open regardless of
-// the search bar's state. (David)
+// the search bar's state. (Daithí)
 document.getElementById('r3d-filtbtn').addEventListener('pointerdown', e => {
   e.stopPropagation();
   if (filtEl.classList.contains('shown')){ filtEl.classList.remove('shown'); setEditMode(false); return; }
@@ -3593,7 +3593,7 @@ document.addEventListener('pointerdown', e => {
 }, true);
 // A click INSIDE the track-panel iframe never reaches this document (iframes
 // keep their events), so the outside-click closers above go deaf the moment
-// the metadata panel has focus — menus looked stuck open (David, 2026-07-07).
+// the metadata panel has focus — menus looked stuck open (Daithí, 2026-07-07).
 // The one thing the parent DOES hear is losing window focus: treat it as an
 // outside click and close every transient menu.
 window.addEventListener('blur', () => {
@@ -3723,7 +3723,7 @@ function vMakeCard(){
               box: el.querySelector('.gcard__box'), id:-1 };
   vPool.push(s); return s;
 }
-// ── GRÚPAÍ IN THE GRID (David, 2026-11-14: "I want grúpaí to appear in the
+// ── GRÚPAÍ IN THE GRID (Daithí, 2026-11-14: "I want grúpaí to appear in the
 // grid home tab … the user can filter them out using the filter system").
 // They are the first cards of the grid — the same card, its covers as a
 // mosaic — ahead of the records. A slot below gNow.length is a grúpa; the
@@ -3731,7 +3731,7 @@ function vMakeCard(){
 // aside whenever the room is narrowed to records by a tag, a genre, a range…
 // (those say nothing about a grúpa); a search keeps the ones it names. They are
 // there at every size; at one-per-screen the card also carries its description.
-// ── …AND OUT AGAIN the next day (David, 2026-11-15: "When in the record section
+// ── …AND OUT AGAIN the next day (Daithí, 2026-11-15: "When in the record section
 // of my music room I only want to see records … The grúpa shouldn't appear when
 // I'm in the home / record icon section"). GRUPAI_IN_GRID is the one switch:
 // off, no slot is ever a grúpa and the filter panel has no chip for them. The
@@ -3888,7 +3888,7 @@ function cardOverlaysHtml(t){
 const V_OVERSCAN = 5;                                  // rows rendered beyond the viewport
 function vRender(){                                     // window the visible rows ± an overscan
   // so you scroll INTO already-loaded covers (their images + decode happen off-
-  // screen first) instead of watching them pop in. Was ±2 → ±5 (David: pre-load
+  // screen first) instead of watching them pop in. Was ±2 → ±5 (Daithí: pre-load
   // either side). The off-screen overscan cards keep display:block so their
   // <img> loads; only truly-unused pool cards get hidden.
   const st = grid2dEl.scrollTop, h = grid2dEl.clientHeight || innerHeight;
@@ -3947,7 +3947,7 @@ function buildCards(){                                  // one-time wiring
     // genuinely OPEN and has something to scroll (the filter desk, a long
     // drill-down, the queue). A minimised/short overlay must never make a
     // dead patch — two-finger scroll works wherever the cursor sits
-    // (David, 2026-07-07: grid=1 scroll died over parts of the screen).
+    // (Daithí, 2026-07-07: grid=1 scroll died over parts of the screen).
     const ov = e.target.closest('#r3d-filt, #r3d-explore, #snt-qpop, .r3d-pop, .r3d-detail');
     if (ov){
       const minimised = ov.id === 'r3d-explore' && ov.classList.contains('min');
@@ -4003,7 +4003,7 @@ function cueTrack(t, btn){
 // seinnteoir.js, included at the end of the page: same control as 2D.)
 
 // ---- choosing several records (the trial) -----------------------------------
-// David, 2026-11-15: "make it possible to do actions to multiple records at a
+// Daithí, 2026-11-15: "make it possible to do actions to multiple records at a
 // time … so that they don't have to do stuff one by one." Press Select (or
 // ⌘-click / shift-click a record): a click now ticks a record instead of
 // opening it; shift-click takes everything between the last one and this one.
@@ -4097,7 +4097,7 @@ function cueAllInOrder(autoplay, btn){
 }
 // "make a set": name it (new or existing) → every record in hand joins it in
 // the current order, and the SET PAGE OPENS so you land on what you just made
-// (David, 2026-07-08). This is how the BOX becomes a set too — open the box,
+// (Daithí, 2026-07-08). This is how the BOX becomes a set too — open the box,
 // make a set, name it.
 function setAllPrompt(anchorBtn){
   // a small CLICK-SAFE pop, not a bare input: the old pill closed itself on
@@ -4156,7 +4156,7 @@ function setAllPrompt(anchorBtn){
 }
 
 // ---- ＋ tag all: tag every record in hand (the narrowed set) ----------------
-// A real picker (David, 2026-07-08 — the bare type-in pill read as broken):
+// A real picker (Daithí, 2026-07-08 — the bare type-in pill read as broken):
 // your tags as chips, choose as many as you like, or type to filter / make a
 // new one. One press of "tag" puts every chosen tag on every record in hand —
 // the tags land on the DB and on the in-room records immediately, so the ⊞
@@ -4819,7 +4819,7 @@ exploreEl.addEventListener('click', e=>{
   if (tog){
     // the ⓘ tab (left edge) always RESTORES; the – button always MINIMISES.
     // Click-only in both directions — no hover-peek (it glitched open/closed
-    // whenever the cursor crossed the bar; David 2026-07-07).
+    // whenever the cursor crossed the bar; Daithí 2026-07-07).
     const isGrip = tog.classList.contains('r3d-explore__grip');
     exploreMin = isGrip ? false : true;
     try { localStorage.setItem('mr_r3d_explore_min', exploreMin ? '1' : '0'); } catch (_) {}
@@ -5323,7 +5323,7 @@ function layoutStructure(){
     tgt[i*3+1] = cy + r * Math.sin(th) * 0.65 - 3.4;   // hang clear below the pill
     // keep records COPLANAR with the pills (which project from z=0): the old
     // ±0.9 depth made them parallax-drift off their node label as the camera
-    // moved. A whisper of z only breaks billboard z-fighting. (David: align them)
+    // moved. A whisper of z only breaks billboard z-fighting. (Daithí: align them)
     tgt[i*3+2] = (rnd(tracks[i].id, 6) - 0.5) * 0.3;
   }
   // the unsorted shelf: a compact BLOCK (rows × depth), never a mile-wide
@@ -5651,7 +5651,7 @@ document.getElementById('r3d-struct-make').addEventListener('click', async () =>
   document.getElementById('r3d-snode-name').focus();   // ready to add the first tag node
 });
 // ── the tag picker: search your OWN vocabulary, click a chip to drop a node ───
-// (David can't recall exact spellings — show what he actually has, like the
+// (Daithí can't recall exact spellings — show what he actually has, like the
 //  filter desk's tag search.)
 function structTagPool(){
   const tags = new Map(), genres = new Map();

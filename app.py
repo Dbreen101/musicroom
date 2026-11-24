@@ -484,7 +484,7 @@ def backup_to_drive(dest_dir=None, block=False):
 
 
 # ─── FULL backup: app data + ALL music files → a second external drive ──────
-# This is the real backup David runs: plug in a spare drive, press the button,
+# This is the real backup Daithí runs: plug in a spare drive, press the button,
 # and everything (database, metadata, AND the whole Music Room Library audio)
 # is mirrored onto it. rsync --delete + skip-unchanged → fast on repeat runs.
 _full_backup_state = {"running": False, "phase": "", "error": "", "at": ""}
@@ -1399,7 +1399,7 @@ def api_volumes_state():
         vols = []
     out = {"volumes": vols}
     # A drive that has just appeared: start keeping its covers on the laptop on
-    # the next request, not up to ten minutes on (David, 2026-11-14: covers
+    # the next request, not up to ten minutes on (Daithí, 2026-11-14: covers
     # looked worse — 1,535 of 1,550 had no full-quality laptop copy, because
     # the pass that makes them needs the drive and had never met it).
     st = _artwork_warm_state
@@ -1516,7 +1516,7 @@ def room3d(place_id=None):
 def forest3d():
     """The forest as a 3D wood — places stand in clearings among procedural
     Irish trees, with the same add/edit/drag-to-position flow as /."""
-    if IS_GR:                                 # David, 2026-11-14: "remove the entire forest element" from the trial
+    if IS_GR:                                 # Daithí, 2026-11-14: "remove the entire forest element" from the trial
         return redirect("/room")
     return render_template("forest3d.html")
 
@@ -7617,7 +7617,7 @@ def _hsl_to_hex(h, s, l):
 
 def _tag_colour_for(name):
     """A colour for a tag so it BLOOMS on the record (curation-as-play). Honours
-    David's system: black/white/grey channel + energy 1-6 (calm→hot); everything
+    Daithí's system: black/white/grey channel + energy 1-6 (calm→hot); everything
     else gets a stable muted hue from its name. Warm + muted, never neon."""
     import re as _re, hashlib as _hl
     n = (name or "").strip().lower()
@@ -11492,8 +11492,8 @@ def api_feedback_export():
                     headers={"Content-Disposition": 'attachment; filename="music_room_feedback.csv"'})
 
 
-# ── Feedback outbox: push unsent feedback to David's collection endpoint ───────
-# Self-hosted: each tester's app POSTs its feedback to the endpoint David runs
+# ── Feedback outbox: push unsent feedback to Daithí's collection endpoint ───────
+# Self-hosted: each tester's app POSTs its feedback to the endpoint Daithí runs
 # (telemetry_server/server.py's /feedback). Outbox pattern — stored locally, sent
 # when online, stamped sent_at; offline-safe. Configured via the feedback_endpoint
 # / feedback_secret settings, or the MR_FEEDBACK_ENDPOINT / MR_FEEDBACK_SECRET env
@@ -12541,7 +12541,7 @@ def _artwork_full(fp, tid):
 # Covers live beside the music — usually on the external drive. Whenever the
 # drive is reachable, quietly make the laptop's own copies (three thumb sizes +
 # a full-quality one) of any cover that doesn't have them yet, so the room still shows every sleeve with the
-# drive unplugged (David, 2026-10-22: "I can't see the album covers"). Cheap:
+# drive unplugged (Daithí, 2026-10-22: "I can't see the album covers"). Cheap:
 # a path check per cover, PIL work on a thread, and nothing to do once warm.
 _artwork_warm_state = {"last": 0.0, "running": False, "done": 0, "total": 0, "vols": None}
 
@@ -12569,7 +12569,7 @@ def _artwork_thumbs_warm_maybe():
                 for tid, fp in todo:
                     for b in (192, 384, 768):
                         _artwork_thumb(fp, tid, b)
-                    _artwork_full(fp, tid)      # the full-quality copy (David, 2026-10-27:
+                    _artwork_full(fp, tid)      # the full-quality copy (Daithí, 2026-10-27:
                                                 # "full quality like they used to be")
                     _artwork_warm_state["done"] += 1
             finally:
@@ -14602,9 +14602,16 @@ def my_room_page():
 @app.route("/api/gr/signup", methods=["POST"])
 def api_gr_signup():
     d = request.get_json(silent=True) or {}
-    return _gr_guard(lambda: green_room.signup(d.get("server_url") or "", d.get("name") or "",
-                                                d.get("device_name") or "", d.get("kind") or "listener",
-                                                agreed=bool(d.get("agreed"))))
+    try:
+        return jsonify(green_room.signup(d.get("server_url") or "", d.get("name") or "",
+                                         d.get("device_name") or "", d.get("kind") or "listener",
+                                         agreed=bool(d.get("agreed")), door_code=d.get("door_code") or ""))
+    except green_room.GRError as e:
+        # (need_code: this server makes no account without its invite code — the front door then asks for it)
+        return jsonify({"error": str(e), "need_code": bool(getattr(e, "need_code", False))}), 502
+    except OSError as e:
+        print(f"[green room] {type(e).__name__}: {e}")
+        return jsonify({"error": "That was interrupted. Try again."}), 502
 
 
 @app.route("/api/gr/plans")
@@ -14775,7 +14782,7 @@ def _md_page(path):
 
 # ── the master account's page, and what everyone can ask of the master (gr_master.py on the server) ──
 import re as _re_master
-_MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|reports(/\d+)?|feedback(/\d+)?|version|grupai/\d+"
+_MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|reports(/\d+)?|feedback(/\d+)?|version|door|grupai/\d+"
                                   r"|sim(/(rules|credits|playlist|activity|sync-note))?|spotify-keys(/assign)?)$")
 
 # the credits trial (gr_sim.py on the server): bring home, buy, take out, the
@@ -14857,6 +14864,11 @@ def api_gr_version():
         try:
             code, d = green_room.shop_call("GET", "/api/version")
             _version_seen["v"] = d if code == 200 else {}
+            # the server lives somewhere else now: go there (green_room.follow_move checks it
+            # is the same Music Room first), and ask the new address the same question
+            if code == 200 and d.get("moved_to") and green_room.follow_move(d["moved_to"]):
+                code, d = green_room.shop_call("GET", "/api/version")
+                _version_seen["v"] = d if code == 200 else _version_seen["v"]
         except green_room.GRError:
             _version_seen["v"] = _version_seen["v"] or {}
         _version_seen["at"] = _t.time()
@@ -15371,7 +15383,7 @@ def _grupa_delete(gid):
 
 
 # ── public grúpaí ────────────────────────────────────────────────────────────
-# Off unless its owner turns it on (David, 2026-11-15: "the option to 'Make
+# Off unless its owner turns it on (Daithí, 2026-11-15: "the option to 'Make
 # grúpa public' for each grúpa … off by default"). On, a copy of what it is
 # goes to the rooms server — names, notes, links, small covers; never audio,
 # never a file path — where others find it in Explore and on the owner's
@@ -15820,7 +15832,7 @@ def api_grupa_order(gid):
 
 
 # ── a grúpa as a FOLDER of files, to drag into Ableton, Serato, rekordbox… ──
-# (David, 2026-11-16.) grupa_folder.py does the work and explains it: the
+# (Daithí, 2026-11-16.) grupa_folder.py does the work and explains it: the
 # grúpa's own records, in its order, put in one folder WITHOUT copying them
 # where the disk allows (the same file listed twice, else a link to it), and
 # never moved. Here: which files a grúpa stands for, where its folder lives,

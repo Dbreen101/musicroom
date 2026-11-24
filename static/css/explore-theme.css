@@ -2,7 +2,7 @@
    Load AFTER style.css to bring a page into the /explore3d aesthetic — a warm
    near-black surface, cream ink, gold as the one accent — for continuity across
    the app. The fonts already match the desk (Inter / EB Garamond / JetBrains
-   Mono), so this is purely a palette re-point + a few surface overrides. (David) */
+   Mono), so this is purely a palette re-point + a few surface overrides. (Daithí) */
 :root{
   --bg-floor:#111010;
   --bg:#161513;

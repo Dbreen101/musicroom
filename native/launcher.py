@@ -339,7 +339,7 @@ def main():
 
     # Harness mode: MUSICROOM_HEADLESS=1 serves WITHOUT opening a window (and
     # without a Dock icon) — the automated pre-flight sweep boots the real
-    # bundle on David's machine, and its windows popping up were being closed
+    # bundle on Daithí's machine, and its windows popping up were being closed
     # by hand, which read as crashes (2026-07-14). Normal launches unaffected.
     if os.environ.get("MUSICROOM_HEADLESS") == "1":
         try:

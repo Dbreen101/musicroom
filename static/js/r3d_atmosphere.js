@@ -3,7 +3,7 @@
 //
 // The atmosphere designer used to be reachable only from place.html's edit
 // modal — chrome the 3D build never shows, so in P1 the room felt
-// un-personalisable (David's actual complaint). This is the room-native door:
+// un-personalisable (Daithí's actual complaint). This is the room-native door:
 // mood + ground tint + ambient sound, LIVE-applied to the running scene via
 // window.MRRoom (exposed in room3d.html) and persisted to the SAME place
 // fields the 2D modal writes (PATCH /api/place/<id> + /ambient endpoints).

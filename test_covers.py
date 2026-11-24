@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 _tmp = tempfile.TemporaryDirectory()
-os.environ["MUSICROOM_DATA"] = _tmp.name            # a fresh data dir — David's library stays out
+os.environ["MUSICROOM_DATA"] = _tmp.name            # a fresh data dir — Daithí's library stays out
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 os.environ.pop("MR_GREEN_ROOM", None)
 
@@ -90,7 +90,7 @@ r = c.get("/api/artwork/1?s=300")
 chk(max(size_of(r)) == 384, "drive away, a small card: its own size")
 (TH / "full" / "1.jpg").unlink(); (TH / "768" / "1.jpg").unlink()
 r = c.get("/api/artwork/1?s=900")
-chk(r.status_code == 200 and max(size_of(r)) == 384, "with only small copies left, the biggest of them is served (this is the blur David saw)")
+chk(r.status_code == 200 and max(size_of(r)) == 384, "with only small copies left, the biggest of them is served (this is the blur Daithí saw)")
 for b in ("192", "384"): (TH / b / "1.jpg").unlink()
 chk(c.get("/api/artwork/1").status_code == 404, "no copy at all and no drive: nothing to show")
 

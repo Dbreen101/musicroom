@@ -22,7 +22,7 @@
 //        {kind:'track', ref_id} · {url, title?, subtitle?, image?} · {kind:'room', ref_key, title?} · {tracks:[ids]}
 //   GrupaUI.publicPanel(host, id, opts)      — someone's public grúpa, to read and play
 //
-// The words are functional; David coins the real ones.
+// The words are functional; Daithí coins the real ones.
 // =============================================================
 window.GrupaUI = (function () {
 'use strict';
@@ -67,7 +67,7 @@ function coverHtml(g) {
 }
 
 // ───────────────────────── the window: "add to a grúpa" ─────────────────────────
-// It works the way adding to a playlist does in Spotify (David, 2026-11-15):
+// It works the way adding to a playlist does in Spotify (Daithí, 2026-11-15):
 // a small window with every grúpa and a box to tick beside each — tick as many
 // as you like; the ones the thing is already in come ticked, and unticking one
 // takes it out — a line to find one by name, "New grúpa" at the top (name it and

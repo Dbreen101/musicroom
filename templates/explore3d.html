@@ -184,7 +184,7 @@
      reaches for it (top toolbar / bottom slideshow / side arrows). Stream only.
      A panel or the filter dropdown being open keeps the toolbar up. ── */
   /* the TOP BAR never fades — the user must always see where tune / sources /
-     wishlist ARE (David, 2026-07-10). Immersive still calms the arrows + hint. */
+     wishlist ARE (Daithí, 2026-07-10). Immersive still calms the arrows + hint. */
   /* the strip's show/hide is the dock's job (hover / pin), not the immersive
      cursor-reveal — so it isn't listed here. */
   body.view-stream.immersive .arr{ opacity:.1; transition:opacity .25s var(--spring,ease); }
@@ -256,7 +256,7 @@
     text-decoration:none; font-size:1.05rem; transition:all .15s ease; }
   .exit:hover{ background:var(--gold); color:var(--pill-ink,#1d160d); border-color:var(--gold); }
   /* (the "↩ the music room" corner link is gone — the wordmark in the nav is
-     the one way back, same as every page; David, 2026-07-10) */
+     the one way back, same as every page; Daithí, 2026-07-10) */
   .empty{ position:fixed; inset:120px 0 0 0; display:none; z-index:9; align-items:center;
     justify-content:center; color:var(--muted); font-style:italic;
     font-family:var(--font-serif,'EB Garamond',serif); font-size:1.1rem; text-align:center; line-height:1.7; }
@@ -1010,7 +1010,7 @@ function feedReadable(it){ return !it.website && it.content_type !== 'video' && 
 // can extract this article (precheckReader sets _readerOk). Until then the
 // honest button is "Open in Browser" — the offer upgrades in place the moment
 // the check passes. Never promise a reading view that flips to the browser
-// mid-click (David, 2026-07-10).
+// mid-click (Daithí, 2026-07-10).
 function feedReadNow(it){ return feedReadable(it) && it._readerOk === true; }
 function feedInApp(it){ return !!(it.audio_url || feedVid(it) || feedReadNow(it)); }
 function feedPrimary(it){ if (it.audio_url) return playFeedAudio(it); const v = feedVid(it); if (v) return watchVideo(v, it); if (feedReadNow(it)) return openReader(it); return openItem(it); }
@@ -1106,7 +1106,7 @@ function show(k, instant){
 // moment it's on screen (the server caches the extraction, so a later click
 // costs nothing extra). "▤ read in the music room" only stays if it will
 // actually work; a dead one loses the button BEFORE anyone can click it
-// (David, 2026-07-07: "why does it even offer the user the choice").
+// (Daithí, 2026-07-07: "why does it even offer the user the choice").
 const _precheckSeen = new Set();
 function precheckReader(it){
   if (!it || !feedReadable(it) || it._readerOk) return;
@@ -2284,7 +2284,7 @@ async function loadHunt(wid, body, onCount){
 }
 // ── the three boxes ─────────────────────────────────────────────────────────
 // A wish lives in exactly one box — these sort by FEELING, not by buy-status.
-// The labels are David's own words; the play game re-files cards between them.
+// The labels are Daithí's own words; the play game re-files cards between them.
 const WISH_BOXES = [
   { key:'need_now',       label:"I need this now!",          short:'need it now',    accent:'#e8b75a' },
   { key:'another_listen', label:"I'll have another listen", short:'another listen', accent:'#9bbf9e' },
@@ -2667,7 +2667,7 @@ addEventListener('keydown', e=>{
 // On open, pull the freshest things from the sources — a THROTTLED background
 // refresh (the server only actually refreshes if the feed's gone stale, so this
 // is cheap on every visit and never hammers sources). When new items land, the
-// river quietly reloads in place. (David: Explore should be fresh on arrival.)
+// river quietly reloads in place. (Daithí: Explore should be fresh on arrival.)
 async function maybeRefreshOnOpen(){
   try {
     const r = await fetch('/api/feed/maybe-refresh', { method:'POST' }).then(x=>x.json()).catch(()=>null);

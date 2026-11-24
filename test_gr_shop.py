@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 _tmp = tempfile.TemporaryDirectory()
 TMP = Path(_tmp.name)
 os.environ["MR_GR_DB"] = str(TMP / "gr_shop_test.db")
-os.environ["MR_LIBRARY_DB"] = str(TMP / "no_library.db")   # keep David's library out
+os.environ["MR_LIBRARY_DB"] = str(TMP / "no_library.db")   # keep Daithí's library out
 os.environ.pop("MR_SHOP_PLAY_ORIGINALS", None)
 
 import gr_server
@@ -43,7 +43,7 @@ with db() as conn:
 codes = {
     "moss": gr_server.make_invite("Moss Records", kind="label", handle="moss", public=True),
     "tide": gr_server.make_invite("Tide", kind="artist", handle="tide", public=True),
-    "house": gr_server.make_invite("David", handle="the-room"),
+    "house": gr_server.make_invite("Daithí", handle="the-room"),
     "a": gr_server.make_invite("Aoife"), "b": gr_server.make_invite("Brendan"),
     "c": gr_server.make_invite("Ciara"), "d": gr_server.make_invite("Dara"),
 }
@@ -147,7 +147,7 @@ if ff:
     import mutagen
     tags = mutagen.File(str(copy), easy=True).tags
     chk(copy.exists() and not (tags or {}).get("title"), "what plays is the shop's listening copy, with no name written in it")
-    # one play (David, 2026-11-20): the whole record, once; asked again — even for a piece of it — it is refused
+    # one play (Daithí, 2026-11-20): the whole record, once; asked again — even for a piece of it — it is refused
     r = client.get(f"/api/shop/listen/{ids1[0]}?pull={p1['id']}", headers=dict(hdr(tok["a"]), Range="bytes=10-19"))
     chk(r.status_code == 403 and r.get_json().get("heard") and "borrow" in r.get_json()["error"],
         "a record plays once: asked for again, even a piece of it, it is refused, with the way to hear it again")
@@ -201,7 +201,7 @@ chk(get(tok["tide"], "/api/my/crates").get_json()["crates"][0]["id"] == crate["i
     and [c["name"] for c in get(tok["moss"], "/api/shop/crates/out").get_json()["crates"]] == ["Low tide"]
     and get(tok["a"], "/api/shop/crates/out").status_code == 403, "its maker sees it; other sellers can pull from it")
 
-# David's own account signs as the Music Room
+# Daithí's own account signs as the Music Room
 gr_shop.set_house("the-room")
 hc = post(tok["house"], "/api/my/crates", {"name": "This week", "is_out": True, "items": [{"id": loose_ids[0], "note": "start here"}, {"id": loose_ids[1]}]})
 chk(hc.status_code == 200, "the Music Room's own account can make crates")

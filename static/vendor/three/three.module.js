@@ -38025,7 +38025,7 @@ function eliminateHole( hole, outerNode ) {
 
 }
 
-// David Eberly's algorithm for finding a bridge between hole and outer polygon
+// Daithí Eberly's algorithm for finding a bridge between hole and outer polygon
 function findHoleBridge( hole, outerNode ) {
 
 	let p = outerNode,

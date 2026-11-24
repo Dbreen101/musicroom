@@ -132,5 +132,40 @@ Shared Wi-Fi sometimes stops laptops seeing each other. Check from another
 laptop: `curl http://<the address>:5300/api/version`. If the name
 (`….local`) doesn't work but the number does, have people press *change* on
 the front door and type the number. If neither works, the Wi-Fi is keeping
-laptops apart; the way round it is a tunnel (for example Cloudflare's), which
-gives the server an address that works from anywhere.
+laptops apart; the way round it is a tunnel, which gives the server an address
+that works from anywhere (next section).
+
+## Reaching the server from outside the building
+
+A tunnel (Tailscale Funnel, Cloudflare Tunnel) or a hosted machine behind a
+relay (Caddy) gives the server an `https://` address anyone can reach. Before
+that address is handed out:
+
+1. **Set an invite code.** Without one, anybody who finds the address can make
+   an account. Master page → Version → *Invite code for new accounts*, or
+   `gr_server.py door --code "some words"`. People who already have an account
+   are not asked for it.
+2. **Check the master's page stays shut.** It answers only the master's own app,
+   on the server's own computer, talking straight to `http://127.0.0.1:5300`.
+   A request that comes through a tunnel or a relay is refused, even with the
+   master's code. Try it: from another computer, open
+   `https://<the new address>/api/master/overview`. It must say no.
+   (A server on a rented machine has no app beside it. There the master's
+   routes need `MR_MASTER_ANYWHERE=1`, and then the master's code is the only
+   lock: think before using it.)
+3. **Tell the apps.** Master page → Version → *The server's new address*, or
+   `gr_server.py door --moved-to https://…`. Every signed-in app that asks the
+   old address is told within ten minutes, checks that the new address knows
+   its sign-in, and moves. Nobody signs up again. New builds should carry the
+   new address (`MR_GR_SERVER` in `tools/release.sh`, and the repo variable of
+   the same name for the Windows build).
+
+Limits on sign-ups and wrong codes count each visitor's own address, also
+through a relay on the same computer (the relay's note of who it took the
+request from is used; a visitor who comes straight in can't claim another
+address).
+
+`tools/server.sh` starts the server with macOS's own tools (a LaunchAgent,
+`caffeinate`). On a Linux machine it needs a systemd unit instead; that is not
+written yet. Run the server as ONE process there (limits and holds are kept
+in its memory).

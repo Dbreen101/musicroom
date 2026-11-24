@@ -1,5 +1,5 @@
 /* ui.css — the Music Room's clothes: the working document.
-   After David's deck (Oct 2026): paper and ink, two faces — Instrument Serif
+   After Daithí's deck (Oct 2026): paper and ink, two faces — Instrument Serif
    for every title and every big number, IBM Plex Mono for labels, chrome and
    reading — hairline rules instead of boxes, nothing filled but the one
    primary, square corners, one red for emphasis. Loaded LAST on every page:
@@ -388,7 +388,7 @@ body:has(.jl-wrap) { --jl-gold: #f2efe8; --jl-ink: #f2efe8; --jl-muted: #9b968a;
 
 /* ── the trial build: the top bar STAYS, on every page. (It used to hide and
    come down when the pointer went up to the top edge — but in full screen the
-   Mac's own menu bar comes down at that same edge and sat on top of it. David,
+   Mac's own menu bar comes down at that same edge and sat on top of it. Daithí,
    2026-11-14: "leave it up there but don't have it disappear".) One slim bar;
    its words sit LOW in it, so they stay clear of the Mac's menu bar even when
    that has come down. --nav-h is its height: anything pinned to the top of a
@@ -420,7 +420,7 @@ html.is-gr .cv-bar { top: var(--nav-h) !important; }
 html.is-gr .fix-header, html.is-gr .fix-toolbar { top: var(--nav-h) !important; }
 /* Explore's side panels (sources · tune · wishlist · import), its reader, its video and wishlist-game screens, and a
    room opened over it all began at the very top of the window — under the bar, which is always there now, so each
-   one's ✕ sat behind it and could not be pressed (David, 2026-11-15: "I am not able to close the sources pop out
+   one's ✕ sat behind it and could not be pressed (Daithí, 2026-11-15: "I am not able to close the sources pop out
    window"). They start under the bar. */
 html.is-gr .ex-reader, html.is-gr .ex-video, html.is-gr #wishplay, html.is-gr .rooms-open { top: var(--nav-h) !important; }
 /* …and the side panels start under Explore's own row as well (its doors and its tune · sources · wishlist ·

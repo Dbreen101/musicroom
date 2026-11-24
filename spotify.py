@@ -158,7 +158,7 @@ KEY_NO_PREMIUM       = "spotify_no_premium"        # "1" once Spotify refused co
 #   Why not "one address per port" or a port-less address: Spotify's docs say
 #   a loopback address may be registered without a port and given one at
 #   sign-in, but its developer dashboard REFUSES that form ("This redirect URI
-#   is not secure") — David hit it on 2026-11-14, as have others on Spotify's
+#   is not secure") — Daithí hit it on 2026-11-14, as have others on Spotify's
 #   forum. An explicit port is the only form the dashboard reliably takes.
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:5177/api/spotify/callback"
 

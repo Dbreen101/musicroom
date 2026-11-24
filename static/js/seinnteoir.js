@@ -33,7 +33,7 @@ let _mode = 'open';
 // localStorage is the fast in-session memory, but the desktop shell WIPES it on
 // every app relaunch — so the server remembers the mode too (state.ui_mode,
 // stored with the cue) and the first poll adopts it when localStorage came up
-// empty. Without this a put-away player reopened on every launch (David,
+// empty. Without this a put-away player reopened on every launch (Daithí,
 // 2026-07-10).
 let _modeFromStorage = false;
 try {
@@ -377,7 +377,7 @@ function _setMode(m) {
     // cassette parked near an edge shifts the full bar back on-screen; minimizing
     // lets the small tab return to where it was parked. _sntPos is never changed
     // by this, so the tab always comes home. Synchronous (reading offsetWidth
-    // forces layout) + a deferred pass once fonts/layout fully settle. (David)
+    // forces layout) + a deferred pass once fonts/layout fully settle. (Daithí)
     _applySntPos();
     requestAnimationFrame(_applySntPos);
 }
@@ -465,12 +465,12 @@ function _bindUI() {
     if (GR()) _outInit();                    // the line that names the speaker, and its list
     // – = minimize to the tab (keep the cue + music, small).
     barEl.querySelector('#snt-min').onclick   = () => _setMode('min');
-    // ✕ = stop the music and put the player away (David: no prompt — just stop +
+    // ✕ = stop the music and put the player away (Daithí: no prompt — just stop +
     // close). The cue is kept; it reopens on the next cue or from the Tools bag.
     // MUST drop _forceShow: with an empty cue the render loop resets the mode
     // to 'open' ("fresh start"), and a lingering _forceShow made the bar
     // re-show itself instantly — the player was unclosable when nothing was
-    // cued (David, 2026-07-07).
+    // cued (Daithí, 2026-07-07).
     barEl.querySelector('#snt-close').onclick = () => { _forceShow = false; _post('pause').then(_pollOnce); _setMode('closed'); };
     // the folded-down tab: tap the body to bring the player back; the round
     // button still plays/pauses without reopening
@@ -484,18 +484,18 @@ function _bindUI() {
     // the music never pauses as the page changes
     barEl.querySelector('#snt-justlisten').onclick = () =>
         (window.rtGo || ((h) => { location.href = h; }))('/justlisten');
-    // Deep Listening — the note-taking panel. It opens IN PLACE on ANY page (David):
+    // Deep Listening — the note-taking panel. It opens IN PLACE on ANY page (Daithí):
     // in the room it's already loaded; elsewhere deeplisten.js is fetched on demand
     // so you can jot a note on the playing track from anywhere. Flick between the
     // lenses from the cassette: 👂 Just Listen · 👂✎ Deep Listening · the cassette = player.
     barEl.querySelector('#snt-eist').onclick = _openDeepListen;
-    if (GR()) barEl.querySelector('#snt-eist-key').style.display = 'none';   // no notes key on the deck in the trial (David, 2026-10-27)
+    if (GR()) barEl.querySelector('#snt-eist-key').style.display = 'none';   // no notes key on the deck in the trial (Daithí, 2026-10-27)
     barEl.querySelector('#snt-q').onclick     = toggleQpop;
     // click the now-playing title → open that record's full metadata panel.
     // Reuses the same path the queue rows use (keepAudio leaves the music
     // untouched); a drag of the cassette must NOT count as a click.
     const info = barEl.querySelector('#snt-info');
-    // The trial deck (David, 2026-11-15): the title opens a small card — the
+    // The trial deck (Daithí, 2026-11-15): the title opens a small card — the
     // cover, the whole title, who it is by — and the mark in the label's
     // corner says where the record is playing from and opens that place.
     if (info && GR()) {
@@ -899,7 +899,7 @@ async function _openTrackInPanel(trackId) {
         } catch (_) { /* fall through — the record isn't in this room */ }
     }
     // anywhere else: go to the record, open, in the music room
-    // (David, 2026-10-27: "it should take me to the song open in the music room")
+    // (Daithí, 2026-10-27: "it should take me to the song open in the music room")
     if (GR()) { location.href = `/room?track=${trackId}`; return; }
     const wid = await _getWellId();
     if (wid) location.href = `/place/${wid}?track=${trackId}`;
@@ -907,7 +907,7 @@ async function _openTrackInPanel(trackId) {
 
 // The queue opens AT THE PLAYER — wherever the user has dragged the cassette —
 // and hangs BELOW it when the player sits in the top half of the screen, ABOVE
-// it when it sits in the bottom half, so the cue is never clipped by an edge. (David)
+// it when it sits in the bottom half, so the cue is never clipped by an edge. (Daithí)
 function _positionQpop() {
     if (!qpopEl || !barEl) return;
     const r = _deckBox();
@@ -932,7 +932,7 @@ function toggleQpop() {
 // ─── volume pop-up ──────────────────────────────────────────────────
 // Opens AWAY from the bar so it never covers the player: above the button when
 // the player sits in the bottom half of the screen, below when it's up top —
-// and clamped on-screen either way. (David: don't block the player.)
+// and clamped on-screen either way. (Daithí: don't block the player.)
 function _positionVolPop() {
     if (!volpopEl || !barEl) return;
     const btn = barEl.querySelector('#snt-vol');
@@ -962,7 +962,7 @@ function toggleVolPop() {
     }
 }
 // ─── where the sound goes (the trial deck) ──────────────────────────
-// David, 2026-11-14: "connect to bluetooth and wifi devices such as speakers
+// Daithí, 2026-11-14: "connect to bluetooth and wifi devices such as speakers
 // directly from in the app like the spotify app." Everything the app plays
 // leaves by the Mac's one chosen output, so the deck names it ("out · …") and
 // a click opens the list: what the Mac can play through now, the Bluetooth
@@ -1143,7 +1143,7 @@ async function _pollOnce() {
                 try { localStorage.setItem('mr_snt_mode', _mode); } catch (_) {}
             }
         }
-        // a freshly cued track reopens a put-away player (David: "open it again
+        // a freshly cued track reopens a put-away player (Daithí: "open it again
         // by cueing tracks or from the Mála")
         const qlen = state.queue ? state.queue.length : 0;
         // only a genuine growth from a known baseline is a "fresh cue" — never
@@ -1221,7 +1221,7 @@ function _withGrupaUI(cb) {
 }
 
 // ─── where it is playing from: the mark on the label, and the card behind the title ───
-// (the trial deck — David, 2026-11-15: no bar above the player saying "this is
+// (the trial deck — Daithí, 2026-11-15: no bar above the player saying "this is
 // in Spotify"; a small Spotify mark on the player instead, which opens Spotify;
 // a disc when the record is a file on this laptop; ".web" for a website; and so
 // on for whatever is added later.) One entry here per place a record can sound.

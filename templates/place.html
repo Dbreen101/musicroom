@@ -1819,7 +1819,7 @@
         .panel-covers__refresh:hover { color: var(--accent); }
         /* This panel is embedded in the 3D room, which already shows the
            Seinnteoir cassette. seinnteoir.js (loaded by this page too) would
-           render a SECOND one inside the iframe — hide the duplicate. (David) */
+           render a SECOND one inside the iframe — hide the duplicate. (Daithí) */
         body.panel-only #seinnteoir-bar,
         body.panel-only #seinnteoir-tab,
         body.panel-only #snt-qpop { display: none !important; }
@@ -1829,7 +1829,7 @@
            /explore3d. Done by re-pointing the palette variables on the panel
            ONLY (custom props cascade to the subtree), so the rest of the place
            page keeps its parchment look. Fonts already match (Inter / EB
-           Garamond / JetBrains Mono). (David) */
+           Garamond / JetBrains Mono). (Daithí) */
         .track-panel{
             --bg:        #12100c;
             --surface:   #1a1610;
@@ -4056,7 +4056,7 @@ function renderTrackPanel(data) {
     </div>
 
     <!-- IN SETS — works like the places above: what it's in, and an add
-         (David, 2026-07-08: add a track to a set straight from the panel) -->
+         (Daithí, 2026-07-08: add a track to a set straight from the panel) -->
     <div class="track-panel__section">
         <div class="track-panel__section-heading">In sets</div>
         <div style="font-size:0.82rem;">
@@ -4106,7 +4106,7 @@ function renderTrackPanel(data) {
     return GR ? trimPanelForTrial(html) : html;
 }
 
-// The trial's panel is the short one (David, 2026-11-14: "keep the top section
+// The trial's panel is the short one (Daithí, 2026-11-14: "keep the top section
 // all the way to found via … remove links, analysis and the forest/place
 // section", and of what follows keep tags and genres, notes, the file, the
 // play count and remove). The blocks left out are cut by the comment that
@@ -5632,7 +5632,7 @@ async function applyToAlbum(kind, name, ids, btn) {
 
 // ─── shallow UNDO for metadata edits (the last 3 actions) ───────────────────
 // A misclick deleting a tag/genre/colour, or a fat-fingered field edit, is now
-// reversible. We keep ONLY the last 3 — older ones drop off (David: no need to
+// reversible. We keep ONLY the last 3 — older ones drop off (Daithí: no need to
 // remember more). Trigger from the toast's button or Cmd/Ctrl+Z. Each entry is
 // {label, fn} where fn re-applies the previous state with RAW calls (so undoing
 // never pushes another undo).
@@ -9263,7 +9263,7 @@ if (__panelOnly) {
         // The room is about to navigate away ("go to"): if this panel is
         // PLAYING a record, hand it to the persistent Player first — exactly
         // the "→ player" button — so the music carries on in the page you land
-        // on (David, 2026-07-10). Reply either way; the room waits for us.
+        // on (Daithí, 2026-07-10). Reply either way; the room waits for us.
         if (d.type === 'mr-handoff-if-playing') {
             const playing = !!(currentFileId && audio && audio.src
                 && audio.src !== window.location.href && !audio.paused && !audio.ended);

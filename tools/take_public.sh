@@ -20,7 +20,7 @@ STATE="$(gh pr view "$N" --repo "$REPO" --json state -q .state)"
 [ "$STATE" = "MERGED" ] || { echo "Pull request $N isn't merged (it is $STATE). Merge it on GitHub first, or not at all."; exit 1; }
 gh pr diff "$N" --repo "$REPO" | git apply --index --whitespace=nowarn
 FILES="$(git diff --cached --name-only)"
-git commit -q -m "Take in pull request $N from the public repo" -m "$(gh pr view "$N" --repo "$REPO" --json title,author -q '.title + " — by @" + .author.login')" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git commit -q -m "Take in pull request $N from the public repo" -m "$(gh pr view "$N" --repo "$REPO" --json title,author -q '.title + " — by @" + .author.login')" -m "Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>"
 git config musicroom.publichead "$(git -C "$PUBLIC" rev-parse origin/main)"
 echo "Taken in: pull request $N"
 echo "$FILES" | sed 's/^/   /'

@@ -397,7 +397,7 @@ build(THREE, p, kind, roles) {
 
     well() {
         // THE MUSIC ROOM — a warm log cabin at the heart of the wood (was the
-        // sacred well; David's call 2026-07-06). Stacked-log walls with crossed
+        // sacred well; Daithí's call 2026-07-06). Stacked-log walls with crossed
         // corner ends, a gabled shingle roof, a stone chimney with smoke, lit
         // windows, a little porch, firewood by the door. Cosy, lived-in — the
         // one window in the gable is round, like a record.

@@ -201,9 +201,12 @@ keep older versions ready if a rollback is ever needed.
   files go to the Trash or Recycle Bin. When a file can't be moved safely, it
   stays where it is.
 - **Privacy by default.** Your files stay on your laptop, and what you play in
-  your own room is not sent anywhere. The rooms server knows only what you do
-  with it: what you bring home or buy, the one play of a record in the shop,
-  the rooms you open. Off-device telemetry is off by default, gated behind separate opt-in
+  your own room is not sent anywhere. The rooms server knows what you do with
+  it: what you bring home or buy, the one play of a record in the shop, the
+  rooms you open. In the residency trial the app also tells it how the app is
+  used (which pages are opened, searches in Explore, what kind of thing goes
+  into a grúpa), so the trial can be studied. Apart from that, off-device
+  telemetry is off by default, gated behind separate opt-in
   consents, and limited to coarse monthly counts under an anonymous ID that
   changes every month. It never includes titles, file paths, search terms or
   IP addresses.

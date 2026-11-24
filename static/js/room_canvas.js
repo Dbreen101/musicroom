@@ -11,7 +11,7 @@
 //   getTracks() → the room's records (for picking); sntItem(t) → a player item;
 //   openTrack(id) → open that record's detail (may throw if not in this room).
 //
-// David coins the words. Labels here are functional placeholders.
+// Daithí coins the words. Labels here are functional placeholders.
 window.MRRoomCanvas = (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const SNAP = 8, MIN_W = 120, MIN_H = 72;

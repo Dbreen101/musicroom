@@ -7,7 +7,7 @@ and don't use it.
 
 **How to tell us:** on GitHub, open the repo's **Security** tab →
 **Report a vulnerability** (a private report only the maintainer sees). Or
-tell David in person at the Green Room.
+tell Daithí in person at the Green Room.
 
 Please include what you did, what you could reach, and how to do it again.
 We'll answer within a few days, fix it, and thank you in the release notes if

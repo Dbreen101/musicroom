@@ -44,13 +44,13 @@ window.grTrack = grTrack;
 
 // The top bar stays put now (ui.css, html.is-gr — it used to hide and come down
 // at the top edge, where the Mac's own menu bar comes down too). Grúpaí are no
-// longer on it (David, 2026-11-15: "the user should access grúpa from within
+// longer on it (Daithí, 2026-11-15: "the user should access grúpa from within
 // the music room"): they are a tab in My Room, and "add to a grúpa" is offered
 // wherever there is something to keep.
 // a page with no bar of its own doesn't keep room for one
 if (!document.querySelector('.nav')) document.documentElement.classList.add('no-nav');
 
-// ── the document's furniture (David's deck, Oct 2026): a section label at the
+// ── the document's furniture (Daithí's deck, Oct 2026): a section label at the
 // right of the page header, and a foot line on every scrolling page —
 // "THE MUSIC ROOM" left, the page's name right, like the foot of a slide.
 (function(){

@@ -1,7 +1,7 @@
 """
 ai_flags.py — streams marked as AI-made are not played through the deck.
 
-David, 2026-11-14: "flag AI streamed music and not allow it to be streamed
+Daithí, 2026-11-14: "flag AI streamed music and not allow it to be streamed
 through the app … if you are able to do that then do it now."
 
 Nothing here can HEAR whether a stream is AI-made: no stream audio ever
@@ -18,7 +18,7 @@ anyway. What can be done honestly is two things:
   2. The listener's own marks (kept by the app, in settings): "AI-made" on
      any stream, keyed on who it is by, and "not AI" to lift a mark they think
      is wrong. app.py logs both as trial events, so the marks and disputes of
-     the residency reach David.
+     the residency reach Daithí.
 
 The list is FETCHED by each copy into its own data folder and refreshed weekly
 in the background — never bundled with the app (the source is GPL-3.0, parts

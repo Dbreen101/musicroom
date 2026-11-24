@@ -72,6 +72,10 @@
         </div>
         <div class="lg-asked" id="n-asked" hidden>You start as a listener. <b id="n-asked-kind"></b> is switched on once your request has been looked at.</div>
         <label class="lg-agree"><input type="checkbox" id="n-agree"><span>I have read the <a href="/house-rules" target="_blank" rel="noopener" id="n-rules">house rules</a> and agree to them.</span></label>
+        <div id="n-code-row" style="display:none">
+            <label for="n-code">Invite code</label>
+            <input id="n-code" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
         <div id="n-server-row" style="display:none">
             <label>Server address</label>
             <input id="n-server" placeholder="http://…:5300" autocapitalize="off" spellcheck="false">
@@ -147,13 +151,18 @@ async function go(e, which){
     go.busy = true; if (btn) btn.disabled = true;
     const again = () => { go.busy = false; if (btn) btn.disabled = false; return false; };
     const body = which === 'new'
-        ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform }
+        ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform, door_code: document.getElementById('n-code').value }
         : { server_url: document.getElementById('b-server').value || DEFAULT_SERVER, invite_code: document.getElementById('b-code').value, device_name: navigator.platform };
     let r = null, d = {};
     try {
         r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         d = await r.json().catch(() => ({}));
     } catch (_) {}
+    if (d.need_code) {                              // this server makes no account without its invite code
+        const row = document.getElementById('n-code-row'), was = row.style.display !== 'none';
+        row.style.display = '';
+        if (!was) document.getElementById('n-code').focus();
+    }
     if (!r || !r.ok) { err.textContent = d.error || 'That did not work. Check the server address.'; return again(); }
     location.href = which === 'new' ? '/intro' : '/room';
     return false;

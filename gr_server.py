@@ -1,6 +1,6 @@
 """Green Room server — the campus pool for Music Room GR builds.
 
-Runs on David's laptop on the campus network. Holds the rights-cleared
+Runs on Daithí's laptop on the campus network. Holds the rights-cleared
 catalogue, hands out borrows (encrypted downloads + a per-borrow key the
 app keeps), and tracks play-money wallets for the residency's pricing
 experiments. ALL money here is PLAY MONEY (cents of fake euro).
@@ -16,7 +16,7 @@ Usage:
   python gr_server.py run [--host 0.0.0.0] [--port 5301]
 
 Covers, in order: the cover the Music Room library already holds for that
-file (David's chosen art) → art embedded in the file → a cover image in the
+file (Daithí's chosen art) → art embedded in the file → a cover image in the
 file's folder → (only with --online-art) an online lookup. Re-running `add`
 or `covers` fills in any track still missing one.
 
@@ -50,7 +50,7 @@ MAX_DEVICES = 2                  # devices one account may register
 
 # The subscription plans a listener picks from the first time they borrow.
 # Prices are the three residency variants from docs/PRICING_GR.md; the shape
-# is David's (2026-10-21): a month's fee buys `per_month` borrows, and a
+# is Daithí's (2026-10-21): a month's fee buys `per_month` borrows, and a
 # borrowed record STAYS on your machine for good — it just only plays in the
 # Music Room. Borrow 20 this month, listen for years, never pay again. A
 # month with no borrows costs nothing. `per_borrow_cents` = pay-as-you-go.
@@ -322,7 +322,7 @@ _IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 
 def _library_dbs():
     """The Music Room libraries to borrow covers from: MR_LIBRARY_DB alone
-    when set; otherwise the native app's library (David's daily one), then
+    when set; otherwise the native app's library (Daithí's daily one), then
     the dev project's. Existing files only, no repeats."""
     out = []
     explicit = os.environ.get("MR_LIBRARY_DB")
@@ -581,7 +581,7 @@ def api_join():
     device_name = (data.get("device_name") or "").strip() or None
     if not code or not fingerprint:
         return jsonify({"error": "invite_code and fingerprint are required"}), 400
-    if not gr_master.rate_ok("join:" + (request.remote_addr or "?"), 12, 600):
+    if not gr_master.rate_ok("join:" + gr_master.asker(), 12, 600):
         return jsonify({"error": "too many tries from here — wait ten minutes"}), 429
     with closing(db()) as conn:
         acct = conn.execute(
@@ -692,6 +692,11 @@ def api_me_plan():
         return jsonify({"plan": key, "plan_name": PLANS[key]["name"]})
 
 
+# What a person plays in their own room is theirs: an app from before
+# 2026.11.24-5 still sends each play, and it is dropped here, unread.
+NOT_KEPT = ("play",)
+
+
 @app.post("/api/events")
 def api_events():
     """A batch of app-side events: {events:[{kind, data, at}]}."""
@@ -703,7 +708,7 @@ def api_events():
         n = 0
         for e in (data.get("events") or [])[:500]:
             kind = (e.get("kind") or "").strip()[:40]
-            if not kind:
+            if not kind or kind in NOT_KEPT:
                 continue
             _event(conn, acct["id"], kind, e.get("data"), dev["id"], e.get("at"))
             n += 1
@@ -741,7 +746,7 @@ def api_signup():
     fingerprint = (data.get("fingerprint") or "").strip()
     device_name = (data.get("device_name") or "").strip() or None
     asked = (data.get("kind_requested") or data.get("kind") or "").strip().lower()
-    kind = "listener"                     # everyone starts as a listener (David, 2026-11-20);
+    kind = "listener"                     # everyone starts as a listener (Daithí, 2026-11-20);
     asked = asked if asked in gr_master.KINDS_TO_ASK else None   # any other kind waits for the master
     if not name or not fingerprint:
         return jsonify({"error": "a name is needed"}), 400
@@ -749,10 +754,21 @@ def api_signup():
         return jsonify({"error": "that name is too long"}), 400
     if not data.get("agreed"):
         return jsonify({"error": "please read and agree to the house rules first", "need_agree": True}), 400
-    if not gr_master.rate_ok("signup:" + (request.remote_addr or "?"), gr_master.SIGNUPS_PER_HOUR, 3600):
-        return jsonify({"error": "too many new accounts from here in one hour — try again later"}), 429
     with closing(db()) as conn:
         init_db(conn)
+        # a server with an invite code set makes no account without it (wrong
+        # guesses are counted per address, like account codes)
+        if gr_master.door(conn)["code"]:
+            given = (data.get("door_code") or "").strip()
+            if not given:
+                return jsonify({"error": "This Music Room needs an invite code.", "need_code": True}), 403
+            if not gr_master.rate_ok("door:" + gr_master.asker(), 12, 600):
+                return jsonify({"error": "too many tries from here — wait ten minutes", "need_code": True}), 429
+            if not gr_master.door_code_ok(conn, given):
+                return jsonify({"error": "That invite code isn't right.", "need_code": True}), 403
+    if not gr_master.rate_ok("signup:" + gr_master.asker(), gr_master.SIGNUPS_PER_HOUR, 3600):
+        return jsonify({"error": "too many new accounts from here in one hour — try again later"}), 429
+    with closing(db()) as conn:
         base = _slug(name)
         handle, n = base, 2
         while conn.execute("SELECT 1 FROM gr_accounts WHERE handle=?", (handle,)).fetchone():
@@ -2237,6 +2253,12 @@ def main(argv=None):
     sub.add_parser("feedback", help="in-app feedback and bug reports, latest first")
     p_sim = sub.add_parser("sim", help="the credits trial: bring home / buy with credits (on | off | status)")
     p_sim.add_argument("switch", choices=("on", "off", "status"))
+    p_door = sub.add_parser("door", help="who may make an account, and where the server lives now (no options: say how it stands)")
+    p_door.add_argument("--code", help="new accounts need this invite code")
+    p_door.add_argument("--open", action="store_true", help="no invite code: anyone who reaches the server can make an account")
+    p_door.add_argument("--moved-to", help="the server's new https:// address: apps that ask this one follow it")
+    p_door.add_argument("--here", action="store_true", help="the server hasn't moved (clears --moved-to)")
+    p_door.add_argument("--show", action="store_true", help="print the invite code itself")
     p_run = sub.add_parser("run")
     p_run.add_argument("--host", default="0.0.0.0")
     p_run.add_argument("--port", type=int, default=5301)
@@ -2298,6 +2320,18 @@ def main(argv=None):
             for r in conn.execute("SELECT f.*, a.name FROM gr_feedback f LEFT JOIN gr_accounts a ON a.id=f.account_id"
                                   " ORDER BY f.at DESC LIMIT 200"):
                 print(f"{r['at'][:16]}  {(r['name'] or '—')[:16]:<16} {r['kind']:<9} {r['page'] or '':<22} {r['note'][:110]}")
+    elif args.cmd == "door":
+        with closing(db()) as conn:
+            init_db(conn)
+            gr_master.ensure(conn)
+            try:
+                d = gr_master.set_door(conn, "" if args.open else args.code,
+                                       "" if args.here else args.moved_to)
+            except ValueError as e:
+                raise SystemExit(str(e))
+            print("new accounts: " + ((f"need the invite code “{d['code']}”" if args.show else "need the invite code (--show prints it)")
+                                      if d["code"] else "anyone who reaches the server can make one"))
+            print("the server:   " + (f"has moved to {d['moved_to']} (apps asking here are told)" if d["moved_to"] else "lives here"))
     elif args.cmd == "sim":
         with closing(db()) as conn:
             init_db(conn)
@@ -2314,7 +2348,7 @@ def main(argv=None):
 
 
 def usage_rows():
-    """Per-account activity — David's view of the experiment."""
+    """Per-account activity — Daithí's view of the experiment."""
     with closing(db()) as conn:
         init_db(conn)
         out = []
@@ -2363,7 +2397,7 @@ import gr_master  # noqa: E402
 
 gr_master.register(app, sys.modules[__name__])
 
-# the credits trial — bring home, buy, take out, records from David's Spotify
+# the credits trial — bring home, buy, take out, records from Daithí's Spotify
 # playlist, the Spotify keys — lives in gr_sim.py
 import gr_sim  # noqa: E402
 

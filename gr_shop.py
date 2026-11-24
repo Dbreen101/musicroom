@@ -1,7 +1,7 @@
 """Record shopping on the rooms server — crates, the counter, blind listening.
 
 Three ways to come across a record, all of them only ever over records that
-can be BOUGHT here (gr_tracks), David 2026-11-16:
+can be BOUGHT here (gr_tracks), Daithí 2026-11-16:
 
   CRATES   a small, finite set of records (25 at most). A crate is either made
            by someone who sells here (a label, an artist, a shop, the Music
@@ -39,7 +39,7 @@ from pathlib import Path
 
 from flask import jsonify, request, send_file
 
-# ---------- the numbers (David's, 2026-11-16; blind's is a first guess) ----------
+# ---------- the numbers (Daithí's, 2026-11-16; blind's is a first guess) ----------
 CRATE_MAX = 25            # records in one crate
 CRATES_PER_DAY = 3        # crates one shopper is handed in a day
 ASKS_PER_DAY = 3          # questions one person may put to the counter in a day
@@ -148,7 +148,7 @@ def ensure(conn):
                 created_at TEXT NOT NULL, decided_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_gr_blind_who ON gr_blind(account_id, day);
-            -- one play (David, 2026-11-20: "whole records but only one play. If they want to hear
+            -- one play (Daithí, 2026-11-20: "whole records but only one play. If they want to hear
             -- it again they have to buy or borrow it"): who has heard which record in the shop
             CREATE TABLE IF NOT EXISTS gr_heard(
                 account_id INTEGER NOT NULL REFERENCES gr_accounts(id),

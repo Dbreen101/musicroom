@@ -1,4 +1,4 @@
-"""Proves the backup policy David asked for:
+"""Proves the backup policy Daithí asked for:
 - the routine (laptop) backup copies the database + metadata but NEVER audio
   ('I don't want music files on my laptop');
 - the full backup REFUSES any destination that isn't a mounted external volume

@@ -10,7 +10,7 @@ talks to (app.py only calls `register(app)`):
                             below it: pull a crate, the counter, blind, a
                             seller's own crates. Asks go through to the rooms
                             server and its answers come back as they are.
-  /api/gr/shop/play         ONE PLAY of a record (David, 2026-11-20: "whole records
+  /api/gr/shop/play         ONE PLAY of a record (Daithí, 2026-11-20: "whole records
                             but only one play. If they want to hear it again they
                             have to buy or borrow it"). Starting it asks the rooms
                             server for the listening copy — which marks it heard
@@ -22,7 +22,7 @@ talks to (app.py only calls `register(app)`):
                             is by, with the shopper's own line of why, onto the
                             wishlist.
 
-THE WISHLIST HOLDS 100 (David, 2026-11-16). A wish leaves by being taken out
+THE WISHLIST HOLDS 100 (Daithí, 2026-11-16). A wish leaves by being taken out
 or by the record being bought (green_room._wish_bought); bought ones stay on
 show as "owned" and no longer count. In the trial every way of adding to the
 wishlist is held to the 100 (app.py `_wish_full`).

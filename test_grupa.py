@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 _tmp = tempfile.TemporaryDirectory()
-os.environ["MUSICROOM_DATA"] = _tmp.name            # a fresh data dir — David's library stays out
+os.environ["MUSICROOM_DATA"] = _tmp.name            # a fresh data dir — Daithí's library stays out
 os.environ["SDL_AUDIODRIVER"] = "dummy"             # the mixer opens on nothing: silent
 os.environ.pop("MR_GREEN_ROOM", None)
 

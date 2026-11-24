@@ -2,7 +2,7 @@
 // record_shop.js — Record shopping (Explore's fifth door).
 //
 // Three ways to come across a record, and only ever a record that can be
-// bought in the Music Room (David, 2026-11-16):
+// bought in the Music Room (Daithí, 2026-11-16):
 //
 //   CRATES   — you are handed a crate: up to 25 records that a seller put
 //              together, or that the shop put together from its shelves by a
@@ -24,7 +24,7 @@
 //   RecordShop.open(tab) · .leave() (stops the sound) · .escape() (closes what is open; true if it did)
 //
 // record_shop.py is the app's side; gr_shop.py is the rooms server's.
-// The words are functional; David coins the real ones.
+// The words are functional; Daithí coins the real ones.
 // =============================================================
 window.RecordShop = (function () {
 'use strict';
@@ -58,7 +58,7 @@ const REC = new Map();              // every record painted, by its number
 // One player for the whole shop, in the page: it stops when you move to the
 // next record, leave the crate, or leave the shop. Its loudness follows the
 // deck's dial, and starting it quiets the deck.
-// ONE PLAY (David, 2026-11-20: "whole records but only one play. If they want to
+// ONE PLAY (Daithí, 2026-11-20: "whole records but only one play. If they want to
 // hear it again they have to buy or borrow it"): pressing Listen starts the one
 // play of that record — the whole of it, paused and carried on and moved through
 // as you like — and once it ends, or you move on, it is heard. The rooms server

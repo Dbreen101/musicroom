@@ -10,7 +10,7 @@ deck (static/js/snt_embed.js).
 Everything here uses the services' public, key-less doors only:
   Spotify      — oEmbed (title, cover) + the page's own tags (artist, length)
   SoundCloud   — oEmbed
-  Apple Music  — SWITCHED OFF (2026-11-14, David: "remove the apple music
+  Apple Music  — SWITCHED OFF (2026-11-14, Daithí: "remove the apple music
                  integration for the moment"). The recogniser is kept behind
                  ENABLED; add "apple" back to bring it home. Its deck player
                  was taken out of snt_embed.js (git: fc4f880 has it).

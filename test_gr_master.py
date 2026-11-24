@@ -76,9 +76,9 @@ chk(tries[:12] == [403] * 12 and tries[12] == 429, "one address gets twelve trie
 gr_master._rate.clear()
 
 # ── the master: made only from the server's own Terminal ──
-said = gr_master.make_master("David", handle="david")
-chk("master account" in said and code_of("david") in said, "the Terminal makes the master account and prints its code")
-mtok = join(code_of("david"), "mac-david")
+said = gr_master.make_master("Daithí", handle="daithi")
+chk("master account" in said and code_of("daithi") in said, "the Terminal makes the master account and prints its code")
+mtok = join(code_of("daithi"), "mac-daithi")
 chk(client.get("/api/me", headers=hdr(mtok)).get_json()["is_master"], "the master signs in like anyone and is known as the master")
 chk(client.get("/api/master/overview", headers=hdr(aoife)).status_code == 403 and client.get("/api/master/overview").status_code == 401,
     "nobody else can open the master's routes")
@@ -90,14 +90,14 @@ chk(ov["requests"] == 1 and ov["pending"] == 0, "the master sees one request wai
 # ── accounts: approve a request, pause, unpause ──
 accts = {a["handle"]: a for a in client.get("/api/master/accounts", headers=hdr(mtok)).get_json()["accounts"]}
 aid = accts["aoife"]["id"]
-chk(accts["aoife"]["kind_requested"] == "label" and accts["david"]["is_master"], "the list shows requests and the master")
+chk(accts["aoife"]["kind_requested"] == "label" and accts["daithi"]["is_master"], "the list shows requests and the master")
 r = client.post(f"/api/master/accounts/{aid}", json={"request": "approve"}, headers=hdr(mtok))
 chk(r.get_json()["account"]["kind"] == "label" and r.get_json()["account"]["kind_requested"] == "", "approving the request makes Aoife a label")
 client.post(f"/api/master/accounts/{aid}", json={"paused": True, "note": "talk to me"}, headers=hdr(mtok))
 chk(client.get("/api/me", headers=hdr(aoife)).status_code == 401, "a paused account can't sign in")
 client.post(f"/api/master/accounts/{aid}", json={"paused": False}, headers=hdr(mtok))
 chk(client.get("/api/me", headers=hdr(aoife)).status_code == 200, "unpaused, it signs in again")
-mid = accts["david"]["id"]
+mid = accts["daithi"]["id"]
 chk(client.post(f"/api/master/accounts/{mid}", json={"paused": True}, headers=hdr(mtok)).status_code == 400
     and client.post(f"/api/master/accounts/{mid}", json={"master": False}, headers=hdr(mtok)).status_code == 400,
     "the master can't pause itself or leave the server without a master")

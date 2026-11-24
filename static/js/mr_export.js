@@ -59,7 +59,7 @@ const DESTS = [
     accepts: t => t.type === 'place' || t.type === 'set',
     // Saved into the exports folder + revealed in Finder. NEVER an <a download>
     // click: the native WKWebView has no download handler, so that navigates
-    // to the raw XML and blanks the whole app (David hit this 2026-07-07).
+    // to the raw XML and blanks the whole app (Daithí hit this 2026-07-07).
     run: (t, ui) => {
       const url = (t.type === 'set' ? '/api/set/' : '/api/place/') + t.id + '/export/rekordbox?save=1';
       fetch(url).then(r => r.json()).then(r => {

@@ -1,7 +1,7 @@
 """
 plugins.py — plug-ins for exploring and discovering music.
 
-David, 2026-11-20, opening the code to the Green Room's fellows: "They should be
+Daithí, 2026-11-20, opening the code to the Green Room's fellows: "They should be
 able to build plug ins for music exploration and make their own algorithms for
 music discovery. They should not be able to access other user data or the
 servers that host the music artists are selling."
@@ -26,7 +26,7 @@ A plug-in is a folder:
 
 Where plug-ins come from
   · BUILT IN — the `plugins/` folder of the app's own code. These reach people
-    only through a pull request David has approved, then a release.
+    only through a pull request Daithí has approved, then a release.
   · YOUR OWN — `<app data>/plugins/<id>/`. They run only in your own app, are
     marked "yours — not reviewed", and are how a plug-in is made and tried.
 

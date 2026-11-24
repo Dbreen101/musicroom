@@ -2679,7 +2679,7 @@ body[data-density="2"] .track-card__art .card-overlay--postit { font-size: 0.8re
    Every page that isn't a per-place room (those re-skin to the place's own
    colour, so they're excluded) gets the warm near-black nav: cream/gold
    wordmark, gold active pill. Mirrors static/css/explore-theme.css so the top
-   bar is consistent app-wide. (David — narrow to Prototype 1) */
+   bar is consistent app-wide. (Daithí — narrow to Prototype 1) */
 /* (colours come from the theme tokens — themes.py — with the dark desk as the fallback) */
 body:not(.is-place):not(.is-well) .nav{
   background:var(--nav-bg, rgba(16,14,10,.92)) !important;

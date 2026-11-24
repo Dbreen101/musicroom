@@ -66,7 +66,7 @@ ADDED = (
 # By default a grúpa's cover is its NAME, set in type on a ground of colour —
 # one look shared by all of them (the app's display serif on the page's own
 # paper, until its owner chooses otherwise). A grúpa can have a look of its own,
-# or wear the picture of one of the things in it (David, 2026-11-15).
+# or wear the picture of one of the things in it (Daithí, 2026-11-15).
 # Only faces the app carries itself are offered, so a cover reads the same on
 # every laptop (static/css/record_fonts.css, deck_fonts.css).
 FONTS = ("Instrument Serif", "IBM Plex Mono", "Fraunces", "Young Serif", "Sorts Mill Goudy", "Nyght Serif",

@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 _tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)   # (Windows: a file still open at exit can't be removed)
 os.environ["MR_GR_DB"] = str(Path(_tmp.name) / "gr_test.db")
-os.environ["MR_LIBRARY_DB"] = str(Path(_tmp.name) / "no_library.db")   # keep David's library out
+os.environ["MR_LIBRARY_DB"] = str(Path(_tmp.name) / "no_library.db")   # keep Daithí's library out
 
 import gr_server
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -149,8 +149,9 @@ with closing(gr_server.db()) as conn:
     kinds = {r[0] for r in conn.execute("SELECT DISTINCT kind FROM gr_events")}
 chk({"join", "plan", "borrow", "return"} <= kinds, "the server logged join / plan / borrow / return on its own")
 ev = client.post("/api/events", json={"events": [{"kind": "page", "data": {"path": "/room"}, "at": "2026-10-21T10:00:00"},
+                                                  {"kind": "theme", "data": {"id": "ink"}},
                                                   {"kind": "play", "data": {"title": "x"}}]}, headers=hdr(tok))
-chk(ev.get_json()["stored"] == 2, "an app batch of events is stored")
+chk(ev.get_json()["stored"] == 2, "an app batch of events is stored (a play sent by an older app is dropped)")
 with closing(gr_server.db()) as conn:
     row = conn.execute("SELECT * FROM gr_events WHERE kind='page' ORDER BY id DESC LIMIT 1").fetchone()
 chk(row["at"] == "2026-10-21T10:00:00" and row["device_id"] is not None, "app events keep the app's time and the device")
@@ -168,7 +169,7 @@ chk(su2.get_json()["handle"] == "new-resident-2", "a second profile with the sam
 chk(client.get("/api/me", headers=hdr(su.get_json()["token"])).get_json()["name"] == "New Resident", "the signup token works")
 chk(client.post("/api/signup", json={"name": "", "fingerprint": "x"}).status_code == 400, "signup needs a name")
 
-# --- usage: David's per-person view ---
+# --- usage: Daithí's per-person view ---
 rows = gr_server.usage_rows()
 me_row = next(r for r in rows if r["name"] == "Test Resident")
 chk(me_row["plan"] == "a" and me_row["borrows"] >= 1 and me_row["devices"] == 2 and me_row["last_seen"], "usage rows carry plan, borrows, devices, last seen")

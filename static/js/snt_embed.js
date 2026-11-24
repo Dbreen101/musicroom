@@ -11,7 +11,7 @@
 //       by the server (spotify_remote.py). Nothing plays in this page and
 //       nothing is drawn here: the deck's own label carries a small Spotify
 //       mark that says where the sound is and opens Spotify (seinnteoir.js —
-//       David, 2026-11-15: no bar above the player). The same goes for the
+//       Daithí, 2026-11-15: no bar above the player). The same goes for the
 //       'guest': the listener's Spotify playing something of its own while
 //       the deck rests — the deck's keys drive it.
 //   state.embed_via === 'page' — the service's own player on a slip beside

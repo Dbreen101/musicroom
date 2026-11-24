@@ -1,7 +1,7 @@
 """
 gr_master.py — the master account, and the guardrails the rooms server keeps.
 
-David, 2026-11-20, launching to the Green Room's twenty fellows with the code
+Daithí, 2026-11-20, launching to the Green Room's twenty fellows with the code
 open: everyone makes their own account (a listener); there are also artist,
 label, venue, business and shop accounts; and he has a MASTER account. People
 may shape their own rooms and build plug-ins, but may not reach anyone else's
@@ -185,13 +185,91 @@ def set_setting(conn, key, value):
 _rate, _rate_lock = {}, threading.Lock()
 
 
+# What a relay in front of the server (a tunnel, Caddy, any reverse proxy) adds
+# to a request it passes on. The master's own app, on the server's own computer,
+# talks to it directly and sends none of these.
+PASSED_ON = ("X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Forwarded-Port",
+             "Forwarded", "Via", "X-Real-IP", "CF-Connecting-IP", "CF-Ray", "True-Client-IP",
+             "Tailscale-User-Login", "Tailscale-Funnel-Request")
+_HERE = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
+
+def passed_on():
+    """True when this request reached the server through a relay."""
+    return any(request.headers.get(h) for h in PASSED_ON)
+
+
+def asker():
+    """The address a request really came from. Through a relay on this
+    computer every request arrives from 127.0.0.1, so there the relay's own
+    note of who it took it from is used: the LAST address in X-Forwarded-For
+    (the one the relay itself wrote; a visitor can't forge it). A request that
+    came straight in is taken at its own address, whatever its headers say."""
+    peer = request.remote_addr or "?"
+    if peer in _HERE:
+        for h in ("X-Forwarded-For", "CF-Connecting-IP", "True-Client-IP", "X-Real-IP"):
+            last = (request.headers.get(h) or "").split(",")[-1].strip()
+            if last:
+                return last[:64]
+    return peer
+
+
 def master_here():
-    """The master's routes answer only on the server's own Mac (its app talks
-    to the server at 127.0.0.1): even a master's code copied off somewhere
-    can't be used from another laptop. MR_MASTER_ANYWHERE=1 lifts this."""
+    """The master's routes answer only on the server's own computer (its app
+    talks to the server at 127.0.0.1): even a master's code copied off somewhere
+    can't be used from another laptop. Behind a tunnel or a reverse proxy every
+    visitor ARRIVES from 127.0.0.1, so that alone is not enough: the request
+    must also have come straight in (nothing a relay adds), asking for this
+    computer by its own name. MR_MASTER_ANYWHERE=1 lifts all of it."""
     if os.environ.get("MR_MASTER_ANYWHERE") == "1":
         return True
-    return (request.remote_addr or "") in ("127.0.0.1", "::1")
+    if (request.remote_addr or "") not in _HERE or passed_on():
+        return False
+    host = (request.host or "").lower()
+    host = host.split("]")[0].lstrip("[") if host.startswith("[") else host.rsplit(":", 1)[0]   # [::1]:5300
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
+# ---------- the door: who may make an account, and where the server lives now ----------
+
+def door(conn):
+    """{code, moved_to}. `code`: with one set, a new account needs it (a server
+    anyone on the internet can reach should have one). `moved_to`: the server's
+    new address; apps that ask this one are told, and follow."""
+    d = setting(conn, "door", {}) or {}
+    return {"code": str(d.get("code") or ""), "moved_to": str(d.get("moved_to") or "")}
+
+
+def door_code_ok(conn, given):
+    want = door(conn)["code"]
+    return (not want) or secrets_equal(_fold_code(given), _fold_code(want))
+
+
+def _fold_code(v):
+    return "".join(str(v or "").split()).lower()
+
+
+def secrets_equal(a, b):
+    import hmac
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+def set_door(conn, code=None, moved_to=None):
+    """Change the invite code and / or the new address ('' clears one; None
+    leaves it). → the door, or raises ValueError with words for a person."""
+    d = door(conn)
+    if code is not None:
+        code = " ".join(str(code).split())[:80]
+        if code and len(_fold_code(code)) < 6:
+            raise ValueError("an invite code needs at least six letters or numbers")
+        d["code"] = code
+    if moved_to is not None:
+        moved_to = str(moved_to).strip().rstrip("/")[:300]
+        if moved_to and not moved_to.startswith("https://"):
+            raise ValueError("the new address should start with https://")
+        d["moved_to"] = moved_to
+    set_setting(conn, "door", d)
+    return d
 
 
 def rate_ok(key, most, window_s):
@@ -335,9 +413,12 @@ def register(app, server):
         with closing(S.db()) as conn:
             ensure(conn)
             v = setting(conn, "app_version", {}) or {}
+            d = door(conn)
         return jsonify({"version": v.get("version") or "", "url": v.get("url") or "",
                         "note": v.get("note") or "", "at": v.get("at") or "",
-                        "house_rules": HOUSE_RULES_VERSION})
+                        "house_rules": HOUSE_RULES_VERSION,
+                        # (never the code itself: only that one is needed)
+                        "invite": bool(d["code"]), "moved_to": d["moved_to"]})
 
     # ── anyone signed in: report something ──
     @app.post("/api/report")
@@ -397,7 +478,23 @@ def register(app, server):
                 "reports": one("SELECT COUNT(*) FROM gr_reports WHERE status='open'"),
                 "feedback": one("SELECT COUNT(*) FROM gr_feedback WHERE COALESCE(status,'open')='open'"),
                 "version": setting(conn, "app_version", {}) or {},
+                "door": door(conn),
             })
+        return signed_in(go, master=True)
+
+    @app.post("/api/master/door")
+    def m_door():
+        """The invite code new accounts need, and the server's new address."""
+        d = request.get_json(force=True, silent=True) or {}
+
+        def go(conn, acct):
+            try:
+                out = set_door(conn, d.get("code") if "code" in d else None,
+                               d.get("moved_to") if "moved_to" in d else None)
+            except ValueError as e:
+                return no(str(e))
+            S._event(conn, acct["id"], "master_door", {"code": bool(out["code"]), "moved_to": out["moved_to"]})
+            return jsonify(out)
         return signed_in(go, master=True)
 
     @app.get("/api/master/accounts")

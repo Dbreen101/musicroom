@@ -1,6 +1,6 @@
 # How Explore actually works — the plain-language construction notes
 
-_2026-07-04. Written for David — the first of the "understand everything you
+_2026-07-04. Written for Daithí — the first of the "understand everything you
 built" notes. No syntax needed; every claim checked against the code that day._
 
 ## The one-paragraph version

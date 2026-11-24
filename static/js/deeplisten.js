@@ -13,7 +13,7 @@
      the track panel's PRESSABLE controls: things fill, breathe, lift and squash.
      Timestamps come off the server player's live position — moving between the
      lenses never pauses the music. */
-  /* Éisteacht fills the whole screen (David). The cassette hides while it's open
+  /* Éisteacht fills the whole screen (Daithí). The cassette hides while it's open
      — Éisteacht IS the player here (its own transport + cue). */
   #r3d-eist{ position:fixed; inset:0; z-index:16;
     --eg:#f5e6b0; --ei:#efe6cf; --em:#9a8c6c; --eline:rgba(255,255,255,.08); --efill:rgba(255,255,255,.06);
@@ -469,7 +469,7 @@
       fetch('/api/seinnteoir/play_at',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idx:i})}).then(()=>{qLast='';_after();}); });
     q.querySelectorAll('.eis-qrow__x').forEach(el=> el.onclick=(e)=>{ e.stopPropagation(); const i=+el.dataset.x;
       fetch('/api/seinnteoir/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idx:i})}).then(()=>{qLast='';_after();}); });
-    // drag-to-reorder the cue (David)
+    // drag-to-reorder the cue (Daithí)
     const listEl=$('eis-qlist');
     if (listEl && queue.length>1) ensureSortable(()=>{
       if (eisSortable){ try{eisSortable.destroy();}catch(_){} eisSortable=null; }
@@ -525,7 +525,7 @@
   // ── open / close ────────────────────────────────────────────────────────────
   // No minimize: you flick between Just Listen / Éisteacht / Seinnteoir from the
   // CASSETTE itself, so exiting Éisteacht simply closes it and leaves the
-  // cassette. (David)
+  // cassette. (Daithí)
   function _fuse(){ document.body.classList.toggle('r3d-eist-open', panelOpen); }   // hide the cassette while open
   async function eisOpen(){
     if (panelOpen) return; panelOpen=true; active=true;

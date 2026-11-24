@@ -160,7 +160,7 @@ class SeinnteoirPlayer:
             if data.get("ui_mode") in ("open", "min", "closed"):
                 self.ui_mode = data["ui_mode"]
             # …but the app never LAUNCHES with the full bar covering the room
-            # (David, 2026-07-10): a cue remembered from last time comes back
+            # (Daithí, 2026-07-10): a cue remembered from last time comes back
             # as the folded ♫-tab. Opening it is the user's gesture — the tab,
             # cueing a track, or Tools → Player.
             if self.ui_mode == "open":
@@ -340,16 +340,8 @@ class SeinnteoirPlayer:
             pass
 
     def _evt_open_locked(self, item):
-        # the trial's activity log (server-side, per person): every start
-        try:
-            from green_room import track as _gr_track
-            _gr_track("play", {"track_id": item.get("track_id"), "title": item.get("title"),
-                               "artist": item.get("artist"), "kind": item.get("kind") or "track",
-                               "source": item.get("source") or None,
-                               "via": (self._via or None) if item.get("kind") == "embed" else None,
-                               "place": item.get("place_name") or None})
-        except Exception:
-            pass
+        # (A play is noted on this laptop only. Until 2026-11-24 the trial also
+        # told the rooms server each one; what you play in your own room is yours.)
         # Remote stream items aren't library tracks — nothing to log against.
         if not item or item.get("kind") == "stream" or not item.get("track_id"):
             self._evt = None

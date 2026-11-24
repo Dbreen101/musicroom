@@ -1,7 +1,7 @@
 /* explore_map.js — the Map in Explore: Ireland and Britain (and the small map
    on /myroom where a room's owner says where the room is).
 
-   David, 2026-11-16: the Music Room starts in Ireland and the UK — independent
+   Daithí, 2026-11-16: the Music Room starts in Ireland and the UK — independent
    artists and labels there — so Explore's globe gives way to a detailed map of
    the two islands. Everything there is to visit that says where it is (music
    rooms; the catalogue's publications, stations and websites) sits on the map
@@ -15,7 +15,7 @@
      · land and water only. No borders are drawn and no countries are named
      · an equal-area drawing (Lambert's, centred between the two islands):
        a square of it stands for the same amount of ground anywhere on it
-     · it opens with NORTH at the top (David, 2026-11-16: "you can make the map
+     · it opens with NORTH at the top (Daithí, 2026-11-16: "you can make the map
        north and south orientation if we are not using the globe" — south-up was
        for the globe). One press still turns it (the key in the panel, or Look),
        and it stays how it was left
@@ -23,7 +23,7 @@
      · things that would sit on top of each other gather into one mark with a
        count; going closer pulls them apart; things at one spot open as a list
      · the panel on the left narrows by kind and by words
-   and how it is dressed (David, 2026-11-16: "the user should be able to have
+   and how it is dressed (Daithí, 2026-11-16: "the user should be able to have
    different skins/themes for the ireland uk map too"):
      · a SKIN is four colours — the sea, the land, the lines, the writing — and
        a way of filling the land (flat, in dots, ruled). Some skins follow the

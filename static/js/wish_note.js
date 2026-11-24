@@ -14,7 +14,7 @@
 //   WishNote.save(record, why, found)                  → {ok, noted?, wish?, error?, full?}
 //   WishNote.close()
 //
-// The words are functional; David coins the real ones.
+// The words are functional; Daithí coins the real ones.
 // =============================================================
 window.WishNote = (function () {
 'use strict';

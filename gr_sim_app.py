@@ -12,7 +12,7 @@ server; 2026-11-20).
     /api/gr/sim/mine      everything this person has from the shop, as records
     /api/gr/sim/record/<key>     one record, whole, with what it would cost
     /api/gr/sim/played    "I pressed play on one of my shop records" (the log)
-    /api/gr/sim/sync      the MASTER's app reads David's playlist and sends its
+    /api/gr/sim/sync      the MASTER's app reads Daithí's playlist and sends its
                           records to the server: every album / single a
                           playlist track is on, whole (a compilation: just the
                           track). Also every hour, by itself, while this app

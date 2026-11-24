@@ -1686,7 +1686,7 @@ def run_migration():
         changes += 1
 
     # ------------------------------------------------------------------
-    # WISHLIST BUCKETS — David's three boxes replace the single list. They sort
+    # WISHLIST BUCKETS — Daithí's three boxes replace the single list. They sort
     # by FEELING, orthogonal to status (the buy-funnel: wishing/supported/passed):
     #   'another_listen' — "I'll have another listen" (the staple; the default)
     #   'need_now'       — "I need this now!"
@@ -1954,7 +1954,7 @@ def run_migration():
         cursor.execute("ALTER TABLE tester_feedback ADD COLUMN account_id TEXT")
         print("  ✓ tester feedback: account_id")
         changes += 1
-    # outbox: when set, the row has been pushed to David's collection endpoint
+    # outbox: when set, the row has been pushed to Daithí's collection endpoint
     if table_exists(cursor, "tester_feedback") and not column_exists(cursor, "tester_feedback", "sent_at"):
         cursor.execute("ALTER TABLE tester_feedback ADD COLUMN sent_at TEXT")
         print("  ✓ tester feedback: sent_at (outbox)")
@@ -1964,7 +1964,7 @@ def run_migration():
     # the Music Room: the running order (set_tracks), a SCRIPT, research
     # (existing sets.research), show links, and a per-track PUBLIC note for
     # the published descriptive tracklist (who made it, why it's here —
-    # David talks over nothing on air; the tracklist does the telling).
+    # Daithí talks over nothing on air; the tracklist does the telling).
     if not column_exists(cursor, "sets", "script"):
         cursor.execute("ALTER TABLE sets ADD COLUMN script TEXT")
         print("  ✓ radio shows: sets.script")

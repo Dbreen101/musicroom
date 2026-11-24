@@ -5,7 +5,7 @@ Thank you. A few things first.
 ## How changes go in
 
 - The Music Room's `main` branch is protected. Nobody pushes to it directly:
-  every change is a **pull request**, and it goes in only once David (the
+  every change is a **pull request**, and it goes in only once Daithí (the
   Music Room's maker) has approved it.
 - Approved changes reach people in a **release** — a tagged version with the
   apps on the Releases page. Every release is kept, so any of them can be

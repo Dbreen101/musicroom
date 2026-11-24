@@ -1,4 +1,4 @@
-"""Proves the portable-drive DB resolution David asked for:
+"""Proves the portable-drive DB resolution Daithí asked for:
 - if the LOCAL computer has a database, use it;
 - if it has NONE, fall back to the database on a plugged-in Music Room drive
   (/Volumes/*/Music Room — App Data/library.db) — so the drive is portable:

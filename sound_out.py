@@ -1,6 +1,6 @@
 """sound_out.py — where this computer's sound goes, and the speakers it could go to.
 
-David, 2026-11-14: "connect to bluetooth and wifi devices such as speakers
+Daithí, 2026-11-14: "connect to bluetooth and wifi devices such as speakers
 directly from in the app like the spotify app."
 
 Everything the app plays comes out of the Mac's ONE chosen sound output: the

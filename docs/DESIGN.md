@@ -1,6 +1,6 @@
 # The look — the working document
 
-David's deck (Oct 2026, "The Music Room — a working document") is the
+Daithí's deck (Oct 2026, "The Music Room — a working document") is the
 reference for everything a person sees. The app is that document, page by page.
 
 ## The language

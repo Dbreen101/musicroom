@@ -2,7 +2,7 @@
 """
 tools/publish_public.py — make the PUBLIC copy of the Music Room's code.
 
-David, 2026-11-20: the code goes open (AGPL-3.0) in a new, clean GitHub repo;
+Daithí, 2026-11-20: the code goes open (AGPL-3.0) in a new, clean GitHub repo;
 this private repo stays as it is, with the business documents, the thesis, the
 notes for Claude and the whole history. This tool copies the code across —
 everything git tracks here EXCEPT the private things listed in PRIVATE — into a
@@ -13,7 +13,7 @@ local clone of the public repo, and makes one commit there.
     python3 tools/publish_public.py -m "…" --push      …and push to GitHub
 
 It refuses to run when the public repo has changes this copy hasn't taken in
-yet (a pull request David merged on GitHub): take those in first with
+yet (a pull request Daithí merged on GitHub): take those in first with
 tools/take_public.sh, so publishing never undoes someone's work.
 
 The public repo's clone: MR_PUBLIC_REPO (default ~/Projects/musicroom).
@@ -31,7 +31,7 @@ HERE = Path(__file__).resolve().parent.parent
 PUBLIC = Path(os.environ.get("MR_PUBLIC_REPO", Path.home() / "Projects" / "musicroom"))
 
 # never published: business, the residency's private papers, notes for Claude, tester paperwork,
-# pictures of David's own library, one-off scripts for his own machine
+# pictures of Daithí's own library, one-off scripts for his own machine
 PRIVATE = [
     "CLAUDE.md", "BUSINESS.md", "HANDOFF.md", "HANDOFF_PROMPT.md", "TODO.md", "VISION.md",
     "P1_GAP_AUDIT.md", "P1_JULY7_PLAN.md", "P1_MUST_HAVES.md",

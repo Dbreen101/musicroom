@@ -1,7 +1,7 @@
 // sim_shop.js — the credits trial wherever a record from the shop is shown
 // (gr_sim.py on the rooms server, gr_sim_app.py in the app; 2026-11-20).
 //
-// David: "Bring home to Music Room" replaces borrowing (the name is his working
+// Daithí: "Bring home to Music Room" replaces borrowing (the name is his working
 // one — "need to change this phrasing later"); a record can also be bought
 // outright, straight away or for the difference once it is home; everyone has
 // credits; the room holds so many brought-home tracks; a track taken out comes

@@ -2,7 +2,7 @@
 map_look.py — how the listener has dressed the Map in Explore.
 
 The Map of Ireland and Britain (static/js/explore_map.js) can wear different
-SKINS — David, 2026-11-16: "the user should be able to have different
+SKINS — Daithí, 2026-11-16: "the user should be able to have different
 skins/themes for the ireland uk map too". The skins themselves are drawn by
 the page. This file keeps the CHOICE:
 

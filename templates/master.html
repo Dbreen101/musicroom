@@ -232,7 +232,7 @@ async function feedback() {
 // ── the version everyone should be on ──
 async function version() {
     const r = await api('overview');
-    const v = (r.d && r.d.version) || {};
+    const v = (r.d && r.d.version) || {}, door = (r.d && r.d.door) || {};
     body.innerHTML = `
       <p class="gr-lede" style="max-width:640px">This app is version <code>{{ app_version or '—' }}</code>.</p>
       <form class="ms-form" id="ms-ver">
@@ -241,7 +241,17 @@ async function version() {
         <label for="v-note">A line about it</label><input id="v-note" value="${esc(v.note || '')}" placeholder="What changed, in a few words">
         <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
       </form>
-      ${v.at ? `<p class="ms-row__s">Last set ${when(v.at)}.</p>` : ''}`;
+      ${v.at ? `<p class="ms-row__s">Last set ${when(v.at)}.</p>` : ''}
+      <form class="ms-form" id="ms-door" style="margin-top:34px">
+        <label for="d-code">Invite code for new accounts</label><input id="d-code" value="${esc(door.code || '')}" placeholder="empty: anyone who reaches the server can make an account" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label for="d-moved">The server's new address</label><input id="d-moved" value="${esc(door.moved_to || '')}" placeholder="empty: it lives here. https://… and every app follows it" autocapitalize="off" spellcheck="false">
+        <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
+      </form>`;
+    document.getElementById('ms-door').addEventListener('submit', async e => {
+        e.preventDefault();
+        const out = await api('door', { code: document.getElementById('d-code').value, moved_to: document.getElementById('d-moved').value });
+        said.textContent = out.ok ? 'Saved.' : out.d.error;
+    });
     document.getElementById('ms-ver').addEventListener('submit', async e => {
         e.preventDefault();
         const out = await api('version', { version: document.getElementById('v-version').value, url: document.getElementById('v-url').value, note: document.getElementById('v-note').value });
@@ -320,7 +330,7 @@ async function spotify() {
       <div id="k-list">${keys.map(k => `<div class="ms-line" data-key="${esc(k.id)}"><input data-f="label" value="${esc(k.label)}" style="flex:0 1 180px" aria-label="Name">
           <input data-f="client_id" value="${esc(k.client_id)}" aria-label="Client ID"><span class="ms-row__s">${k.people.length} of ${d.per_key}</span>
           <button class="ms-btn ms-btn--red" data-kx>Remove</button></div>`).join('') || '<p class="ms-none">No keys yet.</p>'}</div>
-      <div class="ms-line"><input id="k-label" placeholder="a name, e.g. David's app" style="flex:0 1 180px" aria-label="Name"><input id="k-cid" placeholder="Client ID (32 letters and numbers)" aria-label="Client ID">
+      <div class="ms-line"><input id="k-label" placeholder="a name, e.g. Daithí's app" style="flex:0 1 180px" aria-label="Name"><input id="k-cid" placeholder="Client ID (32 letters and numbers)" aria-label="Client ID">
         <button class="ms-btn" id="k-add">Add</button><button class="ms-btn ms-btn--go" id="k-save">Save keys</button></div>
       <h2 class="ms-h2">Who has which</h2>
       ${d.people.map(p => `<div class="ms-row"><div><div class="ms-row__t">${esc(p.name)}</div><div class="ms-row__s">@${esc(p.handle)} · ${esc(p.kind)}</div></div>

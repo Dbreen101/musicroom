@@ -10,7 +10,7 @@
 //
 //   CrateMaker.mount(host)
 //
-// The words are functional; David coins the real ones.
+// The words are functional; Daithí coins the real ones.
 // =============================================================
 window.CrateMaker = (function () {
 'use strict';

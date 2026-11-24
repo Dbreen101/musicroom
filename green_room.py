@@ -70,6 +70,48 @@ def _headers(conn):
     return {"Authorization": f"Bearer {tok}"} if tok else {}
 
 
+def _this_computer(url):
+    """True when a server address names this computer itself."""
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
+def follow_move(new_url):
+    """The rooms server says it lives at another address now: go there, if it
+    really is the same Music Room. → True when this app moved.
+
+    Only ever to an https:// address, and only once that address has accepted
+    THIS app's sign-in (so it holds the same accounts: a made-up address can't
+    answer that). An app that talks to a server on its own computer stays put —
+    that is the master's own app, beside the server. Never raises."""
+    new_url = (new_url or "").strip().rstrip("/")
+    if not new_url.startswith("https://") or len(new_url) > 300:
+        return False
+    try:
+        with closing(_db()) as conn:
+            now = _server_url(conn)
+            head = _headers(conn)
+            if not head or not now or now == new_url or _this_computer(now):
+                return False
+            try:
+                r = requests.get(new_url + "/api/me", headers=head, timeout=_TIMEOUT)
+            except requests.RequestException:
+                return False
+            if r.status_code != 200:
+                return False
+            _set_setting(conn, "gr_server_url", new_url)
+            _set_setting(conn, "gr_server_url_before", now)
+            conn.commit()
+        track("server_moved", {"from": now, "to": new_url})
+        return True
+    except Exception:
+        return False
+
+
 def _fingerprint(conn):
     """A stable id for THIS install — the server's device limit keys on it."""
     fp = _get_setting(conn, "gr_fingerprint")
@@ -556,7 +598,7 @@ def _inside(folder, fname):
     return dest                          # (as the app writes paths elsewhere — not Windows' long form of it)
 
 
-def signup(server_url, name, device_name="", kind="listener", agreed=False):
+def signup(server_url, name, device_name="", kind="listener", agreed=False, door_code=""):
     """Make a profile on the server (no invite) and sign this laptop in. Every
     new account is a listener; any other `kind` goes to the master as a
     request (gr_master.py). `agreed`: the house rules were read and agreed to."""
@@ -572,12 +614,18 @@ def signup(server_url, name, device_name="", kind="listener", agreed=False):
             r = requests.post(server_url + "/api/signup",
                               json={"name": name, "fingerprint": fp,
                                     "kind_requested": kind if kind and kind != "listener" else "",
-                                    "agreed": bool(agreed), "device_name": device_name or "laptop"},
+                                    "agreed": bool(agreed), "device_name": device_name or "laptop",
+                                    "door_code": (door_code or "").strip()},
                               timeout=_TIMEOUT)
         except requests.RequestException:
             raise GRError("that address didn't answer — is the server running?")
         if r.status_code != 200:
-            raise GRError(_err_of(r, "the server wouldn't make the profile"))
+            e = GRError(_err_of(r, "the server wouldn't make the profile"))
+            try:
+                e.need_code = bool(r.json().get("need_code"))     # (the front door then asks for the invite code)
+            except ValueError:
+                e.need_code = False
+            raise e
         d = r.json()
         _set_setting(conn, "gr_server_url", server_url)
         _set_setting(conn, "gr_token", d["token"])
@@ -607,9 +655,16 @@ def has_plan():
 # App-side events queue locally and go up in batches; the server logs its
 # own (borrow, buy, room views…). Nothing here is sent unless signed in.
 
+# What is never noted for the server: what a person plays in their own room
+# stays on their own laptop (Daithí, 2026-11-24).
+NEVER_SENT = ("play",)
+
+
 def track(kind, data=None):
     """Note something the person did. Never raises, never blocks."""
     import json
+    if str(kind) in NEVER_SENT:
+        return
     try:
         with closing(_db()) as conn:
             conn.execute("INSERT INTO gr_events_outbox(kind, data) VALUES(?,?)",

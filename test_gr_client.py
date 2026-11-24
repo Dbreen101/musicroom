@@ -15,7 +15,7 @@ _tmp = tempfile.TemporaryDirectory()
 TMP = Path(_tmp.name)
 os.environ["MR_GR_DB"] = str(TMP / "gr_server.db")      # the server's db
 os.environ["MUSICROOM_DATA"] = str(TMP / "app_data")    # the app's data dir
-os.environ["MR_LIBRARY_DB"] = str(TMP / "no_library.db")   # keep David's library out
+os.environ["MR_LIBRARY_DB"] = str(TMP / "no_library.db")   # keep Daithí's library out
 (TMP / "app_data").mkdir()
 
 fails = []
@@ -250,14 +250,16 @@ with closing(appdb()) as c:
     queued_before = c.execute("SELECT COUNT(*) FROM gr_events_outbox").fetchone()[0]
 chk(queued_before >= 3, "basket / offload / redownload activity queued along the way")
 green_room.track("page", {"path": "/room"})
-green_room.track("play", {"title": "Tide", "kind": "borrow"})
+green_room.track("theme", {"id": "ink"})
+green_room.track("play", {"title": "Tide", "kind": "borrow"})      # what you play is never noted for the server
 with closing(appdb()) as c:
-    chk(c.execute("SELECT COUNT(*) FROM gr_events_outbox").fetchone()[0] == queued_before + 2, "two more events queued locally")
+    chk(c.execute("SELECT COUNT(*) FROM gr_events_outbox").fetchone()[0] == queued_before + 2, "two more events queued locally (a play is not one)")
 chk(green_room.flush_events() == queued_before + 2, "flush sends everything queued")
 with closing(appdb()) as c:
     chk(c.execute("SELECT COUNT(*) FROM gr_events_outbox").fetchone()[0] == 0, "…and empties the queue")
 with closing(gr_server.db()) as c:
-    chk(c.execute("SELECT COUNT(*) FROM gr_events WHERE kind IN ('page','play')").fetchone()[0] == 2, "the server has the page + play")
+    chk(c.execute("SELECT COUNT(*) FROM gr_events WHERE kind IN ('page','theme')").fetchone()[0] == 2
+        and c.execute("SELECT COUNT(*) FROM gr_events WHERE kind='play'").fetchone()[0] == 0, "the server has the page + the theme, and no play")
     chk(c.execute("SELECT COUNT(*) FROM gr_events WHERE kind='basket_add'").fetchone()[0] >= 1, "…and the basket activity")
 chk(green_room.send_feedback("idea", "a thought from the app", "/room") is True, "feedback forwards to the server")
 with closing(gr_server.db()) as c:

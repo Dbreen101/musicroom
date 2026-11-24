@@ -1,7 +1,7 @@
 """grupa_folder.py — a grúpa as a FOLDER of files, to drag into Ableton, Serato,
 rekordbox or anything else that takes audio files.
 
-David, 2026-11-16: "export all the tracks in a grupa that i own on my machine
+Daithí, 2026-11-16: "export all the tracks in a grupa that i own on my machine
 to a folder called the name of the grupa… without moving the audio files from
 their original place… and without also copying and duplicating the files… If
 not then create a copy but notify the user that this will be the case."

@@ -6,7 +6,7 @@
    thing that doesn't is UNIVERSAL: it belongs to no one place, and goes round
    the globe on a ring.
 
-   What the globe deliberately is (David, 2026-11-14: "a decolonised globe"):
+   What the globe deliberately is (Daithí, 2026-11-14: "a decolonised globe"):
      · no borders, no countries, no country names. Land and water only, read
        from a small land/water picture (static/data/globe_land.png)
      · land is an EQUAL-AREA lattice of dots (a Fibonacci spiral): every dot

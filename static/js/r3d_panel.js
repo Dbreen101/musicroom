@@ -1,7 +1,7 @@
 // =============================================================
 // r3d_panel.js — the track detail panel, drawn NATIVELY inside the 3D room
 // instead of an iframe over /place?panelonly=1 (the "2D pop-up over the world"
-// feel David rejected). Same backend contract as place.html: one payload from
+// feel Daithí rejected). Same backend contract as place.html: one payload from
 // GET /api/track/<id>, edits as small POSTs to the SAME frozen endpoints.
 //
 // PORT (see project_native_panel memory). Behind window.MR_NATIVE_PANEL.

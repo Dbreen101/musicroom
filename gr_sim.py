@@ -1,7 +1,7 @@
 """
 gr_sim.py — the Green Room's simulation of the Music Room's shop (2026-11-20).
 
-David: "We are going to simulate the record borrowing … The only model is going
+Daithí: "We are going to simulate the record borrowing … The only model is going
 to be [bringing] a record [home] and you can only play the record on the app …
 'Bring home to Music Room' (need to change this phrasing later) … Users can buy
 the audio file outright … we create fake artist accounts that are selling
@@ -14,7 +14,7 @@ to bring it home first. Bring home has replaced borrow." And: "you can
 undownload and then redownload any time … when you undownload a record you
 can't redownload it for a week."
 
-    the records    come from ONE public Spotify playlist David owns. His own app
+    the records    come from ONE public Spotify playlist Daithí owns. His own app
                    (signed in to Spotify, and to this server as the master)
                    reads it and sends each record it finds — the WHOLE album or
                    single a playlist track is on — here (/api/master/sim/records).

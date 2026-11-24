@@ -2,7 +2,7 @@
 source_catalogue.py — the ship-with, searchable catalogue of sources + discovery
 tools the user browses when ADDING a source.
 
-The point (David, 2026-06-25): you shouldn't need to know a site's name. Search
+The point (Daithí, 2026-06-25): you shouldn't need to know a site's name. Search
 the *vibe* — "photo discovery", "deep listening", "world map" — and the catalogue
 surfaces matching publications, stations, blogs, newsletters and discovery tools,
 each one-tap addable to your Explore. Link-out by default; a `feed_url` is present
