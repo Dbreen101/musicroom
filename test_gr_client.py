@@ -196,6 +196,14 @@ chk(sale["bought"] is True, "buy accepted")
 chk(Path(sale["path"]).exists() and Path(sale["path"]).read_bytes() == original,
     "the PLAIN file landed, byte-identical to the pool's original")
 chk(str(green_room.GR_DIR / "bought") in sale["path"], "with no library folder set, bought files go under the app's data")
+# with a music folder chosen, a bought file goes straight into it, by artist
+_lib = Path(os.environ["MUSICROOM_DATA"]) / "My Music"; _lib.mkdir(exist_ok=True)
+with closing(appdb()) as c:
+    c.execute("INSERT OR REPLACE INTO settings(key, value) VALUES('library_dest', ?)", (str(_lib),)); c.commit()
+    chk(green_room._purchase_dir(c) == _lib, "with a music folder chosen, bought files go into it (by artist, like the rest)")
+    c.execute("UPDATE settings SET value=? WHERE key='library_dest'", (str(_lib / "not plugged in"),)); c.commit()
+    chk(green_room._purchase_dir(c) == green_room.GR_DIR / "bought", "a music folder that is away (a drive unplugged) falls back to the app's own folder")
+    c.execute("DELETE FROM settings WHERE key='library_dest'"); c.commit()
 chk(not Path(b3["file_path"]).exists(), "the locked file is gone")
 with closing(appdb()) as c:
     t3 = c.execute("SELECT * FROM tracks WHERE id=?", (tid3,)).fetchone()

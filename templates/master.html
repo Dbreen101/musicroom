@@ -364,7 +364,7 @@ async function activity() {
           <td>${p.spent_home}</td><td>${p.spent_buy}</td><td>${p.given}</td><td>${p.home_now}</td><td>${p.bought}</td><td>${p.taken_out}</td>
           <td>${p.room_count} / ${p.room_space}</td><td>${p.full_refused}</td><td>${p.buys_when_full}</td><td>${p.short_refused}</td><td>${p.plays}</td><td>${p.one_plays}</td><td>${when(p.last) || '—'}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="ms-row__s">Plays are counted when a record is started from “From the shop” or a public room.</p>`;
+      <p class="ms-row__s">Plays are counted when a record is started from “Borrowed”, the listener’s records or a public room.</p>`;
 }
 overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version', 'trial', 'spotify', 'activity'].includes(TAB) ? TAB : 'accounts'); });
 </script>

@@ -329,7 +329,7 @@ async function save(){
     const me = await (await fetch('/api/gr/my/room')).json(); ME = me; fillDesignPicker(); $('design-pick').value = String(CUR.id);
     refreshPreview();
 }
-function refreshPreview(){ if (ME && ME.handle) $('frame').src = `/rooms/${encodeURIComponent(ME.handle)}?design=${CUR.id}&t=${Date.now()}`; }
+function refreshPreview(){ if (ME && ME.handle) $('frame').src = `/rooms/${encodeURIComponent(ME.handle)}?design=${CUR.id}&editing=1&t=${Date.now()}`; }
 async function makeLive(){
     clearTimeout(saveTimer); await save();
     const r = await fetch(`/api/gr/my/room/designs/${CUR.id}/live`, { method: 'POST' });

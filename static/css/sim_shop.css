@@ -1,4 +1,4 @@
-/* sim_shop.css — the credits trial's buttons, records and "From the shop"
+/* sim_shop.css — the credits trial's buttons, records, the "Borrowed" tab and bought records
    (static/js/sim_shop.js). The working document: hairlines, mono caps for
    things to press, serif for names, one ink fill, red only for a warning.
    Reads the page's own tokens, so it stands on any page. */
@@ -79,3 +79,36 @@
 
 /* the credits in the top bar */
 .nav__credits { font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+
+/* ── bought records, among Your records (a room with no records of its own): cards ── */
+.sim-own { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 30px 22px; max-width: 1060px; margin: 0 auto;
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); color: var(--text, #161513); }
+.sim-own__card { cursor: pointer; min-width: 0; outline: none; }
+.sim-own__card:focus-visible .sim-own__covbox { outline: 1px solid var(--text, #161513); outline-offset: 3px; }
+.sim-own__covbox { position: relative; aspect-ratio: 1; background: var(--surface2, rgba(0,0,0,.04)); }
+.sim-own__cov { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sim-own__cov--none { display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box; border: 1px solid var(--border, #c8c3b6);
+  font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 3rem; line-height: 1; }
+.sim-own__cue { position: absolute; right: 6px; top: 6px; width: 34px; height: 26px; border: 1px solid var(--border2, var(--border, #c8c3b6));
+  background: var(--bg, #f2efe8); color: var(--text, #161513); font: inherit; font-size: .62rem; cursor: pointer; opacity: 0; transition: opacity .2s; padding: 0; }
+.sim-own__card:hover .sim-own__cue, .sim-own__cue:focus-visible { opacity: 1; }
+.sim-own__cue:hover { background: var(--text, #161513); color: var(--bg, #f2efe8); }
+.sim-own__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.12rem; line-height: 1.2; margin-top: 10px; overflow-wrap: anywhere; }
+.sim-own__a { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted, #6e6a61); margin-top: 4px; overflow-wrap: anywhere; }
+@media (hover: none) { .sim-own__cue { opacity: 1; } }
+
+/* a bought record's small window */
+.sim-held { position: fixed; z-index: 99990; box-sizing: border-box; background: var(--bg, #f2efe8); color: var(--text, #161513);
+  border: 1px solid var(--text, #161513); padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.18);
+  font-family: var(--f-mono, "IBM Plex Mono", ui-monospace, monospace); }
+.sim-held__x { position: absolute; right: 8px; top: 8px; width: 28px; height: 28px; background: none; border: 1px solid transparent; color: var(--text, #161513);
+  cursor: pointer; font: inherit; font-size: .8rem; padding: 0; }
+.sim-held__x:hover { border-color: var(--text, #161513); }
+.sim-held__top { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; padding-right: 26px; }
+.sim-held__cov { width: 96px; height: 96px; object-fit: cover; display: block; background: var(--surface2, rgba(0,0,0,.04)); }
+.sim-held__cov--none { display: flex; align-items: flex-end; padding: 8px; box-sizing: border-box; border: 1px solid var(--border, #c8c3b6);
+  font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 2rem; line-height: 1; }
+.sim-held__t { font-family: var(--f-display, "Instrument Serif", Georgia, serif); font-size: 1.4rem; line-height: 1.15; overflow-wrap: anywhere; }
+.sim-held__s { font-size: .7rem; line-height: 1.55; color: var(--muted, #6e6a61); margin-top: 3px; overflow-wrap: anywhere; }
+.sim-held__s .sim-state { padding: 0 6px 0 0; color: var(--text, #161513); }
+.sim-held__acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #c8c3b6); }

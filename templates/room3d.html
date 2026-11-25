@@ -261,7 +261,7 @@
      choosing, filled on the chosen ones, and an ink edge round them */
   .gcard__pick{ display:none; position:absolute; left:7px; top:7px; z-index:3; width:20px; height:20px; box-sizing:border-box;
     background:var(--bg); border:1px solid var(--text); pointer-events:none; }
-  body.r3d-selecting .gcard:not(.gcard--grupa) .gcard__pick{ display:block; }
+  body.r3d-selecting .gcard:not(.gcard--grupa):not(.gcard--bought) .gcard__pick{ display:block; }
   .gcard.picked .gcard__pick{ background:var(--text); }
   .gcard.picked .gcard__pick::after{ content:''; position:absolute; left:6px; top:2px; width:5px; height:10px;
     border:solid var(--bg); border-width:0 2px 2px 0; transform:rotate(45deg); }
@@ -778,6 +778,10 @@
   .gcard--grupa .gcard__cover{ border:1px solid var(--text); }
   .gcard--grupa .gcard__a{ color:var(--text) !important; }
   .gcard--grupa .gcard__box{ display:none; }
+  .gcard--bought .gcard__box{ display:none; }                 /* a bought record from the shop: no file, so no box */
+  #r3d-own{ padding:96px 28px 200px; box-sizing:border-box; }
+  .r3d-own__more{ max-width:1060px; margin:44px auto 0; font-family:var(--f-mono); font-size:.72rem; }
+  .r3d-own__more a{ color:var(--muted); } .r3d-own__more a:hover{ color:var(--text); }
   /* …and its panel, where a record's panel would be */
   .r3d-gpanel{ position:fixed; right:0; top:var(--nav-h, 0px); height:calc(100% - var(--nav-h, 0px)); width:min(42vw,580px); z-index:15;
     background:var(--bg); border-left:1px solid var(--border); overflow-y:auto; padding:58px 30px 190px; box-sizing:border-box;
@@ -999,8 +1003,10 @@
   <div id="r3d-grid2d"><div id="r3d-grid2d-inner"></div></div>
   <div id="r3d-blocks"></div>
   <div id="r3d-grupa" class="gp-roomhost"><div id="r3d-grupa-in"></div></div>
-  <!-- the credits trial (sim_shop.js): records brought home from the shop, and bought ones -->
+  <!-- the credits trial (sim_shop.js): Borrowed = records brought home from the shop. A BOUGHT one is among the records:
+       the grid leads with them (vBoughtCard); a room with no records of its own shows them here (r3d-own) -->
   <div id="r3d-shop" class="gp-roomhost"><div id="r3d-shop-in"></div></div>
+  <div id="r3d-own" class="gp-roomhost"><div id="r3d-own-in"></div><p class="r3d-own__more"><a href="/import">Bring your own music in →</a></p></div>
   <!-- a grúpa met in the grid opens here: what it is, what's in it, play / cue -->
   <aside class="r3d-gpanel" id="r3d-gpanel"><button class="r3d-gpanel__close" id="r3d-gpanel-close" aria-label="Close">✕</button><div id="r3d-gpanel-in"></div></aside>
 
@@ -1171,7 +1177,7 @@
          are out of this build — their code stays, nothing leads to it. #}
       <button class="r3d-btn r3d-btn--home active" data-layout="grid" title="Your records" aria-label="Your records"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9.6"/><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 9.3a7.1 7.1 0 0 1 3.8-3.8" stroke-linecap="round"/></svg></button>
       <button class="r3d-btn" data-layout="grupa" title="Your grúpaí: playlists that hold anything — records from this room, tracks from Spotify and SoundCloud, labels, other music rooms">Grúpaí</button>
-      <button class="r3d-btn" data-layout="shop" id="r3d-shopbtn" hidden title="Records you have brought home from the shop, and ones you have bought">From the shop</button>
+      <button class="r3d-btn" data-layout="shop" id="r3d-shopbtn" hidden title="Records you have brought home from the shop">Borrowed</button>
       {% else %}
       <button class="r3d-btn active" data-layout="cloud">Cloud</button>
       <button class="r3d-btn" data-layout="grid">Grid</button>
@@ -1511,14 +1517,16 @@ function emptyTrialRoom(){
   document.body.classList.add('r3d-emptyroom');     // (the room's own strip needs records to work)
   row.innerHTML = `<button type="button" class="sim-tab on" data-to="records">Your records</button>
     <button type="button" class="sim-tab" data-to="grupa">Grúpaí</button>
-    <button type="button" class="sim-tab" data-to="shop" hidden>From the shop</button>`;
+    <button type="button" class="sim-tab" data-to="shop" hidden>Borrowed</button>`;
   document.body.appendChild(row);
-  const shop = document.getElementById('r3d-shop'), grupa = document.getElementById('r3d-grupa');
+  const shop = document.getElementById('r3d-shop'), grupa = document.getElementById('r3d-grupa'), own = document.getElementById('r3d-own');
   const go = href => { location.href = String(href || '').replace(/([?&])overlay=1&?/, '$1').replace(/[?&]$/, ''); };
-  let shopApi = null, grupaApi = null;
+  let shopApi = null, grupaApi = null, ownN = 0, cur = 'records';
   const to = which => {
+    cur = which;
     row.querySelectorAll('[data-to]').forEach(b => b.classList.toggle('on', b.dataset.to === which));
-    overlay.classList.toggle('gone', which !== 'records');
+    overlay.classList.toggle('gone', which !== 'records' || ownN > 0);     // ("No music in here yet" — unless something was bought)
+    own.classList.toggle('on', which === 'records' && ownN > 0);
     shop.classList.toggle('on', which === 'shop');
     grupa.classList.toggle('on', which === 'grupa');
     if (which === 'shop' && window.SimShop) { if (!shopApi) shopApi = SimShop.mountMine(document.getElementById('r3d-shop-in'), { openPage: go }); else shopApi.refresh(); }
@@ -1530,7 +1538,13 @@ function emptyTrialRoom(){
   if (window.SimShop) SimShop.me().then(m => {
     if (!m || !m.on) return;
     row.querySelector('[data-to="shop"]').hidden = false;
-    if (!ask.has('grupa')) to('shop');
+    // what was bought is shown as this room's records; with nothing bought yet the room opens on Borrowed
+    let first = true;
+    SimShop.mountBought(document.getElementById('r3d-own-in'), { openPage: go, onCount: n => {
+      ownN = n;
+      if (first){ first = false; if (!ask.has('grupa')) to(n && !ask.has('shop') ? 'records' : 'shop'); }
+      else if (cur === 'records') to('records');
+    } });
   });
 }
 document.getElementById('r3d-count').textContent =
@@ -2116,7 +2130,8 @@ rebuildOrder();
 // ---- bar: shuffle (a fresh deal, respecting the current filter) + the
 // include-hidden toggle (unplayable / untitled records, tucked away by default)
 function refreshRoomCount(){          // the header counts what's actually in the room
-  const n = tracks.filter(t => !removedIds.has(t.id) && (showHidden || !hiddenOf(t))).length;
+  const n = tracks.filter(t => !removedIds.has(t.id) && (showHidden || !hiddenOf(t))).length
+          + (window._r3dBought || 0);                    // …and the ones bought in the shop, which lead the grid
   document.getElementById('r3d-count').textContent = `${n.toLocaleString()} record${n === 1 ? '' : 's'}`;
 }
 {
@@ -2964,8 +2979,9 @@ function openGrupaInTab(gid){
   if (curLayout === 'grupa') enterGrupa(); else setLayout('grupa');
 }
 function exitGrupa(){ grupaEl.classList.remove('on'); }
-// From the shop (the credits trial, static/js/sim_shop.js): records brought home
-// and bought, whole, with play / buy / take out. Mounted the first time it opens.
+// Borrowed (the credits trial, static/js/sim_shop.js): records brought home, whole,
+// with play / buy / take out. Mounted the first time it opens. (Bought ones are records:
+// they lead the grid — boughtNow, vBoughtCard.)
 const shopEl = document.getElementById('r3d-shop');
 let shopApi = null;
 function enterShop(){
@@ -3739,13 +3755,57 @@ function vMakeCard(){
 // their own tab; the room still knows them (the search suggests them by name).
 const GRUPAI_IN_GRID = false;
 let grupai = [], gNow = [];
+let boughtNow = [];                                       // records BOUGHT in the playlist shop: they lead the grid (no file: they play from Spotify)
 let showGrupai = true;
 try { showGrupai = localStorage.getItem('mr_room_grupai_' + PLACE_ID) !== '0'; } catch(_){}
-function gShown(){
-  if (!GRUPAI_IN_GRID || !window.MR_GR || !showGrupai || facet || advActiveCount()) return [];
+function gShown(){                                      // what leads the grid, ahead of the records: {b: a bought record} | a grúpa
+  if (!window.MR_GR || facet || advActiveCount()) return [];
   const q = (searchQuery || '').trim().toLowerCase();
-  return q ? grupai.filter(g => ((g.name || '') + ' ' + (g.description || '')).toLowerCase().includes(q)) : grupai;
+  const lead = boughtNow.filter(t => textHit({ title: t.title, artist_name: t.artist || t.record_artist, album: t.sim && t.sim.record_title }, q)).map(t => ({ b: t }));
+  if (!GRUPAI_IN_GRID || !showGrupai) return lead;
+  return lead.concat(q ? grupai.filter(g => ((g.name || '') + ' ' + (g.description || '')).toLowerCase().includes(q)) : grupai);
 }
+async function loadBought(fresh){
+  if (!window.MR_GR || !window.SimShop) return;
+  try { boughtNow = (await window.SimShop.bought(fresh)) || []; } catch(_){ boughtNow = []; }
+  window._r3dBought = boughtNow.length; refreshRoomCount();
+  if (grid2dBuilt && curLayout === 'grid') applyCards();
+}
+addEventListener('sim-changed', () => loadBought(true));   // bought, from anywhere → it joins the records at once
+function vBoughtCard(s, t){
+  const key = 'b' + t.id + '|' + t.title + '|' + (t.cover_id || 0) + '|' + (t.art_v || 0) + '|' + gridCols;
+  if (s.id === key) return;
+  s.id = key; s.g = 'b' + t.id; s.el.dataset.b = t.id; delete s.el.dataset.g; s.el.dataset.i = ''; s.metaFor = gridCols;
+  s.el.classList.add('gcard--bought'); s.el.classList.remove('gcard--grupa', 'gcard--offloaded');
+  s.tt.textContent = t.title || 'Untitled'; s.tt.style.fontFamily = '';
+  s.aa.textContent = t.artist || t.record_artist || ''; s.aa.style.fontFamily = '';
+  const rec = t.sim && t.sim.record_title && t.sim.record_title !== t.title ? t.sim.record_title : '';
+  s.meta.innerHTML = (gridCols === 1 && rec) ? `<div class="gcard__album">${escapeHtml(rec)}</div>` : '';
+  s.meta.style.fontFamily = '';
+  s.setb.style.display = 'none'; if (s.grb) s.grb.style.display = 'none';
+  s.olay.innerHTML = '';
+  if (s.mos) s.mos.style.display = 'none';
+  s.glow.classList.remove('on'); s.glow.style.backgroundImage = '';
+  s.cov.style.background = 'var(--surface2, var(--bg))';
+  if (t.cover_id){
+    s.sleeve.style.display = 'none'; s.img.classList.remove('on');
+    s.img.src = `/api/gr/art/${t.cover_id}?v=${t.art_v || 0}`;
+    if (s.img.complete && s.img.naturalWidth) s.img.classList.add('on');
+  } else {
+    s.img.classList.remove('on'); s.img.removeAttribute('src');
+    s.sleeve.textContent = ((t.artist || t.title || '?').trim()[0] || '?').toUpperCase(); s.sleeve.style.display = 'flex';
+  }
+  const cue = s.el.querySelector('.gcard__cue'); if (cue) cue.title = 'Add it to the cue';
+}
+function cueBought(t, btn){                               // silently, like every cue from the room
+  const d = window.Seinnteoir; if (!d || !t) return;
+  Promise.resolve(d.add([window.SimShop.embedOf(t)], { autostart: false })).then(n => {
+    if (!btn) return;
+    btn.textContent = n ? '✓' : '✕'; btn.classList.toggle('done', !!n);
+    setTimeout(() => { btn.textContent = '+▶'; btn.classList.remove('done'); }, 900);
+  }).catch(() => {});
+}
+const boughtOf = c => boughtNow.find(x => x.id === +c.dataset.b);
 async function loadGrupai(){
   if (!window.MR_GR) return;
   try { grupai = (await fetch('/api/grupa').then(r => r.json())).grupa || []; } catch(_){ grupai = []; }
@@ -3757,8 +3817,8 @@ const bigCover = u => String(u || '').replace(/([?&])s=96\b/, '$1s=384');
 function vGrupaCard(s, g){
   const key = 'g' + g.id + '|' + g.count + '|' + g.name + '|' + (gridCols === 1 ? g.description || '' : '') + '|' + (g.covers || []).join(',');
   if (s.id === key) return;
-  s.id = key; s.g = g.id; s.el.dataset.g = g.id; s.el.dataset.i = ''; s.metaFor = gridCols;
-  s.el.classList.add('gcard--grupa'); s.el.classList.remove('gcard--offloaded');
+  s.id = key; s.g = g.id; s.el.dataset.g = g.id; delete s.el.dataset.b; s.el.dataset.i = ''; s.metaFor = gridCols;
+  s.el.classList.add('gcard--grupa'); s.el.classList.remove('gcard--offloaded', 'gcard--bought');
   s.tt.textContent = g.name || 'Untitled'; s.tt.style.fontFamily = '';
   s.aa.textContent = 'Grúpa · ' + g.count; s.aa.style.fontFamily = '';
   s.meta.innerHTML = (gridCols === 1 && g.description) ? `<div class="gcard__album">${escapeHtml(g.description)}</div>` : '';
@@ -3786,9 +3846,13 @@ function vPlace(s, slot){
   if (s.el.style.display === 'none') s.el.style.display = '';
 }
 function vAssign(s, slot){
-  if (slot < gNow.length){ s.el.classList.remove('picked'); vGrupaCard(s, gNow[slot]); vPlace(s, slot); return; }
-  if (s.g){                                              // this card was a grúpa a moment ago
-    s.g = 0; s.id = -1; delete s.el.dataset.g; s.el.classList.remove('gcard--grupa');
+  if (slot < gNow.length){
+    s.el.classList.remove('picked');
+    if (gNow[slot].b) vBoughtCard(s, gNow[slot].b); else vGrupaCard(s, gNow[slot]);
+    vPlace(s, slot); return;
+  }
+  if (s.g){                                              // this card was a grúpa or a bought record a moment ago
+    s.g = 0; s.id = -1; delete s.el.dataset.g; delete s.el.dataset.b; s.el.classList.remove('gcard--grupa', 'gcard--bought');
     if (s.mos) s.mos.style.display = 'none';
     const cue = s.el.querySelector('.gcard__cue'); if (cue) cue.title = 'Cue on the player';
   }
@@ -3908,6 +3972,12 @@ function buildCards(){                                  // one-time wiring
   if (grid2dBuilt) return; grid2dBuilt = true;
   grid2dInner.addEventListener('click', e=>{
     const c = e.target.closest('.gcard'); if (!c) return;
+    if (c.dataset.b){                                    // a bought record from the shop: ＋▶ cues it, a click opens its small window
+      const t = boughtOf(c); if (!t) return;
+      if (e.target.closest('.gcard__cue')) cueBought(t, e.target.closest('.gcard__cue'));
+      else window.SimShop.openBought(t, c.querySelector('.gcard__cover') || c, { openPage: href => openRoomTool(href) });
+      return;
+    }
     if (c.dataset.g){                                    // a grúpa: its ＋▶ cues all of it, a click opens its panel
       if (e.target.closest('.gcard__cue')) cueGrupa(+c.dataset.g, e.target.closest('.gcard__cue'));
       else openGrupaPanel(+c.dataset.g);
@@ -4374,6 +4444,7 @@ grid2dInner.addEventListener('contextmenu', e=>{
   if (heroOpen) return;
   const c = e.target.closest('.gcard'); if (!c) return;
   e.preventDefault();
+  if (c.dataset.b){ const t = boughtOf(c); if (t) window.SimShop.openBought(t, c.querySelector('.gcard__cover') || c, { openPage: href => openRoomTool(href) }); return; }
   if (c.dataset.g){ openGrupaPanel(+c.dataset.g); return; }     // a grúpa has no record menu — its panel has what there is to do
   openCtx(+c.dataset.i, e.clientX, e.clientY);
 });
@@ -6033,6 +6104,7 @@ function restoreView(){
 
 restoreView();
 loadGrupai();                                            // the trial: the room knows its grúpaí (the search suggests them)
+loadBought();                                            // …and the records bought in the shop, which lead the grid
 if (curLayout === 'grid'){
   for (let i=0;i<N*3;i++) cur[i]=tgt[i];          // the 2D grid handles its own reveal
 } else {
@@ -6090,7 +6162,7 @@ addEventListener('resize', ()=>{
    controls that aren't there). Plain words; Daithí re-voices. */
 window.MR_TIP = { key:'room', title:'My Room', when: () => !document.body.classList.contains('r3d-emptyroom'), steps:[
   { sel:'#r3d-top-views', title:'Three tabs',
-    body:'<b>Your records</b> is everything you have brought in. <b>Grúpaí</b> are playlists that hold anything: your records, and links from Spotify or SoundCloud. <b>From the shop</b> is what you have brought home or bought.' },
+    body:'<b>Your records</b> is everything you have brought in. <b>Grúpaí</b> are playlists that hold anything: your records, and links from Spotify or SoundCloud. <b>Borrowed</b> is what you have brought home from the shop. What you buy joins your records.' },
   { sel:'#r3d-top-arr', title:'Order, find, select',
     body:'Press an order to sort by it; press it again to turn it round. <b>⌕</b> finds a record or a grúpa. <b>Select</b> ticks several records, to cue, tag or put in a grúpa together.' },
   { title:'Click a record',

@@ -534,13 +534,31 @@ def give_back(local_id):
         return {"returned": True, "track_id": row["track_id"]}
 
 
-def _purchase_dir(conn):
-    """Where bought files land: the Music Room Library if one is known,
-    otherwise a folder under the app's data."""
+def _music_folder(conn):
+    """The listener's own music folder (Settings → where your music lives), as app.get_library_dest
+    works it out: the one they chose, else the "Music Room Library" their records already live in.
+    '' when there is none, or its drive is not plugged in."""
     dest = (_get_setting(conn, "library_dest") or "").strip()
-    if dest and os.path.isdir(dest):
-        return Path(dest) / "Green Room"
-    return GR_DIR / "bought"
+    if not dest:
+        try:
+            r = conn.execute("SELECT file_path FROM files WHERE is_deleted=0"
+                             " AND file_path LIKE '%/Music Room Library/%' ORDER BY id LIMIT 1").fetchone()
+        except sqlite3.Error:
+            r = None
+        if r and r[0]:
+            mark = "/Music Room Library/"
+            dest = r[0][: r[0].find(mark) + len(mark) - 1]
+    return dest if dest and os.path.isdir(dest) else ""
+
+
+def _purchase_dir(conn):
+    """Where a bought file lands: in the listener's own music folder, in a folder by artist
+    like the rest of it (Daithí, 2026-11-25: "the file goes to wherever the listener has
+    selected as their music folder"). With no music folder chosen — or its drive away — the
+    app keeps it in its own folder, and the record's panel shows where. (Until 2026-11-25
+    bought files went into a "Green Room" folder inside the music folder: those stay there.)"""
+    dest = _music_folder(conn)
+    return Path(dest) if dest else GR_DIR / "bought"
 
 
 def buy(local_id):

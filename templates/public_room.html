@@ -73,14 +73,18 @@
             border:1px solid var(--border2, rgba(128,128,128,.5)); color:inherit; font:inherit; font-size:.8rem; }
         .pr-gsheet__x:hover{ background:var(--text, var(--pr-ink)); color:var(--bg, var(--pr-bg)); }
         body.has-bar .pr-frame{ inset:44px 0 0 0; height:calc(100% - 44px); }
+        body.in-editor .pr-gsheet{ top:0; }                 /* (no bar of its own inside the editor) */
     </style>
     <link rel="stylesheet" href="/static/css/grupa.css">
     <link rel="stylesheet" href="/static/css/sim_shop.css">
     <link rel="stylesheet" href="/static/css/works.css">
     <link rel="stylesheet" href="/static/css/ui.css">
 </head>
-<body class="gr-page {{ 'has-bar' if overlay else '' }}">
-{% if overlay %}
+<body class="gr-page {{ 'has-bar' if overlay else '' }}{{ ' in-editor' if editing else '' }}">
+{% if editing %}
+{# inside My Public Room's editor: the room alone. No bar (the app's own is right above it), no way out to other rooms. #}
+<span id="pr-bar-name" hidden></span>
+{% elif overlay %}
 <div class="pr-bar">
     <button onclick="prClose()" title="Back to your room">✕</button>
     <span id="pr-bar-name"></span>
@@ -125,6 +129,7 @@ document.documentElement.classList.add('no-nav');
 const HANDLE = {{ handle|tojson }};
 const DESIGN_ID = {{ design_id|tojson }};
 const OVERLAY = {{ 'true' if overlay else 'false' }};
+const EDITING = {{ 'true' if editing else 'false' }};      // shown inside My Public Room's editor: it stays this room
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const euro = c => '€' + ((c || 0) / 100).toFixed(2);
 const mmss = s => { if (!s) return ''; s = Math.round(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -305,7 +310,7 @@ function prGrupaOpen(id){
     if (prGrupaApi) prGrupaApi.destroy();
     prGrupaApi = GrupaUI.publicPanel(document.getElementById('pr-gsheet-in'), id, {
         // a record that lives in someone else's room: go there (this page becomes that room)
-        openRoom: handle => { location.href = '/rooms/' + encodeURIComponent(handle) + (OVERLAY ? '?overlay=1' : ''); },
+        openRoom: handle => prRoom(handle),
     });
     sheet.classList.add('on'); sheet.scrollTop = 0;
 }
@@ -319,7 +324,10 @@ function prKeep(btn){
     if (!ROOM || !ROOM.handle) return;
     GrupaUI.addTo({ kind: 'room', ref_key: ROOM.handle, title: ROOM.name || ROOM.handle, subtitle: (ROOM.kind || 'listener') + ' · music room' }, btn);
 }
-function prRoom(handle){ location.href = '/rooms/' + encodeURIComponent(handle) + (OVERLAY ? '?overlay=1' : ''); }   // another room: this page becomes it
+function prRoom(handle){                                    // another room: this page becomes it
+    if (EDITING) return;                                    // (not inside the editor: other rooms are met in Explore)
+    location.href = '/rooms/' + encodeURIComponent(handle) + (OVERLAY ? '?overlay=1' : '');
+}
 Works.setOptions({ openRoom: h => { if (!ROOM || h !== ROOM.handle) prRoom(h); } });
 window.addEventListener('works-changed', () => load());
 function prOpen(url){ fetch('/api/open-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }); }

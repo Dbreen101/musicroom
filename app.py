@@ -1294,7 +1294,7 @@ def _needs_onboarding():
     # The trial never sends anyone to the welcome wizard: it is the summer's fourteen steps (a
     # forest, places, sets — none of them in the trial), and it came straight after the opening
     # tutorial. Most fellows have no music of their own; the trial's room is never dead when
-    # empty (Grúpaí, "From the shop"), and it says "Bring your music in" itself.
+    # empty (Grúpaí, "Borrowed"), and it says "Bring your music in" itself.
     if IS_GR:
         return False
     track_count = query_one("SELECT COUNT(*) AS n FROM tracks WHERE is_deleted=0")["n"]
@@ -14675,6 +14675,7 @@ def public_room_page(handle):
     ?design=<id> lets the owner preview a draft."""
     return render_template("public_room.html", handle=handle,
                            overlay=request.args.get("overlay") == "1",
+                           editing=request.args.get("editing") == "1",      # (shown inside its editor: no bar of its own)
                            design_id=request.args.get("design") or "")
 
 

@@ -1423,7 +1423,7 @@ function _placeCtx(t) {
     return c && c.id ? { place_id: c.id, place_name: c.name || '' } : {};
 }
 
-async function add(tracks) {
+async function add(tracks, o) {             // o.autostart === false: cue it silently even when nothing is playing
     const items = (tracks || []).filter(t => t && (t.file_id || _isEmbed(t))).map(t => _isEmbed(t) ? _embedItem(t) : Object.assign({
         track_id: t.track_id ?? t.id ?? null,
         file_id:  t.file_id,
@@ -1431,7 +1431,7 @@ async function add(tracks) {
         artist:   t.artist || t.artist_name || '',
     }, _placeCtx(t)));
     if (!items.length) return 0;
-    await _post('add', { items });
+    await _post('add', (o && o.autostart === false) ? { items, autostart: false } : { items });
     _pollOnce();
     return items.length;
 }

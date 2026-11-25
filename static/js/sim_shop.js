@@ -11,7 +11,10 @@
 //   SimShop.trackActs(t)           the buttons for one track (t.sim from the server)
 //   SimShop.recordsHtml(tracks, o) tracks grouped into their records (albums and
 //                                  singles), each with "the whole record" buttons
-//   SimShop.mountMine(host)        My Room's "From the shop" tab
+//   SimShop.mountMine(host)        My Room's "Borrowed" tab: what is brought home, and nothing else
+//   SimShop.bought(fresh)          → the tracks this person has BOUGHT, one after another
+//   SimShop.mountBought(host)      those, as cards (a room with no records of its own)
+//   SimShop.openBought(t, anchor)  a bought record's small window: play, cue, grúpa
 //   SimShop.playTrack(id)          play one of your own shop records in the deck
 //   event 'sim-changed' on window  after anything is brought home, bought or taken out
 //
@@ -197,7 +200,7 @@ async function act(btn) {
         const ts = (what === 'cue' ? [REG.get(+btn.dataset.id)] : (RECS.get(btn.dataset.record) || [])).filter(t => t && (t.sim ? t.sim.url : t.url));
         const d = deck();
         if (!d || !ts.length) return;
-        const n = await d.add(ts.map(embedOf));
+        const n = await d.add(ts.map(embedOf), { autostart: false });      // (＋ Cue never starts the deck: ▶ Play is beside it)
         return say(btn, n ? (n === 1 ? 'In the cue' : n + ' in the cue') : 'That couldn’t go in the cue');
     }
     if (what === 'grupa') {
@@ -233,7 +236,7 @@ async function act(btn) {
     if (ME && d.room) ME.room = d.room;
     let words = '';
     if (what === 'home') words = d.already ? 'It’s already in your room.' : (d.brought ? (d.brought === 1 ? 'Brought home' : d.brought + ' tracks brought home') + ' · ' + cr(d.spent) : '') + (d.back ? (words ? ' · ' : '') + (d.back === 1 ? 'Back in your room' : d.back + ' back in your room') : '');
-    if (what === 'buy') words = d.already ? 'It’s yours already.' : (d.bought === 1 ? 'Bought' : d.bought + ' tracks bought') + ' · ' + cr(d.spent);
+    if (what === 'buy') words = d.already ? 'It’s yours already.' : (d.bought === 1 ? 'Bought' : d.bought + ' tracks bought') + ' · in your records · ' + cr(d.spent);
     if (what === 'out') words = (d.out === 1 ? 'Taken out' : d.out + ' tracks taken out') + ' · back on ' + day(d.back_after);
     if (d.room) words += ` · room ${d.room.count} of ${d.room.space}`;
     say(btn, words + (d.credits != null ? ' · ' + cr(d.credits) + ' left' : ''));
@@ -283,7 +286,11 @@ function playTrack(id) {
 }
 function playRecord(key) { const ts = RECS.get(key) || []; return playList(ts, (ts.find(t => t.sim && t.sim.url) || {}).id, 'record'); }
 
-// ── My Room → From the shop ──
+// ── My Room → Borrowed ──
+// Daithí, 2026-11-25: "change 'from the shop' to 'borrowed'. this should only contain borrowed
+// records. When a record is bought it lives in the records section." So this tab is what has been
+// brought home (and what was taken out and waits its week — where it comes back from); a bought
+// record is among Your records (bought(), mountBought(), and the room's own grid).
 // the works this person has bought from digital artists, under their records (works.js draws them)
 let worksAsk = null;
 function mountArt(el, opts) {
@@ -294,40 +301,50 @@ function mountArt(el, opts) {
     worksAsk.then(() => { if (window.Works && el.isConnected) Works.mountBought(el, opts); });
 }
 
+// one record from /api/gr/sim/mine → its tracks as the buttons and the deck want them
+function tracksOf(r) {
+    const ts = r.tracks.map(t => Object.assign({}, t, { sim: { state: t.state, back_after: t.back_after, url: t.url, buy_cost: t.buy_cost, home_cost: t.state === 'out' ? 0 : null, record: r.key, record_title: r.title, track_no: t.track_no, disc_no: t.disc_no },
+        cover_id: r.cover_id, art_v: r.art_v, record_artist: r.artist, record_year: r.year, owner: r.owner }));
+    ts.forEach(t => REG.set(t.id, t));
+    RECS.set(r.key, ts);
+    return ts;
+}
+
 function mountMine(host, opts) {
     opts = opts || {};
-    let want = 'all', data = null;
+    let want = 'home', data = null;
     const paint = () => {
         if (!data) { host.innerHTML = `<div class="sim-mine"><p class="sim-p">Looking…</p></div>`; return; }
         if (data.error) { host.innerHTML = `<div class="sim-mine"><p class="sim-p">${esc(data.error)}</p></div>`; return; }
         const m = data.me || {}, recs = data.records || [];
-        if (!m.on) { host.innerHTML = `<div class="sim-mine"><h2 class="sim-h">From the shop</h2><p class="sim-p">The shop isn’t running the credits trial right now.</p></div>`; return; }
+        if (!m.on) { host.innerHTML = `<div class="sim-mine"><h2 class="sim-h">Borrowed</h2><p class="sim-p">The shop isn’t running the credits trial right now.</p></div>`; return; }
         const n = s => recs.reduce((a, r) => a + (r.counts[s] || 0), 0);
-        const shown = recs.filter(r => want === 'all' || r.counts[want]);
+        if (want === 'out' && !n('out')) want = 'home';
+        const shown = recs.filter(r => r.counts[want]);
         let h = `<div class="sim-mine">
-          <div class="sim-head"><h2 class="sim-h">From the shop</h2>
-            <div class="sim-meter"><span><b>${m.credits}</b> credits</span><span>room <b>${m.room.count}</b> of ${m.room.space}</span></div></div>
-          <div class="sim-tabs" role="tablist">${[['all', 'All', recs.length], ['home', 'At home', n('home')], ['bought', 'Bought', n('bought')], ['out', 'Taken out', n('out')]]
+          <div class="sim-head"><h2 class="sim-h">Borrowed</h2>
+            <div class="sim-meter"><span><b>${m.credits}</b> credits</span><span>room <b>${m.room.count}</b> of ${m.room.space}</span></div></div>`;
+        if (n('out')) h += `<div class="sim-tabs" role="tablist">${[['home', 'In your room', n('home')], ['out', 'Taken out', n('out')]]
             .map(([k, l, c]) => `<button type="button" class="sim-tab${want === k ? ' on' : ''}" data-want="${k}">${l}<span>${c}</span></button>`).join('')}</div>`;
-        if (!recs.length) h += `<p class="sim-p sim-empty">Nothing yet.</p>
+        if (!shown.length) h += `<p class="sim-p sim-empty">Nothing borrowed yet.</p>
             <p><a class="sim-btn" href="/explore3d?view=shop" ${opts.openPage ? 'data-page' : ''}>Go record shopping</a></p>`;
         for (const r of shown) {
-            const ts = r.tracks.map(t => Object.assign({}, t, { sim: { state: t.state, back_after: t.back_after, url: t.url, buy_cost: t.buy_cost, home_cost: t.state === 'out' ? 0 : null, record: r.key, record_title: r.title, track_no: t.track_no, disc_no: t.disc_no }, cover_id: r.cover_id, art_v: r.art_v }));
-            ts.forEach(t => REG.set(t.id, t));
-            RECS.set(r.key, ts);
+            const ts = tracksOf(r);
             const cov = r.cover_id ? `<img class="sim-rec__cov" src="/api/gr/art/${r.cover_id}?v=${r.art_v || 0}" alt="" loading="lazy">` : `<div class="sim-rec__cov sim-rec__cov--none"><span>${esc((r.title || '♪').charAt(0).toUpperCase())}</span></div>`;
-            const meta = [KIND[r.kind] || '', r.year || '', r.tracks_total > 1 ? `${r.tracks.length} of ${r.tracks_total} tracks` : ''].filter(Boolean).join(' · ');
-            const homeTs = ts.filter(t => t.state === 'home');
+            const mineTs = ts.filter(t => t.state === want);
+            const meta = [KIND[r.kind] || '', r.year || '', r.tracks_total > 1 ? `${mineTs.length} of ${r.tracks_total} tracks` : ''].filter(Boolean).join(' · ');
             const whole = [];
-            if (ts.some(t => t.url)) whole.push(`<button type="button" class="sim-btn" data-sim-act="play-record" data-record="${esc(r.key)}">▶ Play</button>`);
-            if (ts.some(t => t.url)) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue-record" data-record="${esc(r.key)}" data-snt-keep title="Add what you hold of it to the cue">＋ Cue</button>`);
+            if (want === 'home') {
+                whole.push(`<button type="button" class="sim-btn" data-sim-act="play-record" data-record="${esc(r.key)}">▶ Play</button>`);
+                whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue-record" data-record="${esc(r.key)}" data-snt-keep title="Add what you hold of it to the cue">＋ Cue</button>`);
+            }
             if (r.owner && r.owner.handle) whole.push(`<a class="sim-btn sim-btn--quiet" href="/rooms/${encodeURIComponent(r.owner.handle)}?overlay=1" data-room="${esc(r.owner.handle)}" title="The rest of the record, and more of theirs">${esc(r.owner.name || r.owner.handle)}’s room ↗</a>`);
-            if (homeTs.length > 1) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-record="${esc(r.key)}">Take it all out</button>`);
+            if (want === 'home' && mineTs.length > 1) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-record="${esc(r.key)}">Take it all out</button>`);
             h += `<div class="sim-rec">${cov}<div class="sim-rec__body">
                 <div class="sim-rec__t">${esc(r.title)}</div>
                 <div class="sim-rec__s">${esc([r.artist, meta].filter(Boolean).join(' · '))}</div>
                 <div class="sim-rec__whole"><span class="sim-acts">${whole.join('')}</span></div>
-                <ol class="sim-rec__tracks">${ts.filter(t => want === 'all' || t.state === want).map(t => `<li class="sim-tr is-${t.state}">
+                <ol class="sim-rec__tracks">${mineTs.map(t => `<li class="sim-tr is-${t.state}">
                     <span class="sim-tr__n">${t.track_no || ''}</span>
                     <span class="sim-tr__t">${esc(t.title)}${t.artist && t.artist !== r.artist ? `<em>${esc(t.artist)}</em>` : ''}</span>
                     <span class="sim-tr__d">${mmss(t.duration_s)}</span>${trackActs(t)}</li>`).join('')}</ol>
@@ -340,7 +357,7 @@ function mountMine(host, opts) {
         if (opts.openPage) host.querySelectorAll('[data-room], [data-page]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); opts.openPage(a.getAttribute('href')); }));
     };
     const load = async () => {
-        try { const r = await fetch('/api/gr/sim/mine'); const d = await r.json(); data = r.ok ? d : { error: d.error || 'Your records from the shop can’t be read right now.' }; }
+        try { const r = await fetch('/api/gr/sim/mine'); const d = await r.json(); data = r.ok ? d : { error: d.error || 'What you have borrowed can’t be read right now.' }; }
         catch (_) { data = { error: 'The Music Room can’t be reached right now.' }; }
         if (data && data.me) { ME = data.me; window.dispatchEvent(new CustomEvent('sim-me', { detail: ME })); }
         paint();
@@ -351,5 +368,88 @@ function mountMine(host, opts) {
     return { refresh: load, destroy() { window.removeEventListener('sim-changed', onChange); host.innerHTML = ''; } };
 }
 
-window.SimShop = { me, on: () => !!(ME && ME.on), rules, quote, trackActs, recordActs, recordsHtml, mountMine, playTrack, playRecord, ask, say, embedOf, cr };
+// ── bought: among Your records ──
+// A bought record from the playlist shop has no file (it plays from Spotify), so it is not a row
+// in the library. It is shown with the records all the same: the room's grid leads with these, and
+// a room with no records of its own shows them as its records (mountBought).
+let boughtAsk = null, BOUGHT = [];
+function bought(fresh) {
+    if (!boughtAsk || fresh) boughtAsk = fetch('/api/gr/sim/mine').then(r => r.ok ? r.json() : null).catch(() => null).then(d => {
+        if (!d || !d.me || !d.me.on) return (BOUGHT = []);
+        const out = [];
+        for (const r of d.records || []) for (const t of tracksOf(r)) if (t.state === 'bought' && t.url) out.push(t);
+        return (BOUGHT = out);
+    });
+    return boughtAsk;
+}
+window.addEventListener('sim-changed', () => { boughtAsk = null; });
+
+const coverOf = (t, cls) => t.cover_id ? `<img class="${cls}" src="/api/gr/art/${t.cover_id}?v=${t.art_v || 0}" alt="" loading="lazy">`
+    : `<div class="${cls} ${cls}--none"><span>${esc((t.title || '♪').trim().charAt(0).toUpperCase())}</span></div>`;
+
+// a bought record's small window: what it is, and what can be done with it
+function openBought(t, anchor, opts) {
+    opts = opts || {};
+    t = (t && t.id != null && REG.get(t.id)) || t; if (!t) return;
+    REG.set(t.id, t);
+    document.querySelectorAll('.sim-held').forEach(x => x.remove());
+    const el = document.createElement('div');
+    el.className = 'sim-held'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', t.title || 'A record of yours');
+    const rec = t.sim && t.sim.record_title && t.sim.record_title !== t.title ? t.sim.record_title : '';
+    const o = t.owner && t.owner.handle ? t.owner : null;
+    el.innerHTML = `<button type="button" class="sim-held__x" aria-label="Close" title="Close">✕</button>
+        <div class="sim-held__top">${coverOf(t, 'sim-held__cov')}
+          <div class="sim-held__names"><div class="sim-held__t">${esc(t.title)}</div>
+            <div class="sim-held__s">${esc(t.artist || t.record_artist || '')}</div>
+            <div class="sim-held__s">${esc([rec, t.record_year || '', mmss(t.duration_s)].filter(Boolean).join(' · '))}</div>
+            <div class="sim-held__s"><span class="sim-state">Yours</span> plays from Spotify</div></div></div>
+        <div class="sim-held__acts"><span class="sim-acts">${heldActs(t.id)}</span>
+          ${o ? `<a class="sim-btn sim-btn--quiet" href="/rooms/${encodeURIComponent(o.handle)}?overlay=1" data-room="${esc(o.handle)}">${esc(o.name || o.handle)}’s room ↗</a>` : ''}</div>`;
+    document.body.appendChild(el);
+    const r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
+    const W = Math.min(400, innerWidth - 24);
+    el.style.width = W + 'px';
+    const clear = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--snt-clear')) || 0;
+    const top0 = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 0;
+    const hgt = el.getBoundingClientRect().height;
+    let x = r ? Math.min(Math.max(12, r.left), innerWidth - W - 12) : (innerWidth - W) / 2;
+    let y = r ? r.top + Math.min(r.height, 120) : innerHeight / 3;
+    y = Math.max(top0 + 8, Math.min(y, innerHeight - clear - hgt - 12));
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    const end = () => { el.remove(); document.removeEventListener('keydown', key, true); document.removeEventListener('pointerdown', away, true); };
+    const key = e => { if (e.key === 'Escape' && !document.querySelector('.gp-pick, .sim-ask')) { e.preventDefault(); e.stopPropagation(); end(); } };
+    const away = e => { if (!el.contains(e.target) && !(e.target.closest && e.target.closest('.gp-pick, .sim-said'))) end(); };
+    el.querySelector('.sim-held__x').onclick = end;
+    const room = el.querySelector('[data-room]');
+    if (room && opts.openPage) room.addEventListener('click', e => { e.preventDefault(); end(); opts.openPage(room.getAttribute('href')); });
+    document.addEventListener('keydown', key, true);
+    setTimeout(() => document.addEventListener('pointerdown', away, true), 0);
+    return el;
+}
+
+// the bought records as cards — for a room with no records of its own, where they ARE the records
+function mountBought(host, opts) {
+    opts = opts || {};
+    let list = [];
+    const paint = () => {
+        if (!list.length) { host.innerHTML = ''; if (opts.onCount) opts.onCount(0); return; }
+        host.innerHTML = `<div class="sim-own">${list.map(t => `<div class="sim-own__card" data-own="${t.id}" tabindex="0" role="button" aria-label="${esc(t.title)}">
+              <div class="sim-own__covbox">${coverOf(t, 'sim-own__cov')}
+                <button type="button" class="sim-own__cue" data-sim-act="cue" data-id="${t.id}" data-snt-keep title="Add it to the cue">+▶</button></div>
+              <div class="sim-own__t">${esc(t.title)}</div><div class="sim-own__a">${esc(t.artist || t.record_artist || '')}</div></div>`).join('')}</div>`;
+        host.querySelectorAll('[data-own]').forEach(c => {
+            const go = () => openBought(REG.get(+c.dataset.own), c, opts);
+            c.addEventListener('click', e => { if (!e.target.closest('[data-sim-act]')) go(); });
+            c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+        });
+        if (opts.onCount) opts.onCount(list.length);
+    };
+    const load = async fresh => { list = (await bought(fresh)) || []; paint(); };
+    const onChange = () => load(true);
+    window.addEventListener('sim-changed', onChange);
+    load();
+    return { refresh: () => load(true), count: () => list.length, destroy() { window.removeEventListener('sim-changed', onChange); host.innerHTML = ''; } };
+}
+
+window.SimShop = { me, on: () => !!(ME && ME.on), rules, quote, trackActs, recordActs, recordsHtml, mountMine, bought, mountBought, openBought, playTrack, playRecord, ask, say, embedOf, cr };
 })();

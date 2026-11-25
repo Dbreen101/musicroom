@@ -348,7 +348,7 @@ function crateView() {
             <div class="rs-bar">
               <button type="button" class="rs-btn" data-act="jump" data-i="0">Back to the first</button>
               <button type="button" class="rs-btn rs-btn--primary" data-act="back">Crates</button>
-              ${nb ? (simOn() ? `<a class="rs-btn" href="/room?shop=1">Your records from the shop</a>` : `<a class="rs-btn" href="/basket">Open the basket</a>`) : ''}
+              ${nb ? (simOn() ? `<a class="rs-btn" href="/room?shop=1">What you’ve borrowed</a>` : `<a class="rs-btn" href="/basket">Open the basket</a>`) : ''}
             </div></div>`;
     }
     const r = items[idx], a = art(r);

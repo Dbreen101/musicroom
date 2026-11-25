@@ -5,7 +5,7 @@
 //                               "Save the file" puts the file on this computer and shows it.
 //                               opts.openRoom(handle) → the maker's name becomes a way to their room.
 //   Works.tile(w)               a work as a tile (a picture, its name, a line) — [data-work]
-//   Works.mountBought(host, o)  the works this person has bought (My Room → From the shop)
+//   Works.mountBought(host, o)  the works this person has bought (My Room → Borrowed, under the records)
 //   event 'works-changed' on window after a work is bought
 //
 // Any [data-work="<id>"] on a page that loads this file opens that work when pressed.

@@ -193,7 +193,7 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
       a = li.firstChild;
     }
     a.textContent = m.credits + (m.credits === 1 ? ' credit' : ' credits');
-    a.title = 'Your room holds ' + m.room.count + ' of ' + m.room.space + ' brought-home tracks · your records from the shop';
+    a.title = 'Your room holds ' + m.room.count + ' of ' + m.room.space + ' borrowed tracks · what you have borrowed';
   };
   const go = () => need().then(() => window.SimShop && window.SimShop.me().then(paint));
   window.addEventListener('sim-me', e => paint(e.detail));
