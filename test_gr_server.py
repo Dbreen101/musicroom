@@ -340,6 +340,13 @@ chk(buy2["paid_cents"] == 0 and buy2["credit_cents"] == 300,
 chk(client.get("/api/me", headers=hdr(tok)).get_json()["wallet_cents"] == w0, "…so that buyout was free too")
 
 
+# --- the one switch at the top of My Public Room sends ONLY "public or not": the rest of the profile stays ---
+_me0 = client.get("/api/my/room", headers=hdr(atok)).get_json()
+_on = client.post("/api/my/room/profile", json={"is_public": not _me0["is_public"]}, headers=hdr(atok)).get_json()
+chk(_on["is_public"] == (not _me0["is_public"]) and all(_on.get(k) == _me0.get(k) for k in ("name", "handle", "bio", "links")),
+    "public or private can be switched by itself: name, address, words and links stay as they were")
+client.post("/api/my/room/profile", json={"is_public": _me0["is_public"]}, headers=hdr(atok))
+
 # --- room images: upload, serve publicly, list, delete ---
 import io as _io
 buf = _io.BytesIO(); Image.new("RGB", (2400, 1200), (90, 60, 30)).save(buf, "JPEG"); buf.seek(0)

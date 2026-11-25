@@ -22,6 +22,10 @@
         .ds-panel.on { display: block; }
         .ds-top { display: flex; align-items: center; gap: 10px; padding: 12px var(--gr-s3); border-bottom: 1px solid var(--gr-line); }
         .ds-top select { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--gr-line); border-radius: var(--gr-r); background: rgba(255,255,255,.04); color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t5); }
+        /* is the room seen by others? said at the top, with its one switch */
+        .ds-seen { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px var(--gr-s3);
+                   border-bottom: 1px solid var(--gr-line); font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .04em; line-height: 1.5; }
+        .ds-seen.is-private #ds-seen-say { color: var(--red, #c9412f); }
         .ds-status { font-size: var(--gr-t6); color: var(--gr-faint); font-family: var(--gr-mono); letter-spacing: .06em; min-width: 54px; text-align: right; }
         .ds-live { font-family: var(--gr-mono); font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gr-accent-ink); background: var(--gr-accent); border-radius: 3px; padding: 2px 6px; }
         .ds-main { position: relative; background: #000; }
@@ -120,6 +124,12 @@
         <select id="design-pick" onchange="pickDesign(this.value)"></select>
         <button class="gr-btn gr-btn--small" onclick="newDesign()" title="Start another design">+ new</button>
         <span class="ds-status" id="status"></span>
+    </div>
+    <!-- Seen by others, or not? Every room starts private, and the only switch was a tick on the Who tab:
+         of the first six people, one found it — and Daithí's own room was not on show (25 Nov 2026). -->
+    <div class="ds-seen" id="ds-seen" style="display:none" aria-live="polite">
+        <span id="ds-seen-say"></span>
+        <button class="gr-btn gr-btn--small" id="ds-seen-btn" onclick="togglePublic()"></button>
     </div>
     <div class="ds-tabs">
         <button class="on" data-tab="blocks" onclick="tab('blocks')">Blocks</button>
@@ -272,6 +282,7 @@ async function load(){
     $('p-name').value = d.name || ''; $('p-handle').value = d.handle || ''; $('p-bio').value = d.bio || '';
     $('p-links').value = (d.links || []).map(l => `${l.label || ''} | ${l.url || ''}`).join('\n');
     $('p-public').checked = !!d.is_public;
+    paintSeen();
     $('p-handle-hint').textContent = d.handle ? `Your room: /rooms/${d.handle}` : '';
     placeFill();
     $('tab-records').style.display = ['artist', 'label', 'shop'].includes(d.kind) ? '' : '';
@@ -472,6 +483,24 @@ function placeToSend(){                                  // → what the profile
     const name = $('p-place-name').value.trim();
     if (PLACE) return { place: { name, lat: PLACE.lat, lon: PLACE.lon } };
     return { place: name ? { name } : null };            // a name with no spot: the server says so in plain words
+}
+
+// ── seen by others, or not ──
+function paintSeen(){
+    const box = $('ds-seen'); if (!box || !ME) return;
+    box.style.display = '';
+    box.classList.toggle('is-private', !ME.is_public);
+    $('ds-seen-say').textContent = ME.is_public ? 'Public. Everyone in the Music Room can visit this room.' : 'Private. Only you can see this room.';
+    $('ds-seen-btn').textContent = ME.is_public ? 'Make it private' : 'Make it public';
+}
+async function togglePublic(){
+    const want = !ME.is_public, b = $('ds-seen-btn');
+    b.disabled = true;
+    let r, d = {};
+    try { r = await fetch('/api/gr/my/room/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_public: want }) }); d = await r.json(); } catch (_) {}
+    b.disabled = false;
+    if (!r || !r.ok) { status('not saved'); alert(d.error || 'That could not be saved. Try again.'); return; }
+    ME.is_public = !!d.is_public; $('p-public').checked = ME.is_public; paintSeen(); status(ME.is_public ? 'public' : 'private');
 }
 
 // ── who ──
