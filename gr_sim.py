@@ -77,11 +77,11 @@ SPOTIFY_ID = re.compile(r"^[0-9A-Za-z]{22}$")
 CLIENT_ID = re.compile(r"^[0-9a-f]{32}$")
 KINDS = ("album", "single", "compilation")
 WORDS = {
-    "full": "Your room is full: {count} of {space}. Take something out to make room, or buy it — "
+    "full": "Your room is full: {count} of {space}. Return something to make room, or buy it — "
             "bought records don't take room.",
     "short": "That needs {cost} credits. You have {credits}.",
-    "locked": "You took {what} out. It can come back on {day}.",
-    "nothing_out": "Only records you've brought home can be taken out. Bought records stay yours.",
+    "locked": "You returned {what}. You can borrow it again on {day}.",
+    "nothing_out": "Only records you've borrowed can be returned. Bought records stay yours.",
     "off": "The shop isn't running the credits trial now.",
 }
 
@@ -492,7 +492,7 @@ def do_buy(conn, acct, body):
                      " bought_at=excluded.bought_at, out_at=NULL, back_after=NULL",
                      (aid, tid, "bought", now))
     bal = _ledger(conn, aid, "buy", -p["cost"], p["ids"], key, room_before=count,
-                  note=f"{len(was_home)} had been brought home" if was_home else "")
+                  note=f"{len(was_home)} had been borrowed" if was_home else "")
     conn.commit()
     S._event(conn, aid, "sim_buy", {"tracks": p["ids"], "credits": p["cost"], "record": key,
                                     "were_home": len(was_home), "room_count": count, "room_space": space,

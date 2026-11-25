@@ -77,16 +77,16 @@ function trackActs(t, o) {
         h += `<span class="sim-state">Yours</span>`;
         if (!o.noPlay && s.url) h += heldActs(id);
     } else if (s.state === 'home') {
-        h += `<span class="sim-state">At home</span>`;
+        h += `<span class="sim-state">Borrowed</span>`;
         if (!o.noPlay && s.url) h += heldActs(id);
         h += `<button type="button" class="sim-btn" data-sim-act="buy" data-id="${id}" title="Buy it outright: it stays yours and takes no room">Buy · ${s.buy_cost}</button>`;
-        if (!o.noOut) h += `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-id="${id}" title="Take it out of your room (no credit back; a week before it can come back)">Take out</button>`;
+        if (!o.noOut) h += `<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-id="${id}" title="Return it (no credit back; a week before you can borrow it again)">Return</button>`;
     } else if (s.state === 'out') {
-        if (canComeBack(s)) h += `<button type="button" class="sim-btn" data-sim-act="home" data-id="${id}" title="It has waited its week: it comes back free">Bring back · free</button>`;
-        else h += `<span class="sim-state" title="Taken out of your room">Back on ${esc(day(s.back_after))}</span>`;
+        if (canComeBack(s)) h += `<button type="button" class="sim-btn" data-sim-act="home" data-id="${id}" title="It has waited its week: borrowing it again is free">Borrow again · free</button>`;
+        else h += `<span class="sim-state" title="Returned: it can be borrowed again then">Again on ${esc(day(s.back_after))}</span>`;
         h += `<button type="button" class="sim-btn" data-sim-act="buy" data-id="${id}" title="Buy it outright">Buy · ${s.buy_cost}</button>`;
     } else {
-        h += `<button type="button" class="sim-btn" data-sim-act="home" data-id="${id}" title="Bring it home to your Music Room: it plays only here">Bring home · ${s.home_cost}</button>`;
+        h += `<button type="button" class="sim-btn" data-sim-act="home" data-id="${id}" title="Borrow it: it plays only here, in your Music Room">Borrow · ${s.home_cost}</button>`;
         h += `<button type="button" class="sim-btn" data-sim-act="buy" data-id="${id}" title="Buy it outright: yours for good, takes no room">Buy · ${s.buy_cost}</button>`;
     }
     return `<span class="sim-acts">${h}</span>`;
@@ -98,8 +98,8 @@ function recordActs(key, tracks) {
     const h = quote(tracks, 'home'), b = quote(tracks, 'buy');
     const all = tracks.length;
     let out = '';
-    if (h.n) out += `<button type="button" class="sim-btn" data-sim-act="home" data-record="${esc(key)}" title="Bring all of it home${h.n >= 2 ? ' — ' + rules().record_share + '% of its tracks' : ''}">Bring ${h.n === all ? 'it all' : 'the rest'} home · ${h.cost}</button>`;
-    else if (h.back) out += `<button type="button" class="sim-btn" data-sim-act="home" data-record="${esc(key)}">Bring back · free</button>`;
+    if (h.n) out += `<button type="button" class="sim-btn" data-sim-act="home" data-record="${esc(key)}" title="Borrow all of it${h.n >= 2 ? ' — ' + rules().record_share + '% of its tracks' : ''}">Borrow ${h.n === all ? 'it all' : 'the rest'} · ${h.cost}</button>`;
+    else if (h.back) out += `<button type="button" class="sim-btn" data-sim-act="home" data-record="${esc(key)}">Borrow again · free</button>`;
     if (b.n) out += `<button type="button" class="sim-btn" data-sim-act="buy" data-record="${esc(key)}" title="Buy all of it${b.n >= 2 ? ' — ' + rules().record_share + '% of its tracks' : ''}">Buy ${b.n === all ? 'it all' : 'the rest'} · ${b.cost}</button>`;
     else out += `<span class="sim-state">All yours</span>`;
     const held = tracks.filter(t => t.sim && (t.sim.state === 'home' || t.sim.state === 'bought') && t.sim.url);
@@ -213,9 +213,9 @@ async function act(btn) {
         const r = rules();
         const back = new Date(Date.now() + r.wait_days * 864e5);
         const ok = await ask(btn, {
-            title: 'Take ' + nameOf(btn) + ' out of your room?',
-            html: `You won't get the credit back, and it can't come back for <b>${r.wait_days} days</b> — until <b>${esc(day(back.toISOString()))}</b>. After that, bringing it back is free.`,
-            yes: 'Take it out', no: 'Keep it', danger: true });
+            title: 'Return ' + nameOf(btn) + '?',
+            html: `You won't get the credit back, and you can't borrow it again for <b>${r.wait_days} days</b> — until <b>${esc(day(back.toISOString()))}</b>. After that, borrowing it again is free.`,
+            yes: 'Return it', no: 'Keep it', danger: true });
         if (!ok) return;
     }
     if (what === 'buy') {
@@ -235,9 +235,9 @@ async function act(btn) {
     if (ME && d.credits != null) ME.credits = d.credits;
     if (ME && d.room) ME.room = d.room;
     let words = '';
-    if (what === 'home') words = d.already ? 'It’s already in your room.' : (d.brought ? (d.brought === 1 ? 'Brought home' : d.brought + ' tracks brought home') + ' · ' + cr(d.spent) : '') + (d.back ? (words ? ' · ' : '') + (d.back === 1 ? 'Back in your room' : d.back + ' back in your room') : '');
+    if (what === 'home') words = d.already ? 'It’s already in your room.' : (d.brought ? (d.brought === 1 ? 'Borrowed' : d.brought + ' tracks borrowed') + ' · ' + cr(d.spent) : '') + (d.back ? (words ? ' · ' : '') + (d.back === 1 ? 'Borrowed again' : d.back + ' borrowed again') : '');
     if (what === 'buy') words = d.already ? 'It’s yours already.' : (d.bought === 1 ? 'Bought' : d.bought + ' tracks bought') + ' · in your records · ' + cr(d.spent);
-    if (what === 'out') words = (d.out === 1 ? 'Taken out' : d.out + ' tracks taken out') + ' · back on ' + day(d.back_after);
+    if (what === 'out') words = (d.out === 1 ? 'Returned' : d.out + ' tracks returned') + ' · again on ' + day(d.back_after);
     if (d.room) words += ` · room ${d.room.count} of ${d.room.space}`;
     say(btn, words + (d.credits != null ? ' · ' + cr(d.credits) + ' left' : ''));
     window.dispatchEvent(new CustomEvent('sim-changed', { detail: Object.assign({ what }, d) }));
@@ -324,7 +324,7 @@ function mountMine(host, opts) {
         let h = `<div class="sim-mine">
           <div class="sim-head"><h2 class="sim-h">Borrowed</h2>
             <div class="sim-meter"><span><b>${m.credits}</b> credits</span><span>room <b>${m.room.count}</b> of ${m.room.space}</span></div></div>`;
-        if (n('out')) h += `<div class="sim-tabs" role="tablist">${[['home', 'In your room', n('home')], ['out', 'Taken out', n('out')]]
+        if (n('out')) h += `<div class="sim-tabs" role="tablist">${[['home', 'In your room', n('home')], ['out', 'Returned', n('out')]]
             .map(([k, l, c]) => `<button type="button" class="sim-tab${want === k ? ' on' : ''}" data-want="${k}">${l}<span>${c}</span></button>`).join('')}</div>`;
         if (!shown.length) h += `<p class="sim-p sim-empty">Nothing borrowed yet.</p>
             <p><a class="sim-btn" href="/explore3d?view=shop" ${opts.openPage ? 'data-page' : ''}>Go record shopping</a></p>`;
@@ -339,7 +339,7 @@ function mountMine(host, opts) {
                 whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="cue-record" data-record="${esc(r.key)}" data-snt-keep title="Add what you hold of it to the cue">＋ Cue</button>`);
             }
             if (r.owner && r.owner.handle) whole.push(`<a class="sim-btn sim-btn--quiet" href="/rooms/${encodeURIComponent(r.owner.handle)}?overlay=1" data-room="${esc(r.owner.handle)}" title="The rest of the record, and more of theirs">${esc(r.owner.name || r.owner.handle)}’s room ↗</a>`);
-            if (want === 'home' && mineTs.length > 1) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-record="${esc(r.key)}">Take it all out</button>`);
+            if (want === 'home' && mineTs.length > 1) whole.push(`<button type="button" class="sim-btn sim-btn--quiet" data-sim-act="out" data-record="${esc(r.key)}">Return it all</button>`);
             h += `<div class="sim-rec">${cov}<div class="sim-rec__body">
                 <div class="sim-rec__t">${esc(r.title)}</div>
                 <div class="sim-rec__s">${esc([r.artist, meta].filter(Boolean).join(' · '))}</div>

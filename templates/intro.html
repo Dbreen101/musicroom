@@ -88,7 +88,7 @@
         <section class="in-step">
             <div>
                 <div class="in-step__n" id="in-get-n">3 · Credits</div>
-                <h1 class="in-step__h" id="in-get-h">Bring a record home, or buy it.</h1>
+                <h1 class="in-step__h" id="in-get-h">Borrow a record, or buy it.</h1>
                 <p class="in-step__p" id="in-get-p">In the shop, each record plays once.</p>
             </div>
             <div class="in-art"><div class="in-lock">
@@ -128,7 +128,7 @@ fetch('/api/gr/sim/me').then(r => r.json()).then(m => {
     const p = document.getElementById('in-get-p');
     if (m && m.on && m.rules) {
         const n = v => (+v || 0).toLocaleString(), c = v => n(v) + (+v === 1 ? ' credit' : ' credits');
-        p.textContent = `You have ${c(m.credits)}. A track is ${c(m.rules.home_cost)} to bring home, ${n(m.rules.buy_cost)} to buy.`;
+        p.textContent = `You have ${c(m.credits)}. A track is ${c(m.rules.home_cost)} to borrow, ${n(m.rules.buy_cost)} to buy.`;
     } else if (m && m.on === false) {
         document.getElementById('in-get-n').textContent = '3 · Borrow or buy';
         document.getElementById('in-get-h').textContent = 'Borrow a record, or buy it.';

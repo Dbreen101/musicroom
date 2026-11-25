@@ -968,7 +968,7 @@ def api_borrow():
         elif gr_sim.is_on(conn):
             # the credits trial: a record file brought home costs credits and takes room (gr_sim)
             if _opt(track, "spotify_uri"):
-                return jsonify({"error": "bring this one home from the shop instead", "sim": True}), 409
+                return jsonify({"error": "borrow this one from the shop instead", "sim": True}), 409
             refused = gr_sim.file_home(conn, acct, track)
             if refused:
                 return jsonify(refused[0]), refused[1]

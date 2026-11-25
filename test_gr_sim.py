@@ -140,7 +140,7 @@ r = client.post("/api/sim/out", json={"track_id": tr["Two"]["id"]}, headers=hdr(
 d = r.get_json()
 chk(r.status_code == 200 and d["credits"] == 287 and d["room"]["count"] == 1, "taking a track out frees its room; no credit back")
 r = client.post("/api/sim/home", json={"track_id": tr["Two"]["id"]}, headers=hdr(aoife))
-chk(r.status_code == 423 and r.get_json()["locked"] and "can come back on" in r.get_json()["error"], "it can't come back for a week")
+chk(r.status_code == 423 and r.get_json()["locked"] and "borrow it again on" in r.get_json()["error"], "it can't come back for a week")
 chk(client.post("/api/sim/out", json={"track_id": tr["One"]["id"]}, headers=hdr(aoife)).status_code == 409,
     "a bought track can't be taken out")
 with closing(gr_server.db()) as c:

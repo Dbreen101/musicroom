@@ -260,8 +260,8 @@ async function version() {
 }
 
 // ── the credits trial (gr_sim.py): the numbers, the playlist the shop is made from, credits ──
-const RULES = [['start_credits', 'Credits to start with'], ['home_cost', 'Bring a track home'], ['buy_cost', 'Buy a track'],
-    ['record_share', 'A whole record costs (% of its tracks)'], ['room_space', 'Room space (tracks brought home)'], ['wait_days', 'Days before a track taken out can come back']];
+const RULES = [['start_credits', 'Credits to start with'], ['home_cost', 'Borrow a track'], ['buy_cost', 'Buy a track'],
+    ['record_share', 'A whole record costs (% of its tracks)'], ['room_space', 'Room space (borrowed tracks)'], ['wait_days', 'Days before a returned track can be borrowed again']];
 let SYNC_T = 0;
 async function trial() {
     const r = await api('sim');
@@ -358,7 +358,7 @@ async function activity() {
       <div class="ms-line"><a class="ms-btn" href="/api/gr/sim-csv/activity" download>This table as a spreadsheet</a>
         <a class="ms-btn" href="/api/gr/sim-csv/ledger" download>Every credit, as a spreadsheet</a></div>
       <div class="ms-wide"><table class="ms-table"><thead><tr>
-        <th>Person</th><th>Credits left</th><th>Spent</th><th>on bringing home</th><th>on buying</th><th>Given</th><th>At home</th><th>Bought</th><th>Taken out</th>
+        <th>Person</th><th>Credits left</th><th>Spent</th><th>on borrowing</th><th>on buying</th><th>Given</th><th>Borrowed</th><th>Bought</th><th>Returned</th>
         <th>Room</th><th>Refused: room full</th><th>Bought with room full</th><th>Refused: too few credits</th><th>Plays</th><th>One-plays in the shop</th><th>Last</th></tr></thead><tbody>
         ${ppl.map(p => `<tr><td>${esc(p.name)} <span class="ms-row__s">@${esc(p.handle)}</span></td><td>${p.credits == null ? '—' : p.credits}</td><td>${p.spent}</td>
           <td>${p.spent_home}</td><td>${p.spent_buy}</td><td>${p.given}</td><td>${p.home_now}</td><td>${p.bought}</td><td>${p.taken_out}</td>

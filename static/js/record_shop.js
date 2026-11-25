@@ -124,7 +124,7 @@ async function listen(key, spec) {
         p.state = 'deck';
         paintListen();
         const m = host && host.querySelector(`[data-listenmsg="${CSS.escape(key)}"]`);
-        if (m) { m.textContent = 'Playing once, in your deck. To hear it again, bring it home or buy it.'; m.classList.remove('rs-listenmsg--quiet'); }
+        if (m) { m.textContent = 'Playing once, in your deck. To hear it again, borrow it or buy it.'; m.classList.remove('rs-listenmsg--quiet'); }
         return;
     }
     p.play = r.d.play;
@@ -211,9 +211,9 @@ function fileActs(r) {
     if (r.purchased) return `<span class="rs-state">Yours already</span>`;
     const R = (S.sim && S.sim.rules) || { home_cost: 1, buy_cost: 3 };
     if (r.exclusive) return `<span class="excl" title="Only in the Music Room: it plays only here, and bought it stays in your room">Exclusive</span>`
-        + (r.borrow_id ? `<span class="rs-state">At home</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Bring home · ${R.home_cost}</button>`)
+        + (r.borrow_id ? `<span class="rs-state">Borrowed</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Borrow · ${R.home_cost}</button>`)
         + `<button type="button" class="sim-btn" data-act="file-buy" data-id="${r.id}" data-exclusive="1" title="It stays in your Music Room for good, and plays only here">Buy · ${r.borrow_id ? Math.max(0, R.buy_cost - R.home_cost) : R.buy_cost}</button>`;
-    return (r.borrow_id ? `<span class="rs-state">At home</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Bring home · ${R.home_cost}</button>`)
+    return (r.borrow_id ? `<span class="rs-state">Borrowed</span>` : `<button type="button" class="sim-btn" data-act="file-home" data-id="${r.id}">Borrow · ${R.home_cost}</button>`)
         + `<button type="button" class="sim-btn" data-act="file-buy" data-id="${r.id}">Buy · ${r.borrow_id ? Math.max(0, R.buy_cost - R.home_cost) : R.buy_cost}</button>`;
 }
 function actsFor(r, more) {
@@ -324,7 +324,7 @@ function crateView() {
         ((crate.sources || []).length ? ' · with records from ' + crate.sources.map(s => `${esc(s.crate)} (${esc(s.by)})`).join(', ') : '');
     const ticks = !n ? '' : `<div class="rs-ticks" role="group" aria-label="The records in this crate">${items.map((r, i) =>
         `<button type="button" data-act="jump" data-i="${i}" class="${[i === idx ? 'on' : '', seen.has(i) ? 'seen' : '', kept(r) ? 'b' : '', isNoted(r.id) ? 'w' : ''].join(' ').trim()}" title="Record ${i + 1}" aria-label="Record ${i + 1}"></button>`).join('')}</div>
-        <div class="rs-legend"><span><i class="b"></i>${simOn() ? 'brought home or bought' : 'in your basket'}</span><span><i></i>noted</span></div>`;
+        <div class="rs-legend"><span><i class="b"></i>${simOn() ? 'borrowed or bought' : 'in your basket'}</span><span><i></i>noted</span></div>`;
     const top = `<div class="rs-crate__top">
         <div>
           <button type="button" class="rs-link" data-act="back">← Crates</button>
@@ -344,7 +344,7 @@ function crateView() {
         return top + `<div class="rs-end">
             <div class="rs-kicker">The end of the crate</div>
             <h2 class="rs-h">That is all ${n}.</h2>
-            <p class="rs-p">${nb} ${simOn() ? 'brought home or bought' : 'in your basket'} · ${nw} noted for later.</p>
+            <p class="rs-p">${nb} ${simOn() ? 'borrowed or bought' : 'in your basket'} · ${nw} noted for later.</p>
             <div class="rs-bar">
               <button type="button" class="rs-btn" data-act="jump" data-i="0">Back to the first</button>
               <button type="button" class="rs-btn rs-btn--primary" data-act="back">Crates</button>
@@ -498,7 +498,7 @@ function blindView() {
 async function refresh() {
     const r = await call('/api/gr/shop');
     S = r.ok ? r.d : Object.assign({ away: true }, r.d);
-    HEARD_LINE = simOn() ? 'You’ve heard this one. To hear it again, bring it home or buy it.' : 'You’ve heard this one. To hear it again, borrow it or buy it.';
+    HEARD_LINE = simOn() ? 'You’ve heard this one. To hear it again, borrow it or buy it.' : 'You’ve heard this one. To hear it again, borrow it or buy it.';
     if (!r.ok && r.d && r.d.wish) S.wish = r.d.wish;
     if (r.ok && S.counter && window.grShopNews) window.grShopNews(S.counter.new);    // the top bar and the door hear it too
     paint();
@@ -662,7 +662,7 @@ async function fileDo(t, what) {
     const r = await call(what === 'home' ? '/api/gr/borrow' : '/api/gr/buy-track', 'POST', { track_id: id });
     if (!r.ok) { SimShop.say(t, r.d.error || 'That didn’t work.', true); t.disabled = false; return; }
     if (rec) { if (what === 'home') rec.borrow_id = r.d.borrow_id || 1; else rec.purchased = true; }
-    SimShop.say(t, what === 'home' ? 'Brought home — it’s in your room.' : (r.d.exclusive ? 'Bought — it’s yours, in your room.' : 'Bought — the file is in your room.'));
+    SimShop.say(t, what === 'home' ? 'Borrowed — it’s in your room.' : (r.d.exclusive ? 'Bought — it’s yours, in your room.' : 'Bought — the file is in your room.'));
     SimShop.me(true);
     settleKept(id);
     paint();

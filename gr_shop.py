@@ -663,12 +663,6 @@ def _first_play(conn, acct, track, via):
     aid, tid = acct["id"], track["id"]
     if conn.execute("SELECT 1 FROM gr_heard WHERE account_id=? AND track_id=?", (aid, tid)).fetchone():
         words = HEARD_WORDS
-        try:                                   # (while the credits trial runs there is no "borrow": it is "bring it home")
-            import gr_sim
-            if gr_sim.is_on(conn):
-                words = HEARD_WORDS.replace("borrow it", "bring it home")
-        except Exception:
-            pass
         return no_json(words, 403, heard=True)
     conn.execute("INSERT OR IGNORE INTO gr_heard(account_id, track_id, via, at) VALUES(?,?,?,?)", (aid, tid, via, S._now()))
     conn.commit()

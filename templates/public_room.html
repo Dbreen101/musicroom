@@ -164,9 +164,9 @@ function recordHtml(t, plain){
         // (an exclusive record is bought too, but it never becomes a file: it stays in the buyer's Music Room)
         const buyTitle = x ? 'Buy it: it stays in your Music Room for good, and plays only here' : 'Buy it outright: it becomes a file of yours and takes no room';
         if (t.purchased)      act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
-        else if (t.borrow_id) act += `<button class="pr-btn pr-btn--on" disabled>at home ✓</button>`
+        else if (t.borrow_id) act += `<button class="pr-btn pr-btn--on" disabled>borrowed ✓</button>`
                                    + `<button class="pr-btn" onclick="prBuy(${t.id}, this, ${Math.max(0, cr.buy_cost - cr.home_cost)}, ${x})" title="${buyTitle}">Buy · ${Math.max(0, cr.buy_cost - cr.home_cost)}</button>`;
-        else act += `<button class="pr-btn" onclick="prBorrow(${t.id}, this)" title="Bring it home to your Music Room: it plays only here">Bring home · ${cr.home_cost}</button>`
+        else act += `<button class="pr-btn" onclick="prBorrow(${t.id}, this)" title="Borrow it: it plays only here, in your Music Room">Borrow · ${cr.home_cost}</button>`
                   + `<button class="pr-btn" onclick="prBuy(${t.id}, this, ${cr.buy_cost}, ${x})" title="${buyTitle}">Buy · ${cr.buy_cost}</button>`;
     }
     else if (t.purchased) act += `<button class="pr-btn pr-btn--on" disabled>yours ✓</button>`;
@@ -267,7 +267,7 @@ function prGoSubscribe(){
 }
 async function prBorrow(trackId, btn){
     const was = btn.textContent;
-    btn.disabled = true; btn.textContent = (window.SimShop && SimShop.on()) ? 'bringing it home…' : 'borrowing…';
+    btn.disabled = true; btn.textContent = 'borrowing…';
     const r = await fetch('/api/gr/borrow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id: trackId }) });
     const d = await r.json();
     if (!r.ok) {

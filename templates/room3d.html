@@ -1177,7 +1177,7 @@
          are out of this build — their code stays, nothing leads to it. #}
       <button class="r3d-btn r3d-btn--home active" data-layout="grid" title="Your records" aria-label="Your records"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9.6"/><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 9.3a7.1 7.1 0 0 1 3.8-3.8" stroke-linecap="round"/></svg></button>
       <button class="r3d-btn" data-layout="grupa" title="Your grúpaí: playlists that hold anything — records from this room, tracks from Spotify and SoundCloud, labels, other music rooms">Grúpaí</button>
-      <button class="r3d-btn" data-layout="shop" id="r3d-shopbtn" hidden title="Records you have brought home from the shop">Borrowed</button>
+      <button class="r3d-btn" data-layout="shop" id="r3d-shopbtn" hidden title="Records you have borrowed from the shop">Borrowed</button>
       {% else %}
       <button class="r3d-btn active" data-layout="cloud">Cloud</button>
       <button class="r3d-btn" data-layout="grid">Grid</button>
@@ -6162,7 +6162,7 @@ addEventListener('resize', ()=>{
    controls that aren't there). Plain words; Daithí re-voices. */
 window.MR_TIP = { key:'room', title:'My Room', when: () => !document.body.classList.contains('r3d-emptyroom'), steps:[
   { sel:'#r3d-top-views', title:'Three tabs',
-    body:'<b>Your records</b> is everything you have brought in. <b>Grúpaí</b> are playlists that hold anything: your records, and links from Spotify or SoundCloud. <b>Borrowed</b> is what you have brought home from the shop. What you buy joins your records.' },
+    body:'<b>Your records</b> is everything you have brought in. <b>Grúpaí</b> are playlists that hold anything: your records, and links from Spotify or SoundCloud. <b>Borrowed</b> is what you have borrowed from the shop. What you buy joins your records.' },
   { sel:'#r3d-top-arr', title:'Order, find, select',
     body:'Press an order to sort by it; press it again to turn it round. <b>⌕</b> finds a record or a grúpa. <b>Select</b> ticks several records, to cue, tag or put in a grúpa together.' },
   { title:'Click a record',

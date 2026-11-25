@@ -235,7 +235,6 @@
     <div class="ds-main__bar">
         <button class="gr-btn gr-btn--small" id="live-btn" onclick="makeLive()">Make this the live one</button>
         <button class="gr-btn gr-btn--small" onclick="deleteDesign()" id="del-btn">delete</button>
-        <a class="gr-btn gr-btn--small" id="open-btn" href="#" target="_blank">open ↗</a>
     </div>
   </main>
 </div>
@@ -311,7 +310,6 @@ function pickDesign(id){
     ['bg', 'ink', 'accent'].forEach(k => { $('t-' + k).value = CUR.design.theme[k] || ''; if (/^#[0-9a-f]{6}$/i.test(CUR.design.theme[k] || '')) $('t-' + k + '-c').value = CUR.design.theme[k]; });
     $('t-font-title').value = CUR.design.theme.font_title || ''; $('t-font-body').value = CUR.design.theme.font_body || '';
     $('live-btn').style.display = d.is_live ? 'none' : ''; $('del-btn').style.display = d.is_live ? 'none' : '';
-    $('open-btn').href = `/rooms/${encodeURIComponent(ME.handle)}?design=${d.id}`;
     SEL = null; renderBlocks(); renderInspector(); refreshPreview();
     if (grupaiAdded) dirty();
 }

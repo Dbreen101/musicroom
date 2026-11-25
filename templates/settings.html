@@ -1106,7 +1106,7 @@ async function grSettingsLoad() {
     if (me && me.sim && me.sim.on) {
         // the credits trial (gr_sim): credits and a room, no wallet and no plans
         lines.push(`<strong>${me.sim.credits}</strong> credits · your room holds <strong>${me.sim.room.count}</strong> of ${me.sim.room.space} borrowed tracks · <a href="/room?shop=1" style="color:var(--accent);">what you have borrowed</a>`);
-        lines.push(`Bring a track home: ${me.sim.rules.home_cost} · buy one: ${me.sim.rules.buy_cost} (or the difference, once it is home) · a whole record: ${me.sim.rules.record_share}% of its tracks.`);
+        lines.push(`Borrow a track: ${me.sim.rules.home_cost} · buy one: ${me.sim.rules.buy_cost} (or the difference, once it is borrowed) · a whole record: ${me.sim.rules.record_share}% of its tracks.`);
         lines.push(me.sim.spotify_client_id ? `The Music Room has given this account a Spotify key: <a href="/spotify" style="color:var(--accent);">sign in to Spotify</a> to hear whole tracks through your own Spotify (Premium).`
                                            : `Records play in Spotify's own small player.`);
     }
