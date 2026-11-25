@@ -471,6 +471,13 @@
     </div>
 
     <!-- signed in before the deck could drive Spotify: one more sign-in adds it -->
+    <!-- Whole tracks, or only previews? Asked of Spotify itself (/api/spotify/checkup): on the key's list · Premium · a Spotify app open -->
+    <div id="spo-check" class="spo-setup" style="display:none;" aria-live="polite">
+        <h2 id="spo-check-what"></h2>
+        <p id="spo-check-do" style="color:var(--muted); font-size:0.88rem; line-height:1.65; margin:0 0 14px;"></p>
+        <button class="spo-action" id="spo-check-again" onclick="checkSpotify(true)">Check again</button>
+    </div>
+
     <div id="spo-reconnect" class="spo-setup" style="display:none;">
         <h2>Let the deck play your Spotify</h2>
         <p style="color:var(--muted); font-size:0.88rem; line-height:1.65; margin:0 0 14px;">
@@ -706,6 +713,25 @@ async function loadStatus() {
         loadSavedTracks(true);
         loadPlaylists();
     }
+    checkSpotify();
+}
+
+// whole tracks through the deck, or only previews — and if previews, exactly why
+async function checkSpotify(pressed) {
+    const box = document.getElementById('spo-check'), what = document.getElementById('spo-check-what'),
+          todo = document.getElementById('spo-check-do'), again = document.getElementById('spo-check-again');
+    if (!box) return;
+    if (!spoStatus || !spoStatus.connected) { box.style.display = 'none'; return; }
+    if (pressed) { again.disabled = true; again.textContent = 'Checking…'; }
+    let c = null;
+    try { c = await (await fetch('/api/spotify/checkup')).json(); } catch (_) {}
+    again.disabled = false; again.textContent = 'Check again';
+    if (!c || !c.step) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    what.textContent = c.what + (c.ok && c.devices && c.devices.length ? ' On: ' + c.devices.join(', ') + '.' : '');
+    todo.textContent = c.do || '';
+    todo.style.display = c.do ? '' : 'none';
+    if (pressed && c.name && spoStatus && !spoStatus.user_name) loadStatus();     // (their name is known now)
 }
 
 async function loadStats() {

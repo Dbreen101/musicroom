@@ -151,6 +151,26 @@ KEY_LAST_SYNCED_AT   = "spotify_last_synced_at"
 KEY_SCOPES           = "spotify_scopes"            # what the sign-in actually granted
 KEY_NO_PREMIUM       = "spotify_no_premium"        # "1" once Spotify refused control for want of Premium
 
+# What checkup() found, in words for the person: (what it is, what to do). {name} = their Spotify name.
+CHECKUP_WORDS = {
+    "ready":      ("Whole tracks play through your own Spotify.", ""),
+    "no_key":     ("No Spotify key is set in this app.", "Paste the Client ID you were given, above, then sign in."),
+    "signed_out": ("You are not signed in to Spotify here.", "Press Sign in, and finish in your browser."),
+    "network":    ("Spotify could not be reached just now.", "Check your internet and press Check again."),
+    "busy":       ("Spotify asked for a moment.", "Wait a minute and press Check again."),
+    "unlisted":   ("Spotify does not know you on this key yet, so it only gives previews.",
+                   "Whoever gave you the Client ID has to add you: developer.spotify.com → Dashboard → their app → "
+                   "User Management, with your name and the EMAIL OF YOUR SPOTIFY ACCOUNT (not another address of yours). "
+                   "Then press Check again. If it still says this, sign out here and sign in again."),
+    "reconnect":  ("This sign-in is missing the permission to play.", "Sign out here and sign in again, and say yes to everything Spotify asks."),
+    "free":       ("Your Spotify account is not Premium.",
+                   "Spotify only lets Premium accounts be played from another app. Until then you hear its 30-second previews."),
+    "no_app":     ("The Spotify app is not on this computer.",
+                   "Install it from spotify.com/download, open it, and sign in as {name}. Then press Check again."),
+    "no_device":  ("No Spotify app is open on a computer for this account.",
+                   "Open the Spotify app on this computer and make sure it is signed in as {name} — the same account as here. Then press Check again."),
+}
+
 # THE one address the listener registers on their Spotify app, port included.
 # Every copy of Music Room signs in with exactly this, whatever port the copy
 # itself runs on: when that isn't 5177, app.py opens 5177 just long enough to
@@ -345,6 +365,55 @@ class SpotifyClient:
             "last_synced_at": self.s.get(KEY_LAST_SYNCED_AT, "") or None,
             "rate":           _rate_state(self.s),
         }
+
+    # ─── "why does it only play previews?" ──────────────────────────
+    def checkup(self, app_there=None):
+        """What stands between this listener and WHOLE tracks in their own Spotify, asked of
+        Spotify itself, one thing after another → {"step", "ok", "name", "product", "devices"}.
+
+        step: no_key · signed_out · network · busy · unlisted · reconnect · free · no_app ·
+        no_device · ready.   `app_there`: is the Spotify app on this computer (None = can't tell).
+
+        Why it exists (25 Nov 2026): a fellow was given the key, signed in, and still heard
+        previews — and the app could not say which of three things it was. A key in development
+        mode only works for the people its owner has listed (Spotify answers everyone else 403,
+        even after a sign-in that looked fine); playing from another app needs Premium; and
+        there must be a Spotify app open on a computer, signed in to the SAME account."""
+        out = {"step": "", "ok": False, "name": self.s.get(KEY_USER_NAME, "") or "", "product": "", "devices": []}
+        if not self.client_id:
+            return dict(out, step="no_key")
+        if not self.is_connected():
+            return dict(out, step="signed_out")
+        status, me = self._player_call("GET", "/me")
+        if status in (0, 429, 401):
+            return dict(out, step={0: "network", 429: "busy", 401: "signed_out"}[status])
+        if status == 403:
+            why = (self._why(me) or str(me.get("raw") or "")).upper()
+            return dict(out, step="reconnect" if "SCOPE" in why else "unlisted")
+        if status != 200 or not isinstance(me, dict) or not me.get("id"):
+            return dict(out, step="network")
+        out["name"] = me.get("display_name") or me.get("id") or out["name"]
+        out["product"] = (me.get("product") or "").lower()
+        if not self.s.get(KEY_USER_ID, ""):                 # (a sign-in made before the owner listed them has no name yet)
+            self.s.set(KEY_USER_ID, me.get("id") or "")
+            self.s.set(KEY_USER_NAME, out["name"])
+        if SCOPE_CONTROL not in self.scopes():
+            return dict(out, step="reconnect")
+        if out["product"] and out["product"] != "premium":
+            return dict(out, step="free")
+        if out["product"] == "premium" and (self.s.get(KEY_NO_PREMIUM, "") or "") == "1":
+            self.s.set(KEY_NO_PREMIUM, "")                  # (they have Premium now: let the deck try again)
+        status, d = self._player_call("GET", "/me/player/devices")
+        if status in (0, 429):
+            return dict(out, step={0: "network", 429: "busy"}[status])
+        if status == 403:
+            return dict(out, step="unlisted")
+        devs = (d.get("devices") or []) if status == 200 and isinstance(d, dict) else []
+        out["devices"] = [x.get("name") or "a computer" for x in devs
+                          if x.get("id") and not x.get("is_restricted") and x.get("type") == "Computer"]
+        if not out["devices"]:
+            return dict(out, step="no_app" if app_there is False else "no_device")
+        return dict(out, step="ready", ok=True)
 
     # ─── OAuth flow ─────────────────────────────────────────────────
     def begin_auth(self, redirect_uri=None):

@@ -3278,6 +3278,25 @@ def api_spotify_status():
     return jsonify(_get_spotify().status())
 
 
+@app.route("/api/spotify/checkup")
+def api_spotify_checkup():
+    """Why does it only play previews? Asked of Spotify itself, answered in words
+    (spotify.SpotifyClient.checkup): listed on the key? Premium? a Spotify app open?"""
+    import spotify as _sp
+    import spotify_remote as _spr
+    out = _get_spotify().checkup(app_there=_spr.spotify_app_here())
+    what, do = _sp.CHECKUP_WORDS.get(out["step"], ("", ""))
+    name = out.get("name") or "the same account"
+    try:
+        p = _get_seinnteoir_player()
+        r = getattr(p, "_remote", None)
+        if r is not None:
+            r.forget()                       # (whatever changed, the deck asks afresh on its next record)
+    except Exception:
+        pass
+    return jsonify(dict(out, what=what, do=do.replace("{name}", name)))
+
+
 @app.route("/api/spotify/auth/start", methods=["POST"])
 def api_spotify_auth_start():
     """Begin PKCE OAuth. Returns the Spotify authorize URL — the front
@@ -14968,6 +14987,7 @@ def api_gr_version():
                     # an address to send the person to
                     "update": differs and (can["can"] or (want.get("url") or "").startswith("https://")),
                     "self": differs and can["can"], "why_not": "" if can["can"] else can["why"],
+                    "into": can.get("into", ""),          # (the new version goes somewhere else than where this one runs)
                     "page": app_update.PAGE})
 
 

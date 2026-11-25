@@ -80,13 +80,28 @@ NOTES="$NOTE
 **Windows PC**: download *Music Room GR (Windows).zip* (it arrives a few minutes after the Mac ones), unzip, open the Music Room GR folder, double-click Music Room GR.exe. The first time Windows may say it protected your PC: More info → Run anyway.
 
 **From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\` (Mac) or \`run_gr.bat\` (Windows)."
+# The files go up ONE AT A TIME, each tried again if the line drops. (25 Nov 2026: on a slow line
+# GitHub gave up on one long upload — "HTTP 408: Upload body timed out" — and `gh release create`
+# then threw away the page it had made, with the Windows app GitHub had already put on it.)
+# The page is a draft until everything is on it, so "latest" never points at half a release.
 # (GitHub's Windows build may have made the page already: then add to it)
+send() {
+  local f="$1" n
+  for n in 1 2 3 4; do
+    gh release upload "$TAG" --repo "$REPO" --clobber "$f" && return 0
+    echo "   $(basename "$f") did not get through (try $n of 4)"
+  done
+  return 1
+}
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   gh release edit "$TAG" --repo "$REPO" --title "The Music Room $TAG" --notes "$NOTES"
-  [ ${#ASSETS[@]} -gt 0 ] && gh release upload "$TAG" --repo "$REPO" --clobber "${ASSETS[@]}"
 else
-  gh release create "$TAG" --repo "$REPO" --title "The Music Room $TAG" --notes "$NOTES" "${ASSETS[@]}"
+  gh release create "$TAG" --repo "$REPO" --draft --title "The Music Room $TAG" --notes "$NOTES"
 fi
+for f in ${ASSETS[@]+"${ASSETS[@]}"}; do
+  send "$f" || { echo "✗ $(basename "$f") is not on the release page. It is still here: $f"; echo "  Send it with: gh release upload $TAG --repo $REPO --clobber \"$f\""; exit 1; }
+done
+gh release edit "$TAG" --repo "$REPO" --draft=false >/dev/null
 echo "   The Windows app is being built on GitHub's machines: https://github.com/$REPO/actions"
 URL="https://github.com/$REPO/releases/tag/$TAG"
 echo ""

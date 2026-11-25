@@ -46,12 +46,44 @@ def asset_name():
     return "Music.Room.GR.Apple.Silicon.zip" if platform.machine() == "arm64" else "Music.Room.GR.Intel.zip"
 
 
+def _applications():
+    """The Applications folder this person can put an app into: the Mac's own when they may
+    (an administrator), else their own ~/Applications (made if it isn't there)."""
+    forced = os.environ.get("MR_APPLICATIONS_DIR")          # (tests)
+    if forced:
+        return forced
+    if os.access("/Applications", os.W_OK):
+        return "/Applications"
+    return os.path.join(os.path.expanduser("~"), "Applications")
+
+
+def _into_applications(app):
+    """A Mac app that can't be replaced where it runs — opened from where it was unzipped, so macOS
+    runs it from a locked, temporary place ("AppTranslocation"), or sitting in a folder it may not
+    change — is updated INTO the Applications folder instead, and opens from there from then on.
+    (Until 25 Nov 2026 such an app could only say "Get it": the first fellow outside the building
+    met exactly that.) → where()'s answer, or None when that can't be done either."""
+    apps = _applications()
+    target = os.path.join(apps, os.path.basename(app))
+    if os.path.realpath(target) == os.path.realpath(app):
+        return None                                          # it IS the one in Applications, and may not be changed
+    base = apps if os.path.isdir(apps) else os.path.dirname(apps)       # (~/Applications may have to be made)
+    if not os.access(base, os.W_OK) or (os.path.exists(target) and not os.access(target, os.W_OK)):
+        return None
+    return {"can": True, "why": "", "app": target, "running": app, "into": "your Applications folder"}
+
+
 def where():
     """Where the running app sits, and whether it can replace itself there.
-    → {"can": bool, "why": words when it can't, "app": the path that would be replaced}"""
+    → {"can": bool, "why": words when it can't, "app": the path that would be replaced}
+    and, when the new version will go somewhere else than where this one runs:
+    "running" (this one's path) and "into" (words for where the new one goes)."""
     if not getattr(sys, "frozen", False):
         return {"can": False, "why": "This copy runs from the code: update it with git.", "app": ""}
-    exe = os.path.realpath(sys.executable)
+    return _where_of(os.path.realpath(sys.executable))
+
+
+def _where_of(exe):
     if _is_win():
         app = os.path.dirname(exe)
     else:
@@ -59,11 +91,13 @@ def where():
         if not app.endswith(".app"):
             return {"can": False, "why": "This copy isn't an app that can be replaced.", "app": ""}
         if "/AppTranslocation/" in app:
-            return {"can": False, "app": "",
-                    "why": "Move Music Room GR into your Applications folder and open it from there; then it can update itself."}
+            return _into_applications(app) or {
+                "can": False, "app": "",
+                "why": "Move Music Room GR into your Applications folder and open it from there; then it can update itself."}
     parent = os.path.dirname(app)
     if not os.access(parent, os.W_OK) or not os.access(app, os.W_OK):
-        return {"can": False, "why": "This app is in a folder it may not change.", "app": app}
+        return (None if _is_win() else _into_applications(app)) or {
+            "can": False, "why": "This app is in a folder it may not change.", "app": app}
     return {"can": True, "why": "", "app": app}
 
 
@@ -224,9 +258,11 @@ def other_copies():
     which answers without this app opening anyone's folders. Mac only; [] elsewhere."""
     if _is_win() or sys.platform != "darwin":
         return []
-    here = where().get("app") or ""
-    if not here:
-        return []                      # (run from the code, or not somewhere it can speak for: it names nothing)
+    w = where()
+    here = w.get("app") or ""
+    if not here or w.get("running"):
+        return []                      # (run from the code, or not from where it will live: it names nothing —
+                                       #  the copy it runs from would be among them)
     try:
         r = subprocess.run(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{BUNDLE_ID}'"],
                            capture_output=True, text=True, timeout=12)
@@ -276,17 +312,27 @@ def bin_copies(paths=None):
 
 _MAC = r"""#!/bin/sh
 # Music Room: put the new app where the old one is, once the old one has closed.
-PID="$1"; OLD="$2"; NEW="$3"; WORK="$4"; OPEN="$5"
+# OLD is where the new app goes. It is usually where the app ran from; for an app that ran from a
+# place it could not change (WAS), it is the Applications folder, and nothing may be there yet.
+PID="$1"; OLD="$2"; NEW="$3"; WORK="$4"; OPEN="$5"; WAS="${6:-$2}"
 n=0; while kill -0 "$PID" 2>/dev/null && [ $n -lt 100 ]; do sleep 0.3; n=$((n+1)); done
 BAK="$OLD.before-update"
 rm -rf "$BAK"
-if mv "$OLD" "$BAK" && mv "$NEW" "$OLD"; then
+mkdir -p "$(dirname "$OLD")" 2>/dev/null
+ok=no
+if [ -e "$OLD" ]; then
+  if mv "$OLD" "$BAK"; then
+    if mv "$NEW" "$OLD"; then ok=yes; else mv "$BAK" "$OLD"; fi     # anything went wrong: the app that was there is there again
+  fi
+else
+  mv "$NEW" "$OLD" && ok=yes
+fi
+if [ "$ok" = yes ]; then
   xattr -dr com.apple.quarantine "$OLD" 2>/dev/null
   [ "$OPEN" = no ] || open "$OLD"
   rm -rf "$BAK" "$WORK"
 else
-  [ -e "$OLD" ] || mv "$BAK" "$OLD"        # anything went wrong: the app that was there is there again
-  [ "$OPEN" = no ] || open "$OLD"
+  [ "$OPEN" = no ] || open "$WAS" 2>/dev/null || open "$OLD"
 fi
 """
 
@@ -327,7 +373,8 @@ def apply():
     helper_dir = os.path.join(os.path.dirname(work), "update-helper")       # (outside what the helper removes)
     os.makedirs(helper_dir, exist_ok=True)
     args = [str(os.getpid()), w["app"], st["staged"], work,
-            "no" if os.environ.get("MR_UPDATE_NO_OPEN") == "1" else "yes"]      # (tests: swap, don't reopen)
+            "no" if os.environ.get("MR_UPDATE_NO_OPEN") == "1" else "yes",      # (tests: swap, don't reopen)
+            w.get("running") or w["app"]]                                        # (where this one runs, if not there)
     if _is_win():
         script = os.path.join(helper_dir, "swap.bat")
         with open(script, "w", encoding="utf-8") as fh:

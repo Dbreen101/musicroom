@@ -151,7 +151,8 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
         if (s.step === 'ready') {
           now.textContent = 'Restarting…';
           try { await fetch('/api/gr/update/apply', { method: 'POST' }); } catch (_) {}
-          say.textContent = `Version ${v.want.version} is going in. The Music Room will reopen by itself. `;
+          say.textContent = v.into ? `Version ${v.want.version} is going into ${v.into}. The Music Room will reopen from there. `
+                                   : `Version ${v.want.version} is going in. The Music Room will reopen by itself. `;
           return;
         }
         now.textContent = s.step === 'downloading' && s.total ? `Downloading ${Math.floor(100 * s.done / s.total)}%` : s.step === 'unpacking' ? 'Unpacking…' : 'Starting…';
@@ -159,6 +160,7 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
       };
       tick();
     });
+    if (!v.self && v.why_not) say.textContent += v.why_not + ' ';              // (why this copy can't put it in by itself)
     if (v.self) bar.append(say, now, x);
     else if (v.want.url) bar.append(say, get, x); else bar.append(say, x);      // (no address given → no link that leads nowhere)
     dress();

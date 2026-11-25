@@ -50,6 +50,43 @@ if sys.platform == "darwin":
     chk(swap() == ("new", False, False), "the swap puts the new app where the old one was and clears up after itself")
     chk(swap(new_exists=False)[0] == "old", "…and with nothing to put in, the old app is back where it was")
 
+    # an app that can't be replaced where it runs (opened from where it was unzipped: macOS runs it from a
+    # locked temporary place) is updated INTO the Applications folder
+    d = tempfile.mkdtemp(dir=tmp)
+    apps = os.path.join(d, "Applications"); os.makedirs(apps)
+    ran = os.path.join(d, "private", "var", "folders", "x", "AppTranslocation", "ABC-1", "d", "Music Room GR.app")
+    exe = os.path.join(ran, "Contents", "MacOS", "music-room"); os.makedirs(os.path.dirname(exe)); open(exe, "w").write("old")
+    os.environ["MR_APPLICATIONS_DIR"] = apps
+    w = U._where_of(exe)
+    target = os.path.join(apps, "Music Room GR.app")
+    chk(w["can"] is True and w["app"] == target and w["running"] == ran and "Applications" in w["into"],
+        "opened from where it was unzipped, the app can still update itself: into the Applications folder")
+    work = os.path.join(d, "update"); new = os.path.join(work, "new", "Music Room GR.app"); os.makedirs(new); open(os.path.join(new, "which"), "w").write("new")
+    sh = os.path.join(d, "swap.sh"); open(sh, "w").write(U._MAC)
+    subprocess.run(["/bin/sh", sh, "999999", target, new, work, "no", ran], check=False, timeout=60)
+    chk(open(os.path.join(target, "which")).read() == "new" and not os.path.exists(work) and os.path.exists(exe),
+        "…the new app lands there though nothing was there before, and the copy that was running is not touched")
+    work = os.path.join(d, "update"); new = os.path.join(work, "new", "Music Room GR.app"); os.makedirs(new); open(os.path.join(new, "which"), "w").write("newer")
+    subprocess.run(["/bin/sh", sh, "999999", target, new, work, "no", ran], check=False, timeout=60)
+    chk(open(os.path.join(target, "which")).read() == "newer" and not os.path.exists(target + ".before-update"),
+        "…and an older copy already in Applications is replaced by it")
+    real_where_1 = U.where
+    U.where = lambda: w
+    chk(U.other_copies() == [], "while it runs from somewhere else, it names no other copies (the one it runs from would be among them)")
+    U.where = real_where_1
+    locked = os.path.join(d, "Locked"); app2 = os.path.join(locked, "Music Room GR.app"); exe2 = os.path.join(app2, "Contents", "MacOS", "music-room")
+    os.makedirs(os.path.dirname(exe2)); os.chmod(locked, 0o555)
+    w2 = U._where_of(exe2)
+    chk(w2["can"] is True and w2["app"] == target and w2["running"] == app2, "an app in a folder it may not change goes into Applications too")
+    os.chmod(locked, 0o755)
+    os.chmod(apps, 0o555)
+    w3 = U._where_of(exe)
+    chk(w3["can"] is False and "Applications" in w3["why"], "with no Applications folder it may write to, it says what to do instead")
+    os.chmod(apps, 0o755)
+    exe3 = os.path.join(target, "Contents", "MacOS", "music-room"); os.makedirs(os.path.dirname(exe3), exist_ok=True)
+    chk(U._where_of(exe3) == {"can": True, "why": "", "app": target}, "the app in Applications is replaced where it is, as before")
+    os.environ.pop("MR_APPLICATIONS_DIR", None)
+
     big = os.path.join(tmp, "f.bin"); open(big, "wb").write(b"x" * 300000)
     try:
         U._download(big, os.path.join(tmp, "out.bin"), 300001, ""); ok = False

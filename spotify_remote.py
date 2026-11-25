@@ -96,6 +96,20 @@ def show_app(url="", _run=subprocess.run):
     return ""
 
 
+def spotify_app_here():
+    """Is the Spotify app on this computer? True / False, or None when that can't be told."""
+    if sys.platform == "darwin":
+        if any(os.path.isdir(p) for p in ("/Applications/Spotify.app", os.path.expanduser("~/Applications/Spotify.app"))):
+            return True
+        try:
+            r = subprocess.run(["/usr/bin/mdfind", "kMDItemCFBundleIdentifier == 'com.spotify.client'"],
+                               capture_output=True, text=True, timeout=6)
+            return bool(r.stdout.strip())
+        except Exception:
+            return None
+    return None
+
+
 def _this_computer():
     """Names Spotify is likely to know this computer by (its device name is
     the computer's name unless the listener changed it)."""
@@ -193,6 +207,8 @@ class SpotifyRemote:
             return "signin"
         if status == 429:
             return "busy"
+        if status == 403 and "REGISTER" in why:            # "User not registered in the Developer Dashboard"
+            return "unlisted"
         if status == 403 and "PREMIUM" in why:
             try:
                 from spotify import KEY_NO_PREMIUM
@@ -205,10 +221,19 @@ class SpotifyRemote:
             return "no_device"
         return "refused"
 
+    def _why_no_device(self, c):
+        """No Spotify to play on. Usually none is open — but a listener the key's owner has not
+        listed, or one without Premium, gets the same empty answer: ask Spotify which it is."""
+        try:
+            step = c.checkup().get("step") if hasattr(c, "checkup") else ""
+        except Exception:
+            step = ""
+        return {"unlisted": "unlisted", "free": "premium", "signed_out": "signin", "reconnect": "signin"}.get(step, "no_device")
+
     # ── the commands ──
     def play(self, item, position_sec=0.0):
         """Start this record in the listener's Spotify, on this computer →
-        (ok, why). why: '' · no_device · premium · signin · network · busy · refused"""
+        (ok, why). why: '' · no_device · premium · unlisted · signin · network · busy · refused"""
         c = self._get()
         how, uri = uri_of(item.get("url"))
         if not uri:
@@ -227,7 +252,7 @@ class SpotifyRemote:
             self.device_id = None                          # it has gone — look again
         dev = self._find_device(c)
         if not dev:
-            return False, "no_device"
+            return False, self._why_no_device(c)
         for attempt in range(3):                           # a just-opened app can take a moment to listen
             status, data = c.player_play(device_id=dev["id"], **kw)
             if status in _OK:

@@ -36,6 +36,7 @@ const NAMES = { spotify: 'Spotify', soundcloud: 'SoundCloud' };
 const WHY = {
     no_device: 'open Spotify on this computer for the whole track',
     premium:   'playing through your own Spotify needs Spotify Premium',
+    unlisted:  'Spotify does not know you on this key yet — Tools → Spotify says what to do',
     signin:    'sign in to Spotify again on the Spotify page',
     busy:      'Spotify asked for a moment — this is its preview player',
     network:   'could not reach Spotify — this is its preview player',
