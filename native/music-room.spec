@@ -109,7 +109,7 @@ hiddenimports = [
     # Playback
     "pygame", "pygame.mixer", "pygame.locals",
     # Images / textures
-    "PIL", "PIL.Image", "PIL.ImageDraw", "PIL.ImageFilter",
+    "PIL", "PIL.Image", "PIL.ImageDraw", "PIL.ImageFilter", "PIL.ImageOps",
     # Spreadsheet export (openpyxl) + progress bars (tqdm)
     "openpyxl", "tqdm",
     # pywebview + macOS bridge
@@ -119,7 +119,7 @@ hiddenimports = [
     "sqlite3", "urllib.request", "urllib.error", "urllib.parse",
     "ssl", "json", "xml.etree.ElementTree", "wave", "struct",
     "http.client", "email.utils", "secrets", "hashlib", "hmac", "unicodedata",
-    "zipfile", "shutil", "plistlib", "html", "mimetypes",
+    "zipfile", "shutil", "plistlib", "html", "mimetypes", "tempfile", "subprocess",
 ]
 
 for pkg in ("librosa", "soundfile", "audioread", "numba", "llvmlite",

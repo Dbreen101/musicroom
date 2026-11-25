@@ -135,59 +135,82 @@ def _proof_of(token, ask):
     return hmac.new(str(token).encode("utf-8"), str(ask).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def go_back():
-    """The address this app moved to does not answer: return to the one it had
-    before, if that one is the same Music Room. → True when this app went back.
+def _same_room_at(addr, tok, fp):
+    """Is the server at `addr` the Music Room this app is signed in to? The sign-in is
+    NOT sent to find out: the app asks the address to sign some made-up words with it
+    (/api/knows), which only a server that holds the sign-in can do. Only then is the
+    sign-in used there, and it must be accepted. Never raises."""
+    ask = secrets.token_hex(16)
+    try:
+        r = requests.get(addr + "/api/knows", params={"device": fp, "ask": ask}, timeout=_BACK_TIMEOUT)
+        proofs = r.json().get("proofs") if r.status_code == 200 else None
+    except (requests.RequestException, ValueError, AttributeError):
+        return False
+    mine = _proof_of(tok, ask)
+    if not isinstance(proofs, list) or not any(hmac.compare_digest(mine, str(p)) for p in proofs):
+        return False
+    try:
+        r = requests.get(addr + "/api/me", headers={"Authorization": f"Bearer {tok}"}, timeout=_BACK_TIMEOUT)
+    except requests.RequestException:
+        return False
+    return r.status_code == 200
 
-    The address before is usually plain http on a Wi-Fi, and a laptop can be on
-    any Wi-Fi by now. So the sign-in is NOT sent to find out: the app asks the
-    old address to sign some made-up words with it (/api/knows), which only a
-    server that holds the sign-in can do. Only then is the sign-in used there,
-    and only if it is accepted does the app go back. Never raises."""
+
+def go_back():
+    """The address this app is on does not answer: go to another address it has reason
+    to trust, if the same Music Room is there. → True when this app moved.
+
+    Two addresses are tried, in this order:
+    - the one it had BEFORE (it followed the server to a new address, and that one is
+      away while the old one answers: a tunnel down, the Wi-Fi still up);
+    - the one THIS BUILD carries (default_server): an app that signed in at a Wi-Fi
+      address and is not on that Wi-Fi now — a new download keeps the address the old
+      one remembered, so without this it would stay stuck. https only, and never for an
+      app whose server is on its own computer (the master's own app, beside the server).
+
+    An old address is usually plain http on a Wi-Fi, and a laptop can be on any Wi-Fi by
+    now: see _same_room_at for how the sign-in is kept from a stranger. Never raises."""
     try:
         with closing(_db()) as conn:
             now = _server_url(conn)
             before = (_get_setting(conn, "gr_server_url_before") or "").strip().rstrip("/")
             tok = _get_setting(conn, "gr_token")
             fp = _get_setting(conn, "gr_fingerprint")
-        if not tok or not fp or not now or not before or before == now or not before.startswith("http"):
+        if not tok or not fp or not now:
+            return False
+        home = default_server()
+        tries = []
+        if before and before != now and before.startswith("http"):
+            tries.append((before, "server_back"))
+        if home and home not in (now, before) and home.startswith("https://") and not _this_computer(now):
+            tries.append((home, "server_found"))
+        if not tries:
             return False
         try:
             # (is the address the app is on really away? a look that needs no sign-in)
             requests.get(now + "/api/version", timeout=_BACK_TIMEOUT)
-            return False                    # it answers: nothing to go back from
+            return False                    # it answers: nothing to move from
         except requests.RequestException:
             pass
-        ask = secrets.token_hex(16)
-        try:
-            r = requests.get(before + "/api/knows", params={"device": fp, "ask": ask}, timeout=_BACK_TIMEOUT)
-            proofs = r.json().get("proofs") if r.status_code == 200 else None
-        except (requests.RequestException, ValueError, AttributeError):
-            return False
-        mine = _proof_of(tok, ask)
-        if not isinstance(proofs, list) or not any(hmac.compare_digest(mine, str(p)) for p in proofs):
-            return False
-        try:
-            r = requests.get(before + "/api/me", headers={"Authorization": f"Bearer {tok}"}, timeout=_BACK_TIMEOUT)
-        except requests.RequestException:
-            return False
-        if r.status_code != 200:
-            return False
-        with closing(_db()) as conn:
-            if _server_url(conn) != now:    # something else moved the app meanwhile
-                return False
-            _set_setting(conn, "gr_server_url", before)
-            _set_setting(conn, "gr_server_url_before", now)
-        track("server_back", {"from": now, "to": before})
-        return True
+        for addr, what in tries:
+            if not _same_room_at(addr, tok, fp):
+                continue
+            with closing(_db()) as conn:
+                if _server_url(conn) != now:    # something else moved the app meanwhile
+                    return False
+                _set_setting(conn, "gr_server_url", addr)
+                _set_setting(conn, "gr_server_url_before", now)
+            track(what, {"from": now, "to": addr})
+            return True
+        return False
     except Exception:
         return False
 
 
 def _lost():
-    """A call to the rooms server got no answer. If this app has an address from
-    before, look there, in the background (the call that failed is not held up),
-    and not more than once a minute. Never raises."""
+    """A call to the rooms server got no answer. Look for it at the address this app
+    had before, then at the one this build carries (go_back) — in the background (the
+    call that failed is not held up), and not more than once a minute. Never raises."""
     try:
         with _back_lock:
             t = _back["thread"]
@@ -254,14 +277,20 @@ def join(server_url, invite_code, device_name=""):
         server_url = "http://" + server_url
     with closing(_db()) as conn:
         fp = _fingerprint(conn)
+        ask = {"invite_code": invite_code, "fingerprint": fp, "device_name": device_name or "laptop"}
         try:
-            r = requests.post(server_url + "/api/join",
-                              json={"invite_code": invite_code,
-                                    "fingerprint": fp,
-                                    "device_name": device_name or "laptop"},
-                              timeout=_TIMEOUT)
+            r = requests.post(server_url + "/api/join", json=ask, timeout=_TIMEOUT)
         except requests.RequestException:
-            raise GRError("that address didn't answer — is the server running?")
+            # (a laptop that remembers a Wi-Fi address it is not on now: the address this build
+            #  carries is tried once. An account code only opens the server that made it.)
+            home = default_server()
+            if not home.startswith("https://") or home == server_url:
+                raise GRError("that address didn't answer — is the server running?")
+            try:
+                r = requests.post(home + "/api/join", json=ask, timeout=_TIMEOUT)
+            except requests.RequestException:
+                raise GRError("that address didn't answer — is the server running?")
+            server_url = home
         if r.status_code != 200:
             raise GRError(_err_of(r, "the server refused the invite code"))
         d = r.json()

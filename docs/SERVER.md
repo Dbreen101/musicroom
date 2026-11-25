@@ -168,6 +168,13 @@ that address is handed out:
    answers again, the app moves forward as it did the first time. An app that
    was installed with the new address already in it has no address from before,
    and waits.
+5. **Stuck on the Wi-Fi address.** An app that signed in at the Wi-Fi address
+   remembers it, and a new download keeps what the old one remembered. Away
+   from that Wi-Fi it would never see the server say where it lives. So when
+   its address does not answer, the app also tries the address its own build
+   carries (https only), with the same proof, and moves there. Signing in with
+   an account code does the same. The master's own app, beside the server,
+   never does.
 
 **With Tailscale Funnel** (free; what the Green Room trial uses since
 2026-11-24): install Tailscale on the server's Mac and sign in, switch Funnel on

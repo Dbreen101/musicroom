@@ -69,13 +69,13 @@ hiddenimports = [
     "mutagen.wave", "mutagen.aiff",
     "numpy", "scipy", "scipy.signal", "scipy.io", "soundfile", "audioread",
     "pygame", "pygame.mixer", "pygame.locals",
-    "PIL", "PIL.Image", "PIL.ImageDraw", "PIL.ImageFilter",
+    "PIL", "PIL.Image", "PIL.ImageDraw", "PIL.ImageFilter", "PIL.ImageOps",
     "openpyxl", "tqdm", "cryptography",
     # the window: pywebview with Microsoft Edge's WebView2 (through pythonnet)
     "webview", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr", "clr_loader",
     "sqlite3", "urllib.request", "urllib.error", "urllib.parse", "ssl", "json", "xml.etree.ElementTree",
     "wave", "struct", "http.client", "email.utils", "secrets", "hashlib", "hmac", "unicodedata", "ctypes.wintypes",
-    "zipfile", "shutil", "plistlib", "winreg", "html", "mimetypes",      # (the app's own code is read at run time: what it imports must be named here)
+    "zipfile", "shutil", "plistlib", "winreg", "html", "mimetypes", "tempfile", "subprocess",      # (the app's own code is read at run time: what it imports must be named here)
     "tkinter",
 ]
 for pkg in ("librosa", "soundfile", "audioread", "numba", "llvmlite", "lazy_loader", "pooch", "soxr",

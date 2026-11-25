@@ -1526,7 +1526,13 @@ def api_my_assets_upload():
         try:
             img = _open_picture(raw)
         except Exception:
-            return jsonify({"error": "that isn't an image I can read"}), 400
+            return jsonify({"error": "That isn't a picture the Music Room can read. Use a JPEG, PNG, WebP or GIF."
+                                     " (A photo from an iPhone is often a HEIC: update the app and it changes it for you.)"}), 400
+        try:
+            from PIL import ImageOps
+            img = ImageOps.exif_transpose(img)          # (a phone photo stored on its side: the right way up)
+        except Exception:
+            pass
         has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
         img = img.convert("RGBA" if has_alpha else "RGB")
         img.thumbnail((1800, 1800))

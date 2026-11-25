@@ -285,6 +285,96 @@ chk(where() == (OLD, NEW), "after the minute, the next failed call (of any kind)
 world["new"] = "up"; green_room.follow_move(NEW)
 chk(where() == (NEW, OLD), "(forward again for what follows)")
 
+# ═══ stuck on a Wi-Fi address it is not on: the app tries the address its own build carries ═══
+# (a fellow signed in on the building's Wi-Fi, then went home; a new download keeps the address the old app remembered)
+HOME = "https://home.example.org"
+home = {"is": "same"}                     # same | away | stranger
+sent_home = []
+def fake_home(url, **kw):
+    if url.startswith(HOME):
+        sent_home.append((url[len(HOME):], dict(kw.get("headers") or {})))
+        if home["is"] == "away":
+            raise _rq.ConnectionError("no way out to the internet")
+        if home["is"] == "stranger":
+            r = real_get(SERVER + "/api/version", timeout=5)
+            r._content = b'{"proofs": []}'
+            return r
+        return real_get(SERVER + url[len(HOME):], **kw)
+    if url.startswith("http://127.0.0.1:1/"):
+        raise _rq.ConnectionError("nothing there")
+    return fake_world(url, **kw)
+green_room.requests.get = fake_home
+def put(url, before=""):
+    with closing(appdb()) as x:
+        x.execute("INSERT OR REPLACE INTO settings(key, value) VALUES('gr_server_url', ?)", (url,))
+        x.execute("INSERT OR REPLACE INTO settings(key, value) VALUES('gr_server_url_before', ?)", (before,)); x.commit()
+def noted(kind):
+    with closing(appdb()) as x:
+        return x.execute("SELECT COUNT(*) FROM gr_events_outbox WHERE kind=?", (kind,)).fetchone()[0]
+
+put(OLD); world["old"] = "away"; world["new"] = "up"
+os.environ.pop("MR_GR_SERVER", None)
+chk(green_room.go_back() is False and where() == (OLD, "") and not sent_home,
+    "an app whose build carries no address, on a Wi-Fi address that is away, has nowhere to look")
+os.environ["MR_GR_SERVER"] = "http://home.example.org"
+chk(green_room.go_back() is False and where() == (OLD, ""), "an address in the build that isn't https:// is never tried")
+os.environ["MR_GR_SERVER"] = HOME + "/"
+world["old"] = "same"
+chk(green_room.go_back() is False and where() == (OLD, "") and not sent_home,
+    "while the remembered address answers, the app stays on it and asks nothing of the build's address")
+world["old"] = "away"
+for how in ("away", "stranger"):
+    home["is"] = how
+    chk(green_room.go_back() is False and where() == (OLD, ""),
+        f"the remembered address is away and the build's address is {how}: the app stays put")
+chk(not any("Authorization" in h for _, h in sent_home), "and its sign-in was not sent there")
+home["is"] = "same"; sent_home.clear(); was = noted("server_found")
+chk(green_room.go_back() is True and where() == (HOME, OLD),
+    "the remembered Wi-Fi address is away and the build's address is the same Music Room: the app goes there (and remembers the Wi-Fi one)")
+chk([p for p, _ in sent_home][:1] == ["/api/knows"] and "Authorization" not in sent_home[0][1],
+    "it asked for the proof first, without its sign-in")
+chk(noted("server_found") == was + 1, "and the move is noted once, for the activity log")
+chk(green_room.go_back() is False and where() == (HOME, OLD), "asked again, there is nothing to do")
+
+put("http://127.0.0.1:1"); sent_home.clear()
+chk(green_room.go_back() is False and where() == ("http://127.0.0.1:1", "") and not sent_home,
+    "an app whose server is on its own computer never leaves for the build's address (the master's own app, while its server restarts)")
+
+put(NEW, OLD); world["new"] = "down"; world["old"] = "same"; sent_home.clear()
+chk(green_room.go_back() is True and where() == (OLD, NEW) and not sent_home,
+    "with an address from before that answers, that one is taken first")
+put(NEW, OLD); world["old"] = "away"
+chk(green_room.go_back() is True and where() == (HOME, NEW),
+    "the address from before is away too: the build's address is next")
+
+# signing in with an account code on a laptop that remembers a Wi-Fi address it is not on
+real_post = green_room.requests.post
+def fake_post(url, **kw):
+    if url.startswith(OLD):
+        raise _rq.ConnectionError("nothing at that name on this Wi-Fi")
+    if url.startswith(HOME):
+        return real_post(SERVER + url[len(HOME):], **kw)
+    return real_post(url, **kw)
+green_room.requests.post = fake_post
+code = app_setting("gr_invite_code")
+put(OLD)
+try:
+    green_room.join(OLD, "gr-not-a-real-code"); chk(False, "a wrong account code is refused through the build's address too")
+except green_room.GRError as e:
+    chk("didn't answer" not in str(e) and app_setting("gr_server_url") == OLD,
+        "a wrong account code is refused through the build's address too, in the server's words")
+gr_master._rate.clear()
+chk(bool(code) and green_room.join(OLD, code).get("joined") is True and app_setting("gr_server_url") == HOME,
+    "the right account code signs the laptop in through the build's address, and the app keeps that address")
+os.environ.pop("MR_GR_SERVER", None)
+try:
+    green_room.join(OLD, code); chk(False, "with no address in the build, an address that doesn't answer says so")
+except green_room.GRError as e:
+    chk("didn't answer" in str(e), "with no address in the build, an address that doesn't answer says so")
+green_room.requests.post = real_post
+green_room.requests.get = fake_world
+put(NEW, OLD); world["new"] = "up"; world["old"] = "same"; gr_master._rate.clear()
+
 # the server's side of the question
 with closing(appdb()) as x:
     fp, tok = (x.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone()[0] for k in ("gr_fingerprint", "gr_token"))

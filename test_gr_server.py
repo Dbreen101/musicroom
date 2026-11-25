@@ -353,6 +353,12 @@ chk(client.get("/api/my/room/assets", headers=hdr(atok)).get_json()["assets"][0]
 chk(client.delete(f"/api/my/room/assets/{aid}", headers=hdr(atok)).status_code == 200 and client.get(f"/api/assets/{aid}").status_code == 404, "deleted images are gone")
 bad = client.post("/api/my/room/assets", data={"rights": "1", "image": (_io.BytesIO(b"not an image"), "x.jpg")}, headers=hdr(atok), content_type="multipart/form-data")
 chk(bad.status_code == 400, "a non-image is refused politely")
+side = Image.new("RGB", (600, 400), (10, 120, 200)); ex = side.getexif(); ex[0x0112] = 6
+buf = _io.BytesIO(); side.save(buf, "JPEG", exif=ex); buf.seek(0)
+up = client.post("/api/my/room/assets", data={"rights": "1", "image": (buf, "phone.jpg")}, headers=hdr(atok), content_type="multipart/form-data")
+chk(up.status_code == 200 and (up.get_json()["width"], up.get_json()["height"]) == (400, 600),
+    "a phone photo stored on its side is kept the right way up")
+client.delete(f"/api/my/room/assets/{up.get_json()['id']}", headers=hdr(atok))
 
 # --- an artist uploads a record from the app; a listener can't ---
 wbuf = _io.BytesIO()

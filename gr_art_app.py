@@ -95,11 +95,16 @@ def register(app):
         f = request.files.get("image")
         if not f:
             return jsonify({"error": "choose a picture"}), 400
-        data = f.read()
+        import mr_pictures
+        try:
+            # (a work is kept as it was sent: only a kind the server can't read, or one too big, is changed)
+            data, name, mime = mr_pictures.sendable(f.read(), f.filename or "work", turn=False)
+        except mr_pictures.NotAPicture as e:
+            return jsonify({"error": str(e)}), 400
         fields = {k: request.form.get(k) or "" for k in ("title", "year", "medium", "note", "url", "price", "rights")}
         try:
             with closing(green_room._db()) as conn:
-                r = green_room._post_files(conn, "/api/my/works", {"image": (f.filename or "work", data, f.mimetype or "image/jpeg")}, fields)
+                r = green_room._post_files(conn, "/api/my/works", {"image": (name or "work", data, mime)}, fields)
             try:
                 out = r.json()
             except ValueError:

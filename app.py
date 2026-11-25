@@ -14365,6 +14365,18 @@ def _gr_guard(fn):
         return jsonify({"error": "That was interrupted. Try again."}), 502
 
 
+def _picture_ready(f, turn=True):
+    """An uploaded picture as (filename, bytes, mime), made into one the rooms server takes
+    (mr_pictures: a phone's HEIC becomes a JPEG, a huge one is made smaller, one stored on
+    its side is turned). → (picture, None), or (None, the words to show the person)."""
+    import mr_pictures
+    try:
+        data, name, mime = mr_pictures.sendable(f.read(), f.filename or "", turn=turn)
+    except mr_pictures.NotAPicture as e:
+        return None, str(e)
+    return (name or "picture", data, mime), None
+
+
 @app.route("/greenroom")
 def greenroom_page():
     # the first pool browser; superseded by Explore → Music rooms
@@ -14584,9 +14596,12 @@ def api_gr_my_assets_upload():
     f = request.files.get("image")
     if not f:
         return jsonify({"error": "no image"}), 400
-    data = f.read()
+    pic, why = _picture_ready(f)
+    if not pic:
+        return jsonify({"error": why}), 400
+    name, data, mime = pic
     return _gr_guard(lambda: green_room.upload_asset(
-        f.filename or "image", data, f.mimetype or "image/jpeg", request.form.get("label") or "",
+        name, data, mime, request.form.get("label") or "",
         rights=request.form.get("rights") or ""))
 
 
@@ -14617,7 +14632,9 @@ def api_gr_my_records_upload():
         return jsonify({"error": "no audio file"}), 400
     audio = (a.filename, a.read(), a.mimetype or "application/octet-stream")
     c = request.files.get("cover")
-    cover = (c.filename, c.read(), c.mimetype or "image/jpeg") if c and c.filename else None
+    cover, why = _picture_ready(c) if c and c.filename else (None, None)
+    if why:
+        return jsonify({"error": why}), 400
     fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label", "exclusive",
                                                "rights", "rights_note")
               if request.form.get(k) is not None}
@@ -14627,7 +14644,9 @@ def api_gr_my_records_upload():
 @app.route("/api/gr/my/records/<int:tid>", methods=["POST"])
 def api_gr_my_records_edit(tid):
     c = request.files.get("cover")
-    cover = (c.filename, c.read(), c.mimetype or "image/jpeg") if c and c.filename else None
+    cover, why = _picture_ready(c) if c and c.filename else (None, None)
+    if why:
+        return jsonify({"error": why}), 400
     fields = {k: request.form.get(k) for k in ("title", "artist", "album", "price_cents", "buy_url", "genre", "year", "label", "exclusive")
               if request.form.get(k) is not None} if request.form else (request.get_json(silent=True) or {})
     return _gr_guard(lambda: green_room.edit_record(tid, fields, cover))
