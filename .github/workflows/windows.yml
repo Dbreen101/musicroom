@@ -163,7 +163,11 @@ jobs:
           $env:SDL_AUDIODRIVER = "dummy"
           $log = Join-Path $env:RUNNER_TEMP "install.log"
           $setup = (Get-Item "native\Output\Install Music Room GR (Windows).exe").FullName
-          $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$log`"" -PassThru -Wait
+          # wait for the installer ONLY: Start-Process -Wait also waits for everything it started, and
+          # it starts the app, which stays open (the first run of this sat there until it was stopped)
+          $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$log`"" -PassThru
+          $null = $p.Handle          # (so its exit code can be read once it has gone)
+          if (-not $p.WaitForExit(600000)) { Write-Host "The installer didn't finish in 10 minutes."; Get-Content $log | Write-Host; exit 1 }
           if ($p.ExitCode -ne 0) { Write-Host "The installer stopped ($($p.ExitCode))."; Get-Content $log | Write-Host; exit 1 }
           $app = Join-Path $env:LOCALAPPDATA "Programs\Music Room GR"
           $start = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Music Room GR.lnk"
@@ -197,8 +201,9 @@ jobs:
           Get-Process -Name "Music Room GR" -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 3
           # and it can be taken away again, leaving the person's own data
-          Start-Process -FilePath $uninst -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
-          foreach ($i in 1..60) { if (-not (Test-Path $app)) { break }; Start-Sleep -Seconds 1 }
+          $u = Start-Process -FilePath $uninst -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
+          $null = $u.WaitForExit(300000)
+          foreach ($i in 1..120) { if (-not (Test-Path $app)) { break }; Start-Sleep -Seconds 1 }
           $gone = -not (Test-Path $app) -and -not (Test-Path $start) -and -not (Test-Path $desk)
           $kept = Test-Path $env:MUSICROOM_DATA
           Write-Host "uninstalled: $gone · data kept: $kept"
