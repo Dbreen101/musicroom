@@ -22,9 +22,10 @@ newer (most Macs from late 2020 on), "Intel" for older Macs.
       xattr -dr com.apple.quarantine
    then a space, drag the app into the window, press Return, and open it.
 
-3. Make your account on the first screen (or sign in with your account
-   code). The app already knows where the Music Room's server is — you need
-   to be on the same Wi-Fi as it.
+3. Make your account on the first screen with the invite code you were
+   given. Already have an account? Choose "I have an account" and type your
+   account code instead. The app already knows where the Music Room's server
+   is, and it works on any internet connection.
 
 Help: the ? in the top bar. Something odd or broken: the feedback button
 in the corner of every page.

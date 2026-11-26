@@ -229,3 +229,14 @@ body.gr-page .pr-note { font-size: var(--gr-t5); color: var(--gr-faint); margin-
   .gr-line { flex-wrap: wrap; }
   .gr-line__main { flex-basis: calc(100% - 72px - var(--gr-s3)); }
 }
+
+/* event pages in a public room (room_blocks.js 'events'; gr_happenings.py on the server) */
+.rb-event { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--gr-s3); padding: var(--gr-s3) 0; border-top: 1px solid var(--pr-line, var(--gr-line)); max-width: 78ch; }
+.rb-event__pic { width: 132px; height: 132px; object-fit: cover; display: block; }
+.rb-event__main { grid-column: 2; min-width: 0; }
+.rb-event:not(:has(.rb-event__pic)) .rb-event__main { grid-column: 1 / -1; }
+.rb-event__when { font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .1em; text-transform: uppercase; color: var(--pr-muted, var(--gr-muted)); }
+.rb-event__t { font-family: var(--pr-font-title, var(--gr-serif)); font-weight: 400; font-size: var(--gr-t2); line-height: 1.15; margin: 6px 0 8px; }
+.rb-event__d { font-size: var(--gr-t4); line-height: 1.6; margin: 0; white-space: pre-line; }
+.rb-event.is-past { opacity: .62; }
+@media (max-width: 620px) { .rb-event { grid-template-columns: 1fr; } .rb-event__main { grid-column: 1; } }

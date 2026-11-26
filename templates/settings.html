@@ -1124,9 +1124,14 @@ async function grSettingsLoad() {
         }
     }
     if (me) {
-        lines.push(`Your account code: <code>${st.invite_code || '—'}</code> Keep it private: it is your password.`);
-        const kinds = { artist: 'an artist', 'digital artist': 'a digital artist', label: 'a label', venue: 'a venue', business: 'a business', shop: 'a record shop' };
-        if (me.kind_requested) lines.push(`Your request to be ${kinds[me.kind_requested] || me.kind_requested} is waiting for the Music Room.`);
+        const sign = me.signin || {};
+        if (sign.has_password) lines.push(`You sign in with <strong>${escHtml(sign.email)}</strong> and your password.`);
+        else lines.push(`Your account code: <code>${st.invite_code || '—'}</code> Keep it private: it is your password.`);
+        lines.push(`<a href="/account" style="color:var(--accent);">Sign-in, laptops and the kind of account</a>`);
+        const kinds = { artist: 'an artist', label: 'a record label', venue: 'a venue', 'experience creator': 'an experience creator', business: 'a business', shop: 'a record shop' };
+        if (me.kind_requested) lines.push(`Your application for ${kinds[me.kind_requested] || me.kind_requested} account is waiting for the Music Room. <a href="/apply" style="color:var(--accent);">Open it</a>`);
+        else if (me.kind === 'listener' && me.apply) lines.push(`Are you an artist, a label, a record shop, a venue, an experience creator or a business? <a href="/apply" style="color:var(--accent);">Apply for that account</a>`);
+        if (sign.two_factor && sign.two_factor.missing) lines.push(`<span style="color:var(--red, #c9412f);">This account needs two-factor.</span> <a href="/account#two-factor" style="color:var(--accent);">Set it up</a>`);
         if (me.room_hidden) lines.push(`<span style="color:var(--red, #c9412f);">Your public room has been taken down</span>${me.room_hidden_note ? ': ' + escHtml(me.room_hidden_note) : ''}. Change it, then say so with the feedback button.`);
         if (me.is_master) lines.push(`<a href="/master" style="color:var(--accent);">Open the master page</a>`);
     }
@@ -1187,7 +1192,7 @@ async function grSettingsSignup() {
 }
 
 async function grSettingsLeave() {
-    if (!confirm('Log out on this laptop? Your borrowed records stay where they are. You can sign back in with your account code.')) return;
+    if (!confirm('Log out on this laptop? Your borrowed records stay where they are. You can sign back in at the front door.')) return;
     await fetch('/api/gr/leave', { method: 'POST' });
     {% if is_gr %}
     location.href = '/login';          // the front door takes over from here

@@ -6,9 +6,19 @@ for everyone who sends changes to its code. They are short on purpose.
 ## Your account
 
 - One account each, in your own name. Don't sign in as anyone else.
-- Your account code signs your laptop in. Keep it to yourself, like a key.
-- Everyone starts as a listener. Artist, label, venue, business and shop
-  accounts are switched on by the Music Room after a look.
+- Your email and password sign your laptops in. Keep the password to
+  yourself, like a key. (An older account has an account code instead: the
+  same goes for it.)
+- No sharing an account. A listener's account is for one person. Records
+  you borrow are lent to you: don't pass them on by letting someone else
+  use your account. An account can be signed in on a set number of
+  laptops, and only one of them at a time can borrow.
+- Everyone starts as a listener. Artist, record label, record shop, venue,
+  experience creator and business accounts are applied for, and switched
+  on by the Music Room after a look.
+- If someone else looks after your account for you (a label or a manager
+  for an artist), they sign in as themselves. Never give anyone your
+  password.
 
 ## Music and pictures
 

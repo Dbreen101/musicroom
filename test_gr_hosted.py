@@ -36,6 +36,7 @@ def sql(q, *p):
 with closing(gr_server.db()) as c:
     gr_server.init_db(c)
 gr_master.make_master("Master", handle="master")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 client = gr_server.app.test_client()
 code = sql("SELECT invite_code FROM gr_accounts WHERE handle='master'")[0][0]
 master = client.post("/api/join", json={"invite_code": code, "fingerprint": "mac-master", "device_name": "laptop"}).get_json()["token"]
@@ -166,12 +167,12 @@ import green_room
 client.post("/api/master/door", json={"code": "Green Room 2026", "moved_to": ""}, headers=hdr(master))
 gr_master._rate.clear()
 try:
-    green_room.signup(SERVER, "App Person", "test laptop", agreed=True)
+    green_room.signup(SERVER, "App Person", "test laptop", agreed=True, email="app@example.ie", password="a-password-to-test")
     chk(False, "the app is told when a code is needed")
 except green_room.GRError as e:
     chk(getattr(e, "need_code", False) is True and not app_setting("gr_token"),
         "the app is told when a code is needed, and is not signed in")
-green_room.signup(SERVER, "App Person", "test laptop", agreed=True, door_code="green room 2026")
+green_room.signup(SERVER, "App Person", "test laptop", agreed=True, door_code="green room 2026", email="app@example.ie", password="a-password-to-test")
 chk(bool(app_setting("gr_token")) and app_setting("gr_server_url") == SERVER, "with the code, the app signs up")
 
 green_room.track("play", {"title": "Mine"})
@@ -356,7 +357,7 @@ def fake_post(url, **kw):
         return real_post(SERVER + url[len(HOME):], **kw)
     return real_post(url, **kw)
 green_room.requests.post = fake_post
-code = app_setting("gr_invite_code")
+code = gr_server.make_invite("Code Person")      # (an account from before passwords: it still signs in with its code)
 put(OLD)
 try:
     green_room.join(OLD, "gr-not-a-real-code"); chk(False, "a wrong account code is refused through the build's address too")
@@ -381,7 +382,9 @@ with closing(appdb()) as x:
 gr_master._rate.clear()
 ask = "a" * 32
 r = client.get("/api/knows", query_string={"device": fp, "ask": ask}, environ_base=FAR)
-chk(r.status_code == 200 and r.get_json()["proofs"] == [gr_master.proof_of(tok, ask)] == [green_room._proof_of(tok, ask)],
+# (this laptop has signed in to two accounts by now, so there are two proofs: the app's own sign-in makes one of them)
+chk(r.status_code == 200 and gr_master.proof_of(tok, ask) == green_room._proof_of(tok, ask) and gr_master.proof_of(tok, ask) in r.get_json()["proofs"]
+    and len(r.get_json()["proofs"]) == 2,
     "the server signs the words it is sent with that laptop's sign-in, and the app makes the same sum")
 chk(tok not in r.get_data(as_text=True), "the answer does not hold the sign-in itself")
 chk(client.get("/api/knows", query_string={"device": "nobody-knows-me", "ask": ask}, environ_base=FAR).get_json() == {"proofs": []},

@@ -21,7 +21,7 @@
         .ms-row__t { font-family: var(--f-display, Georgia, serif); font-size: 1.2rem; line-height: 1.2; }
         .ms-row__s { font-family: var(--f-mono, monospace); font-size: .62rem; letter-spacing: .04em; color: var(--muted); line-height: 1.7; }
         .ms-row__n { margin-top: 6px; font-size: .86rem; line-height: 1.55; }
-        .ms-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+        .ms-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; max-width: min(540px, 46vw); }
         .ms-why { width: 220px; }
         .ms-acts select, .ms-acts input { padding: 6px 8px; border: 1px solid var(--border2); border-radius: 0; background: none; color: var(--text);
             font-family: var(--f-mono, monospace); font-size: .66rem; }
@@ -66,6 +66,7 @@
         <p class="gr-lede" id="ms-lede"></p>
     </header>
     <nav class="ms-tabs" id="ms-tabs">
+        <button data-tab="applications">Applications<b id="n-applications" hidden></b></button>
         <button data-tab="accounts">Accounts<b id="n-requests" hidden></b></button>
         <button data-tab="records">Records<b id="n-pending" hidden></b></button>
         <button data-tab="reports">Reports<b id="n-reports" hidden></b></button>
@@ -74,6 +75,7 @@
         <button data-tab="trial">Credits trial</button>
         <button data-tab="spotify">Spotify keys</button>
         <button data-tab="activity">Activity</button>
+        <button data-tab="signin">Sign-in</button>
     </nav>
     <div class="ms-said" id="ms-said" role="status"></div>
     <section id="ms-body"></section>
@@ -81,8 +83,8 @@
 <script>
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = s => s ? String(s).replace('T', ' ').slice(0, 16) : '';
-const KINDS = ['listener', 'artist', 'digital artist', 'label', 'shop', 'venue', 'business'];
-let TAB = (location.hash || '#accounts').slice(1), STATUS = {};
+let KINDS = ['listener', 'artist', 'label', 'shop', 'venue', 'experience creator', 'business'];   // (the server's own list replaces this)
+let TAB = (location.hash || '#accounts').slice(1), STATUS = {}, N_APPS = 0;
 const body = document.getElementById('ms-body'), said = document.getElementById('ms-said');
 async function api(path, data) {
     try {
@@ -96,18 +98,20 @@ async function overview() {
     const r = await api('overview');
     if (!r.ok) {
         document.getElementById('ms-tabs').hidden = true;
-        body.innerHTML = `<p class="ms-none">${esc(r.d.error || 'The master page can’t be opened.')}</p>
-            <p class="ms-none">This page is for the master account, on the Mac the rooms server runs on.</p>`;
+        body.innerHTML = `<p class="ms-none">${esc(r.d.error || 'The master page can’t be opened.')}</p>` + (r.d.need_2fa
+            ? `<p class="ms-none"><a href="/account#two-factor" style="color:var(--text)">Set up two-factor</a>, then come back.</p>`
+            : `<p class="ms-none">This page is for the master account, on the Mac the rooms server runs on.</p>`);
         return false;
     }
-    badge('n-requests', r.d.requests); badge('n-pending', r.d.pending); badge('n-reports', r.d.reports); badge('n-feedback', r.d.feedback);
+    badge('n-applications', r.d.applications); N_APPS = r.d.applications || 0;
+    badge('n-requests', 0); badge('n-pending', r.d.pending); badge('n-reports', r.d.reports); badge('n-feedback', r.d.feedback);
     document.getElementById('ms-lede').textContent = `Signed in as ${r.d.me.name}. ${r.d.accounts} accounts.`;
     return true;
 }
 function show(tab) {
     TAB = tab; history.replaceState(null, '', '#' + tab); said.textContent = '';
     document.querySelectorAll('#ms-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-    ({ accounts, records, reports, feedback, version, trial, spotify, activity }[tab] || accounts)();
+    ({ applications, accounts, records, reports, feedback, version, trial, spotify, activity, signin }[tab] || accounts)();
 }
 document.getElementById('ms-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.tab); });
 
@@ -115,18 +119,22 @@ document.getElementById('ms-tabs').addEventListener('click', e => { const b = e.
 async function accounts() {
     const r = await api('accounts');
     if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    if (r.d.kinds) KINDS = r.d.kinds;
     body.innerHTML = r.d.accounts.map(a => `
       <div class="ms-row" data-id="${a.id}">
         <div>
           <div class="ms-row__t">${esc(a.name)} ${a.is_master ? '<span class="ms-tag ms-tag--red">master</span>' : ''}${a.paused ? '<span class="ms-tag ms-tag--red">paused</span>' : ''}${a.hidden ? '<span class="ms-tag ms-tag--red">room taken down</span>' : ''}</div>
           <div class="ms-row__s">@${esc(a.handle)} · ${esc(a.kind)}${a.is_public ? ' · public room' : ''} · joined ${when(a.created_at)} · last seen ${when(a.last_seen) || '—'}
             · ${a.devices} device${a.devices === 1 ? '' : 's'} · ${a.records} record${a.records === 1 ? '' : 's'}${a.pending ? ` (${a.pending} waiting)` : ''} · ${a.borrows} borrowed · ${a.bought} bought</div>
-          ${a.kind_requested ? `<div class="ms-row__n">Asks to be <b>${esc(a.kind_requested)}</b>.</div>` : ''}
+          ${a.kind_requested ? `<div class="ms-row__n">Has applied for <b>${esc(a.kind_requested)}</b> account.</div>` : ''}
+          <div class="ms-row__s">${esc(a.status || '')} · ${a.email ? esc(a.email) : 'no email'} · ${a.has_password ? 'password' : 'account code'}${a.two_factor ? ' · two-factor' : ''}</div>
           ${a.paused && a.paused_note ? `<div class="ms-row__n">Paused: ${esc(a.paused_note)}</div>` : ''}
           ${a.hidden && a.hidden_note ? `<div class="ms-row__n">Room taken down: ${esc(a.hidden_note)}</div>` : ''}
         </div>
         <div class="ms-acts">
-          ${a.kind_requested ? `<button class="ms-btn ms-btn--go" data-do="approve">Make ${esc(a.kind_requested)}</button><button class="ms-btn" data-do="refuse">Keep as ${esc(a.kind)}</button>` : ''}
+          ${a.kind_requested ? `<button class="ms-btn ms-btn--go" data-do="apps">Read the application</button>` : ''}
+          ${a.has_password ? `<button class="ms-btn" data-do="newpw" title="A forgotten password: makes a new one for you to pass on, and signs the account out everywhere.">New password</button>` : ''}
+          ${a.two_factor && !a.is_master ? `<button class="ms-btn" data-do="tfoff" title="A lost authenticator: takes two-factor off this account.">Two-factor off</button>` : ''}
           <select data-do="kind" aria-label="Kind of account">${KINDS.map(k => `<option ${k === a.kind ? 'selected' : ''}>${k}</option>`).join('')}</select>
           ${a.hidden ? `<button class="ms-btn" data-do="unhide">Put the room back</button>` : ''}
           ${a.devices && !a.is_master ? `<button class="ms-btn" data-do="devices" title="Signs this account out on every device. Its person signs in again with their account code.">Sign out its devices</button>` : ''}
@@ -146,9 +154,21 @@ body.addEventListener('click', async e => {
     let r;
     if (TAB === 'accounts') {
         const send = { approve: { request: 'approve' }, refuse: { request: 'refuse' }, unpause: { paused: false }, unhide: { hidden: false }, devices: { devices: 'free' } }[d];
+        if (d === 'apps') return show('applications');
+        if (d === 'newpw' || d === 'tfoff') {
+            if (!confirm(d === 'newpw' ? 'Make a new password for this account? It will be signed out on every laptop.' : 'Take two-factor off this account?')) return;
+            const out = await api('accounts/' + id + (d === 'newpw' ? '/password' : '/two-factor'), {});
+            await accounts();
+            said.textContent = !out.ok ? out.d.error : d === 'newpw' ? `New password, shown once — pass it on: ${out.d.password}` : 'Two-factor is off for that account.';
+            return;
+        }
         if (d === 'pause') r = await api('accounts/' + id, { paused: true, note: why(row) });
         else if (send) r = await api('accounts/' + id, send);
         if (r) { said.textContent = r.ok ? 'Done: ' + r.d.did.join(', ') : r.d.error; overview(); accounts(); }
+    } else if (TAB === 'applications') {
+        if (d === 'show') { STATUS.applications = b.dataset.s; return applications(); }
+        if (d === 'approve' || d === 'reject') r = await api('applications/' + id, { decision: d, note: why(row) });
+        if (r) { said.textContent = r.ok ? (d === 'approve' ? 'Approved.' : 'Rejected.') : r.d.error; overview(); applications(); }
     } else if (TAB === 'records') {
         if (d === 'live') r = await api('records/' + id, { status: 'live' });
         else if (d === 'refuse' || d === 'hide') r = await api('records/' + id, { status: d === 'refuse' ? 'refused' : 'hidden', note: why(row) });
@@ -169,6 +189,66 @@ const WHY = `<input class="ms-why" placeholder="why (they will see this)" aria-l
 function filters(tab, list) {
     const cur = STATUS[tab] || list[0][0];
     return `<div class="ms-filter">${list.map(([k, l]) => `<button class="ms-btn ${k === cur ? 'ms-btn--go' : ''}" data-do="show" data-s="${k}">${l}</button>`).join('')}</div>`;
+}
+
+// ── applications: for an artist, label, record shop, venue, experience creator or business account ──
+async function applications() {
+    const st = STATUS.applications || 'pending';
+    const r = await api('applications?status=' + st);
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const t = r.d.tier || {};
+    const form = a => (a.form || []).map(f => { const v = (a.fields || {})[f.key]; return v && String(v).length
+        ? `<div class="ms-row__n"><span class="ms-row__s">${esc(f.label)}</span><br>${Array.isArray(v) ? v.map(esc).join('<br>') : esc(f.kind === 'region' ? ({ ie: 'Ireland', uk: 'United Kingdom', other: 'Somewhere else' }[v] || v) : v).replace(/\n/g, '<br>')}</div>` : ''; }).join('');
+    body.innerHTML = filters('applications', [['pending', 'Waiting'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['all', 'All']]) +
+      (r.d.applications.map(a => `
+      <div class="ms-row" data-id="${a.id}">
+        <div>
+          <div class="ms-row__t">${esc(a.by.name)} <span class="ms-tag">${esc(a.kind_name)}</span>${a.status !== 'pending' ? `<span class="ms-tag ${a.status === 'approved' ? '' : 'ms-tag--red'}">${esc(a.status)}</span>` : ''}</div>
+          <div class="ms-row__s">@${esc(a.by.handle)} · now ${esc(a.by.kind)} · joined ${when(a.by.since)} · applied ${when(a.at)} · ${esc(a.price)}</div>
+          ${a.bare ? '<div class="ms-row__n">Asked for from an older app: no form.</div>' : form(a)}
+          ${a.status !== 'pending' && a.status !== 'withdrawn' ? `<div class="ms-row__n">${esc(a.status === 'approved' ? 'Approved' : 'Rejected')} by ${esc(a.decided_by ? a.decided_by.name : '—')}, ${when(a.decided_at)}${a.note ? ': ' + esc(a.note) : '.'}</div>` : ''}
+        </div>
+        <div class="ms-acts">${a.status === 'pending' ? `<input class="ms-why" placeholder="a note (they will see this)" aria-label="A note — they will see this">
+          <button class="ms-btn ms-btn--go" data-do="approve">Approve</button><button class="ms-btn ms-btn--red" data-do="reject">Reject</button>` : ''}</div>
+      </div>`).join('') || '<p class="ms-none">Nothing here.</p>') + `
+      <form class="ms-form" id="ms-tier" style="margin-top:34px">
+        <label for="t-gbp">Price a month, from the UK (£)</label><input id="t-gbp" inputmode="decimal" value="${esc(t.gbp == null ? '' : t.gbp)}" placeholder="not set: people read “£x a month”">
+        <label for="t-eur">Price a month, from anywhere else (€)</label><input id="t-eur" inputmode="decimal" value="${esc(t.eur == null ? '' : t.eur)}" placeholder="not set: people read “€x a month”">
+        <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
+      </form>`;
+    document.getElementById('ms-tier').addEventListener('submit', async e => {
+        e.preventDefault();
+        const out = await api('tier', { gbp: document.getElementById('t-gbp').value, eur: document.getElementById('t-eur').value });
+        said.textContent = out.ok ? 'Saved.' : out.d.error;
+    });
+}
+
+// ── sign-in: the rules every account signs in by, and who has signed in ──
+async function signin() {
+    const [r, s] = await Promise.all([api('rules'), api('signins')]);
+    if (!r.ok) { body.innerHTML = `<p class="ms-none">${esc(r.d.error)}</p>`; return; }
+    const R = r.d.rules, pick = (id, v) => `<select id="${id}">${['off', 'optional', 'required'].map(o => `<option ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+    body.innerHTML = `
+      <form class="ms-form" id="ms-rules">
+        <label for="r-devices">Laptops to an account</label><input id="r-devices" inputmode="numeric" value="${esc(R.devices)}">
+        <label for="r-once">Laptops borrowing at the same time</label><input id="r-once" inputmode="numeric" value="${esc(R.at_once)}">
+        <label><input type="checkbox" id="r-pw" ${R.need_password ? 'checked' : ''}> A new account must give an email and a password (apps older than this can then make no account)</label>
+        <label><input type="checkbox" id="r-mail" ${R.email_check ? 'checked' : ''}> Confirm a sign-in on a new laptop with a code sent by email ${r.d.mail ? '' : '— no mail server is set, so nothing is sent'}</label>
+        <label for="r-maker">Two-factor for accounts that publish or sell</label>${pick('r-maker', R.maker_2fa)}
+        <label for="r-master">Two-factor for the master</label>${pick('r-master', R.master_2fa)}
+        <div><button class="ms-btn ms-btn--go" type="submit">Save</button></div>
+      </form>
+      <div style="margin-top:34px">` + ((s.d.signins || []).map(x => `
+      <div class="ms-row"><div>
+        <div class="ms-row__s">${when(x.at)} · ${esc(x.name || '—')} @${esc(x.handle || '')} · ${esc(x.device || 'laptop')} · from ${esc(x.from)} · ${esc(x.how)}${x.new ? ' · new laptop' : ''}${x.ok ? '' : ` · <span style="color:var(--red)">refused: ${esc(x.note)}</span>`}</div>
+      </div><div></div></div>`).join('') || '<p class="ms-none">No sign-ins yet.</p>') + '</div>';
+    document.getElementById('ms-rules').addEventListener('submit', async e => {
+        e.preventDefault();
+        const v = id => document.getElementById(id);
+        const out = await api('rules', { rules: { devices: v('r-devices').value, at_once: v('r-once').value, need_password: v('r-pw').checked,
+            email_check: v('r-mail').checked, maker_2fa: v('r-maker').value, master_2fa: v('r-master').value } });
+        said.textContent = out.ok ? 'Saved.' : out.d.error;
+    });
 }
 
 // ── records: waiting first; play, then approve / refuse / take down ──
@@ -366,7 +446,8 @@ async function activity() {
       </tbody></table></div>
       <p class="ms-row__s">Plays are counted when a record is started from “Borrowed”, the listener’s records or a public room.</p>`;
 }
-overview().then(ok => { if (ok) show(['accounts', 'records', 'reports', 'feedback', 'version', 'trial', 'spotify', 'activity'].includes(TAB) ? TAB : 'accounts'); });
+// (opened with no tab named: the applications, when any are waiting)
+overview().then(ok => { if (ok) show(['applications', 'accounts', 'records', 'reports', 'feedback', 'version', 'trial', 'spotify', 'activity', 'signin'].includes(TAB) && (location.hash || !N_APPS) ? TAB : (N_APPS ? 'applications' : 'accounts')); });
 </script>
 <script src="/static/js/theme.js"></script>
 <script src="/static/js/gr_nav.js"></script>

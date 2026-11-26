@@ -43,6 +43,7 @@ def signup(name):
     return client.post("/api/signup", json={"name": name, "fingerprint": "mac-" + name, "agreed": True}).get_json()["token"]
 
 gr_master.make_master("Daithí", handle="daithi")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 daithi = join(code_of("daithi"), "mac-daithi")
 aoife, bea = signup("Aoife"), signup("Bea")
 

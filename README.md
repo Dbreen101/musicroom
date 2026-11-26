@@ -36,8 +36,9 @@ play money.
   the Music Room, buy plain files to own outright, or collect records marked
   exclusive to the Music Room.
 - **Open a public room.** Listeners, artists, labels, shops, venues,
-  businesses, and digital artists can publish a room, share public grúpaí, and
-  place their room on the map or globe.
+  experience creators and businesses can publish a room, share public grúpaí,
+  and place their room on the map or globe. Everyone starts as a listener; the
+  other kinds of account are applied for from inside the app.
 - **Explore on your own terms.** Follow RSS feeds you choose with readable
   keyword weights and a daily wander slot ([docs/how-explore-works.md](docs/how-explore-works.md)),
   or switch on sandboxed plug-ins made by the community.

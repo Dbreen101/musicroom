@@ -204,3 +204,38 @@ with an invite code set, 40 new accounts an hour are allowed from one address
 `caffeinate`). On a Linux machine it needs a systemd unit instead; that is not
 written yet. Run the server as ONE process there (limits and holds are kept
 in its memory).
+
+## Accounts: sign-in, the rules, applications
+
+People sign in with an email and a password (`gr_signin.py`); an account from
+before passwords keeps its account code until it sets one. A laptop stays
+signed in until it is signed out. The limits and switches are rules, read and
+changed from the master page (Sign-in) or from Terminal:
+
+```
+python gr_server.py rules                       # how they stand
+python gr_server.py rules devices=2 at_once=1   # laptops to an account · laptops borrowing at once
+python gr_server.py rules need_password=on      # a new account must give an email and a password
+python gr_server.py rules maker_2fa=required    # two-factor for accounts that publish or sell (off | optional | required)
+python gr_server.py rules master_2fa=required   # two-factor for the master (the default)
+python gr_server.py password <handle>           # a forgotten password: prints a new one to pass on
+python gr_server.py two-factor <handle> --off   # a lost authenticator
+python gr_server.py tier --gbp 8 --eur 9        # the price a month shown on the application page
+```
+
+- **Older apps.** `need_password` is off until you switch it on: while it is
+  off, an app from before passwords can still make an account with a name
+  alone. Switch it on once the people you expect have updated.
+- **A password over plain http.** The app refuses to send a password to an
+  `http://` address unless the server is on the same computer. Give people the
+  `https://` address.
+- **The master** must set up two-factor (the app's Account page) before the
+  master page opens. `rules master_2fa=off` lifts that from Terminal.
+- **Codes by email** (to prove an email, and to confirm a sign-in on a new
+  laptop) are sent only when a mail server is named in `MR_SMTP_HOST`
+  (`MR_SMTP_PORT`, `MR_SMTP_USER`, `MR_SMTP_PASS`, `MR_SMTP_FROM`) and the
+  `email_check` rule is on. Without both, nothing is sent and nothing is asked.
+- **Applications.** Everyone starts as a listener. An artist, record label,
+  record shop, venue, experience creator or business account is applied for
+  in the app (`gr_apply.py`) and approved or rejected on the master page
+  (Applications), with a note; who decided, and when, is kept.

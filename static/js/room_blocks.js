@@ -196,6 +196,24 @@ window.RoomBlocks = (function () {
     },
   });
 
+  // Event pages (gr_happenings.py on the rooms server: an experience creator's or a venue's).
+  // ctx.happenings = what the server sent with the room: what is coming first, then what has
+  // been. A room with events shows them even if this block was never added (see render below).
+  register('events', {
+    label: 'Events', hint: 'Your event pages',
+    schema: [{ key: 'heading', type: 'text', label: 'Heading', default: 'Events' }],
+    render(b, ctx) {
+      const list = ctx.happenings || [];
+      if (!list.length) return '';
+      const when = s => { const d = new Date(s); return isNaN(d) ? esc(s) : esc(d.toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })); };
+      const one = e => `<article class="rb-event${e.past ? ' is-past' : ''}">${e.asset_id ? `<img class="rb-event__pic" src="${esc(assetUrl(ctx, e.asset_id))}" alt="" loading="lazy">` : ''}
+        <div class="rb-event__main"><div class="rb-event__when">${when(e.starts_at)}${e.place ? ' · ' + esc(e.place) : ''}${e.past ? ' · past' : ''}</div>
+        <h3 class="rb-event__t">${esc(e.title)}</h3>${e.about ? `<p class="rb-event__d">${esc(e.about)}</p>` : ''}
+        ${e.link ? `<div class="rb-links"><a href="#" data-open="${esc(e.link)}">More ↗</a></div>` : ''}</div></article>`;
+      return `<section class="rb rb-events">${heading(b, 'Events')}${list.map(one).join('')}</section>`;
+    },
+  });
+
   register('links', {
     label: 'Links',
     schema: [
@@ -238,6 +256,8 @@ window.RoomBlocks = (function () {
     // a digital artist's works and the records they are credited on, likewise
     if ((ctx.works || []).length && !blocks.some(b => b.type === 'works')) blocks = blocks.concat([newBlock('works')]);
     if ((ctx.artCredits || []).length && !blocks.some(b => b.type === 'credits')) blocks = blocks.concat([newBlock('credits')]);
+    // an experience creator's or a venue's event pages, likewise
+    if ((ctx.happenings || []).length && !blocks.some(b => b.type === 'events')) blocks = blocks.concat([newBlock('events')]);
     return blocks.filter(b => b.on !== false && BLOCKS[b.type]).map(b => {
       try { return BLOCKS[b.type].render(b, ctx); } catch (e) { return ''; }
     }).join('');

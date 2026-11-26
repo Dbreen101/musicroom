@@ -224,6 +224,7 @@ function render(){
         recordsHtml: (ts) => simRecordsHtml(ts),
         grupai: ROOM.grupai || [],                       // the grúpaí its owner has made public
         grupaCover: g => GrupaUI.coverHtml(g),
+        happenings: ROOM.happenings || [],               // an experience creator's or a venue's event pages
         works: ROOM.works || [],                         // a digital artist's works (works.js opens one)
         workTile: w => Works.tile(w),
         artCredits: ROOM.art_credits || [],              // records they made the artwork for

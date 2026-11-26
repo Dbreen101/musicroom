@@ -77,6 +77,7 @@ gr_master._rate.clear()
 
 # ── the master: made only from the server's own Terminal ──
 said = gr_master.make_master("Daithí", handle="daithi")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 chk("master account" in said and code_of("daithi") in said, "the Terminal makes the master account and prints its code")
 mtok = join(code_of("daithi"), "mac-daithi")
 chk(client.get("/api/me", headers=hdr(mtok)).get_json()["is_master"], "the master signs in like anyone and is known as the master")

@@ -863,6 +863,9 @@ def register(app, server):
             acct, _dev = S._auth(conn)
             if not acct:
                 return S._unauthorized()
+            stop = S.gr_signin.one_at_a_time(conn, acct, _dev)     # (one of an account's laptops at a time)
+            if stop:
+                return stop
             ensure(conn)
             why = _may_listen(conn, acct, tid, request.args)
             if why:
@@ -1223,6 +1226,9 @@ def register(app, server):
             acct, _dev = S._auth(conn)
             if not acct:
                 return S._unauthorized()
+            stop = S.gr_signin.one_at_a_time(conn, acct, _dev)
+            if stop:
+                return stop
             ensure(conn)
             row = conn.execute("SELECT * FROM gr_blind WHERE id=? AND account_id=?", (bid, acct["id"])).fetchone()
             if not row:

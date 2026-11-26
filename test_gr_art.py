@@ -26,6 +26,10 @@ import gr_server
 import gr_master
 import gr_art
 
+# digital artists are switched off for now (gr_server.KINDS_OFF): this test is of the code
+# that waits behind the switch, so it turns them on for itself
+gr_server.KINDS_OFF = ()
+
 fails = []
 def chk(c, m): print(("  PASS  " if c else "  FAIL  ") + m); (None if c else fails.append(m))
 
@@ -49,6 +53,7 @@ def send(tok, raw, name="piece.jpg", **form):
                        content_type="multipart/form-data")
 
 gr_master.make_master("Daithí", handle="daithi")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 master = join(code_of("daithi"), "mac-daithi")
 
 # ── the kind is asked for, and switched on by the master ──
@@ -181,6 +186,20 @@ gr_art.WORKS_MAX = 1
 chk(send(sorcha, picture(300, 300)).status_code == 409, "a room holds only so many works")
 gr_art.WORKS_MAX = old
 
+# ── switched off (as the server ships now): nobody can ask to be one, or be made one ──
+gr_server.KINDS_OFF = ("digital artist",)
+gr_master._rate.clear()
+d = signup("Niamh Off", "digital artist")
+chk(d["kind"] == "listener" and d["kind_requested"] == "", "switched off: a digital artist can't be asked for")
+r = client.post("/api/apply", json={"kind": "digital artist", "fields": {}}, headers=hdr(d["token"]))
+chk(r.status_code == 400 and "digital artist" not in [k["key"] for k in client.get("/api/apply", headers=hdr(d["token"])).get_json()["kinds"]],
+    "…nor applied for")
+aid_off = sql("SELECT id FROM gr_accounts WHERE name='Niamh Off'")[0][0]
+r = client.post(f"/api/master/accounts/{aid_off}", json={"kind": "digital artist"}, headers=hdr(master))
+chk(r.status_code == 400 and "digital artist" not in client.get("/api/master/accounts", headers=hdr(master)).get_json()["kinds"],
+    "…nor given by the master")
+gr_server.KINDS_OFF = ()
+
 # ── a database from before digital artists ──
 os.environ["MR_GR_DB"] = str(TMP / "older.db")
 with closing(gr_server.db()) as c:
@@ -190,6 +209,7 @@ with closing(gr_server.db()) as c:
                     "ALTER TABLE gr_accounts DROP COLUMN work_contact;")
     c.commit()
 gr_master.make_master("Old", handle="old")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 old_tok = join(code_of("old"), "mac-old")
 chk(client.get("/api/my/works", headers=hdr(old_tok)).status_code == 200 and client.get("/api/rooms", headers=hdr(old_tok)).status_code == 200
     and client.get("/api/rooms/old", headers=hdr(old_tok)).status_code == 200,

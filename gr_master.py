@@ -53,7 +53,8 @@ from flask import jsonify, request, send_file
 
 S = None          # the gr_server module, given in register()
 
-KINDS_TO_ASK = ("artist", "label", "venue", "business", "shop", "digital artist")
+# (the kinds a person can apply for now live in gr_apply.kinds(); this is kept for older callers)
+KINDS_TO_ASK = ("artist", "label", "venue", "experience creator", "business", "shop")
 STATUSES = ("pending", "live", "refused", "hidden")
 REPORT_WHAT = ("room", "record", "grupa")
 REPORT_REASONS = {
@@ -62,7 +63,7 @@ REPORT_REASONS = {
     "private": "It shows someone's private details",
     "other": "Something else",
 }
-HOUSE_RULES_VERSION = "2026-11-20"
+HOUSE_RULES_VERSION = "2026-11-26"
 SIGNUPS_PER_HOUR = 6          # from one address; twenty fellows never come near it
 SIGNUPS_PER_HOUR_WITH_CODE = 40   # …but with an invite code set the code is the lock, and a whole
                                   # building reaches a tunnel from ONE address (the Wi-Fi's own)
@@ -349,6 +350,8 @@ def account_json(conn, a):
         "paused": bool(a["disabled_at"]), "paused_note": a["disabled_note"] or "",
         "hidden": bool(a["hidden_at"]), "hidden_note": a["hidden_note"] or "",
         "agreed": bool(a["agreed_at"]),
+        "status": S.gr_apply.status_of(conn, a),      # approved | pending | rejected | suspended
+        "email": a["email"] or "", "has_password": bool(a["password_hash"]), "two_factor": bool(a["totp_secret"]),
         "devices": one("SELECT COUNT(*) FROM gr_devices WHERE account_id=?"),
         "last_seen": conn.execute("SELECT MAX(last_seen) FROM gr_devices WHERE account_id=?",
                                   (a["id"],)).fetchone()[0],
@@ -424,6 +427,10 @@ def register(app, server):
                 return no("only the master account can do that", 403, master=False)
             if master and not master_here():
                 return no("the master's page works only on the Mac the server runs on", 403, master=False)
+            if master:
+                stop = S.gr_signin.need_two_factor(conn, acct)     # (the master must have two-factor: gr_signin.py)
+                if stop:
+                    return stop
             return fn(conn, acct)
 
     # ── open to anyone: which version of the app everyone should be on ──
@@ -511,6 +518,7 @@ def register(app, server):
                 "me": {"name": acct["name"], "handle": acct["handle"]},
                 "accounts": one("SELECT COUNT(*) FROM gr_accounts"),
                 "requests": one("SELECT COUNT(*) FROM gr_accounts WHERE COALESCE(kind_requested,'')!=''"),
+                "applications": one("SELECT COUNT(*) FROM gr_applications WHERE status='pending'"),
                 "pending": one("SELECT COUNT(*) FROM gr_tracks WHERE status='pending'"),
                 "reports": one("SELECT COUNT(*) FROM gr_reports WHERE status='open'"),
                 "feedback": one("SELECT COUNT(*) FROM gr_feedback WHERE COALESCE(status,'open')='open'"),
@@ -540,7 +548,7 @@ def register(app, server):
             rows = conn.execute("SELECT * FROM gr_accounts ORDER BY COALESCE(kind_requested,'')='' ,"
                                 " created_at DESC").fetchall()
             return jsonify({"accounts": [account_json(conn, a) for a in rows],
-                            "kinds": list(S.ACCOUNT_KINDS)})
+                            "kinds": list(S.kinds_on())})
         return signed_in(go, master=True)
 
     @app.post("/api/master/accounts/<int:aid>")
@@ -554,15 +562,20 @@ def register(app, server):
             said = []
             if "kind" in d:
                 kind = d.get("kind")
-                if kind not in S.ACCOUNT_KINDS:
+                if kind not in S.kinds_on():
                     return no("that isn't a kind of account")
                 conn.execute("UPDATE gr_accounts SET kind=?, kind_requested=NULL WHERE id=?", (kind, aid))
+                # (a waiting application is settled with it, so who decided is on record)
+                S.gr_apply.settle_for_account(conn, aid, acct, kind == a["kind_requested"], _txt(d.get("note"), 1000))
+                conn.execute("UPDATE gr_accounts SET kind=? WHERE id=?", (kind, aid))
                 said.append(f"kind → {kind}")
             if d.get("request") == "approve" and a["kind_requested"]:
                 conn.execute("UPDATE gr_accounts SET kind=?, kind_requested=NULL WHERE id=?", (a["kind_requested"], aid))
+                S.gr_apply.settle_for_account(conn, aid, acct, True, _txt(d.get("note"), 1000))
                 said.append(f"request approved → {a['kind_requested']}")
             elif d.get("request") == "refuse":
                 conn.execute("UPDATE gr_accounts SET kind_requested=NULL WHERE id=?", (aid,))
+                S.gr_apply.settle_for_account(conn, aid, acct, False, _txt(d.get("note"), 1000))
                 said.append("request refused")
             if "paused" in d:
                 if aid == acct["id"] and d.get("paused"):
@@ -629,7 +642,7 @@ def register(app, server):
         with closing(S.db()) as conn:
             ensure(conn)
             acct, _dev = S._auth(conn)
-            if not acct or not is_master(acct) or not master_here():
+            if not acct or not is_master(acct) or not master_here() or S.gr_signin.need_two_factor(conn, acct):
                 return no("only the master account can do that", 403)
             t = conn.execute("SELECT path, format FROM gr_tracks WHERE id=?", (tid,)).fetchone()
         if not t or not t["path"] or not os.path.isfile(t["path"]):

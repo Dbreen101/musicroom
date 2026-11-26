@@ -36,7 +36,7 @@ from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, request, send_file
+from flask import Flask, Response, g, jsonify, request, send_file
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -234,6 +234,10 @@ def init_db(conn: sqlite3.Connection) -> None:
     gr_master.ensure(conn)    # the master account, approvals, reports, the version (gr_master.py)
     gr_sim.ensure(conn)       # the credits trial: bring home, buy, the room's space (gr_sim.py)
     gr_art.ensure(conn)       # digital artists: works, artwork credits (gr_art.py)
+    gr_signin.ensure(conn)    # email + password, laptops, two-factor, the account rules (gr_signin.py)
+    gr_apply.ensure(conn)     # applications for an artist / label / venue… account (gr_apply.py)
+    gr_happenings.ensure(conn)  # event pages (gr_happenings.py)
+    gr_behalf.ensure(conn)    # an artist letting a label or manager look after their account (gr_behalf.py)
     ensure_exclusive(conn)    # exclusive records
 
 
@@ -267,7 +271,15 @@ def is_exclusive(track) -> bool:
     return bool(_opt(track, "exclusive")) and not _opt(track, "spotify_uri")
 
 
-ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "business", "digital artist")
+ACCOUNT_KINDS = ("listener", "artist", "label", "shop", "venue", "experience creator", "business", "digital artist")
+# Kinds that exist in the code and are not offered for now: nobody can apply for one or be made
+# one. Digital artists (gr_art.py) are switched off this way (Daithí, 2026-11-26: the music side
+# first); an empty tuple brings them back.
+KINDS_OFF = ("digital artist",)
+
+
+def kinds_on():
+    return tuple(k for k in ACCOUNT_KINDS if k not in KINDS_OFF)
 
 
 CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"     # no 0/o, 1/l/i: read aloud and typed by hand
@@ -493,6 +505,7 @@ def _auth(conn):
         return None, None
     try:
         ensure_exclusive(conn)          # (every signed-in route passes here: an older database gets the columns first)
+        gr_signin.ensure(conn)
     except sqlite3.OperationalError:
         pass
     dev = conn.execute("SELECT * FROM gr_devices WHERE token=?", (tok,)).fetchone()
@@ -505,6 +518,13 @@ def _auth(conn):
         return None, None
     conn.execute("UPDATE gr_devices SET last_seen=? WHERE id=?", (_now(), dev["id"]))
     conn.commit()
+    # a label or manager working on an artist's account says whose (gr_behalf.py): from here on
+    # the request is the artist's, if they were let in for this — and refused if not
+    whose = request.headers.get(gr_behalf.HEADER)
+    if whose:
+        acct = gr_behalf.stand_in(conn, acct, dev, whose)
+        if acct is None:
+            return None, None
     return acct, dev
 
 
@@ -547,6 +567,9 @@ def _charge(conn, acct, cents, reason):
 
 
 def _unauthorized():
+    why = getattr(g, "gr_refused", None)        # signed in, but not let in to someone else's account
+    if why:
+        return jsonify({"error": why, "behalf": False}), 403
     return jsonify({"error": "not signed in — join with your invite code first"}), 401
 
 
@@ -584,37 +607,21 @@ def api_join():
     if not gr_master.rate_ok("join:" + gr_master.asker(), 12, 600):
         return jsonify({"error": "too many tries from here — wait ten minutes"}), 429
     with closing(db()) as conn:
+        gr_signin.ensure(conn)
         acct = conn.execute(
             "SELECT * FROM gr_accounts WHERE invite_code=?", (code.lower(),)
         ).fetchone()
         if not acct:
             return jsonify({"error": "that invite code isn't known here"}), 403
-        if gr_master.is_paused(acct):
-            note = (acct["disabled_note"] or "").strip() if "disabled_note" in acct.keys() else ""
-            return jsonify({"error": "This account is paused." + (" " + note if note else ""), "paused": True}), 403
-        dev = conn.execute(
-            "SELECT * FROM gr_devices WHERE account_id=? AND fingerprint=?",
-            (acct["id"], fingerprint),
-        ).fetchone()
-        if not dev:
-            count = conn.execute(
-                "SELECT COUNT(*) FROM gr_devices WHERE account_id=?", (acct["id"],)
-            ).fetchone()[0]
-            if count >= MAX_DEVICES:
-                return (
-                    jsonify({"error": f"this account already has {MAX_DEVICES} devices"}),
-                    403,
-                )
-            token = secrets.token_hex(24)
-            conn.execute(
-                "INSERT INTO gr_devices(account_id, name, fingerprint, token, created_at)"
-                " VALUES(?,?,?,?,?)",
-                (acct["id"], device_name, fingerprint, token, _now()),
-            )
-            conn.commit()
-        else:
-            token = dev["token"]
-        _event(conn, acct["id"], "join", {"device": device_name, "new_device": dev is None})
+        if acct["password_hash"]:
+            # (an account that has set a password is opened by that alone: its code is spent)
+            return jsonify({"error": gr_signin.WORDS["has_password"], "has_password": True}), 403
+        new_device = not conn.execute("SELECT 1 FROM gr_devices WHERE account_id=? AND fingerprint=?",
+                                      (acct["id"], fingerprint)).fetchone()
+        token, stop = gr_signin.sign_in_device(conn, acct, fingerprint, device_name, "code", data)
+        if stop:
+            return stop
+        _event(conn, acct["id"], "join", {"device": device_name, "new_device": new_device})
         return jsonify(
             {"token": token, "name": acct["name"], "wallet_cents": acct["wallet_cents"],
              "invite_code": acct["invite_code"]}
@@ -665,6 +672,11 @@ def api_me():
                 "room_hidden_note": (acct["hidden_note"] if "hidden_note" in acct.keys() else None) or "",
                 "agreed": bool(acct["agreed_at"]) if "agreed_at" in acct.keys() else False,
                 "sim": gr_sim.me_json(conn, acct),
+                "signin": gr_signin.me_json(conn, acct),          # email, password, two-factor (no secrets)
+                "apply": gr_apply.me_json(conn, acct),            # status, and where an application stands
+                "manages": gr_behalf.me_json(conn, acct),         # accounts this one may look after
+                "acting_for": bool(getattr(g, "gr_behalf", None)),
+                "has_events": gr_happenings.can(acct),
             }
         )
 
@@ -747,7 +759,9 @@ def api_signup():
     device_name = (data.get("device_name") or "").strip() or None
     asked = (data.get("kind_requested") or data.get("kind") or "").strip().lower()
     kind = "listener"                     # everyone starts as a listener (Daithí, 2026-11-20);
-    asked = asked if asked in gr_master.KINDS_TO_ASK else None   # any other kind waits for the master
+    asked = asked if asked in gr_apply.kinds() else None   # any other kind is applied for (gr_apply.py)
+    interest = (data.get("interest") or "").strip().lower()
+    interest = interest if interest in gr_apply.kinds() else None
     if not name or not fingerprint:
         return jsonify({"error": "a name is needed"}), 400
     if len(name) > 80:
@@ -775,6 +789,9 @@ def api_signup():
     if not gr_master.rate_ok("signup:" + gr_master.asker(), per_hour, 3600):
         return jsonify({"error": "too many new accounts from here in one hour — try again later"}), 429
     with closing(db()) as conn:
+        email, password, stop = gr_signin.signup_fields(conn, data, name)
+        if stop:
+            return stop
         base = _slug(name)
         handle, n = base, 2
         while conn.execute("SELECT 1 FROM gr_accounts WHERE handle=?", (handle,)).fetchone():
@@ -786,17 +803,24 @@ def api_signup():
             " is_public) VALUES(?,?,?,?,?,?,0)",
             (name, code, PLAY_MONEY_START_CENTS, _now(), kind, handle))
         aid = cur.lastrowid
-        conn.execute("UPDATE gr_accounts SET kind_requested=?, agreed_at=?, agreed_version=? WHERE id=?",
-                     (asked, _now(), gr_master.HOUSE_RULES_VERSION, aid))
-        token = secrets.token_hex(24)
-        conn.execute(
-            "INSERT INTO gr_devices(account_id, name, fingerprint, token, created_at, last_seen)"
-            " VALUES(?,?,?,?,?,?)", (aid, device_name, fingerprint, token, _now(), _now()))
+        conn.execute("UPDATE gr_accounts SET kind_requested=?, agreed_at=?, agreed_version=?, interest=? WHERE id=?",
+                     (asked, _now(), gr_master.HOUSE_RULES_VERSION, interest or asked, aid))
+        if email:
+            gr_signin.set_email(conn, aid, email)
+            gr_signin.set_password(conn, aid, password)
+        if asked:
+            gr_apply.from_old_app(conn, aid, asked)       # (an older app: a kind asked for with no form)
         conn.commit()
-        _event(conn, aid, "signup", {"kind": kind, "asked": asked, "device": device_name})
+        acct = conn.execute("SELECT * FROM gr_accounts WHERE id=?", (aid,)).fetchone()
+        token, stop = gr_signin.sign_in_device(conn, acct, fingerprint, device_name, "signup")
+        if stop:
+            return stop
+        _event(conn, aid, "signup", {"kind": kind, "asked": asked, "interest": interest, "device": device_name,
+                                     "password": bool(email)})
         return jsonify({"token": token, "name": name, "handle": handle, "kind": kind,
-                        "kind_requested": asked or "",
-                        "invite_code": code, "wallet_cents": PLAY_MONEY_START_CENTS})
+                        "kind_requested": asked or "", "interest": interest or asked or "",
+                        # (an account with a password is opened by that alone: its code is never shown)
+                        "invite_code": "" if email else code, "wallet_cents": PLAY_MONEY_START_CENTS})
 
 
 def _credit_cents(conn, acct):
@@ -922,6 +946,9 @@ def api_borrow():
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
+        stop = gr_signin.one_at_a_time(conn, acct, _dev)     # (not while another of the account's laptops is taking music)
+        if stop:
+            return stop
         track = conn.execute(
             "SELECT * FROM gr_tracks WHERE id=?", (track_id,)
         ).fetchone()
@@ -1031,6 +1058,9 @@ def api_download(borrow_id):
         acct, _dev = _auth(conn)
         if not acct:
             return _unauthorized()
+        stop = gr_signin.one_at_a_time(conn, acct, _dev)
+        if stop:
+            return stop
         row = conn.execute(
             "SELECT * FROM gr_borrows WHERE id=? AND account_id=? AND returned_at IS NULL",
             (borrow_id, acct["id"]),
@@ -1235,6 +1265,7 @@ def _room_public(conn, acct_row, include_tracks_for=None, design_id=None):
     if include_tracks_for is not None:
         out["tracks"] = _catalogue_rows(conn, include_tracks_for, owner_id=acct_row["id"])
     gr_art.attach_room(conn, acct_row, out, viewer=include_tracks_for)     # a digital artist's works (gr_art.py)
+    gr_happenings.attach_room(conn, acct_row, out)                         # an experience creator's or a venue's event pages
     return out
 
 
@@ -1945,6 +1976,9 @@ def api_my_records_upload():
             return _unauthorized()
         if not _owner_kind_ok(acct):
             return jsonify({"error": "only artist, label and shop accounts sell records"}), 403
+        stop = gr_signin.need_two_factor(conn, acct)      # (only when the rules require it of sellers)
+        if stop:
+            return stop
         if (request.form.get("rights") or "").lower() not in ("1", "true", "yes", "on"):
             return jsonify({"error": "please confirm you hold the rights to sell this record", "need_rights": True}), 400
         f = request.files.get("audio")
@@ -2211,8 +2245,8 @@ def fill_covers(online_art: bool = False) -> dict:
 
 def make_invite(name: str, kind: str = "listener", handle: str | None = None,
                 bio: str | None = None, public: bool = False) -> str:
-    if kind not in ACCOUNT_KINDS:
-        raise SystemExit(f"kind must be one of {', '.join(ACCOUNT_KINDS)}")
+    if kind not in kinds_on():
+        raise SystemExit(f"kind must be one of {', '.join(kinds_on())}")
     code = new_code()
     handle = _slug(handle or name)
     with closing(db()) as conn:
@@ -2243,7 +2277,7 @@ def main(argv=None):
     p_cov.add_argument("--online-art", action="store_true")
     p_inv = sub.add_parser("invite")
     p_inv.add_argument("name")
-    p_inv.add_argument("--kind", default="listener", choices=ACCOUNT_KINDS)
+    p_inv.add_argument("--kind", default="listener", choices=kinds_on())
     p_inv.add_argument("--handle", help="the room's address, e.g. 'moss-records' (default: from the name)")
     p_inv.add_argument("--bio")
     p_inv.add_argument("--public", action="store_true", help="room visible in the directory from the start")
@@ -2271,6 +2305,16 @@ def main(argv=None):
     p_door.add_argument("--moved-to", help="the server's new https:// address: apps that ask this one follow it")
     p_door.add_argument("--here", action="store_true", help="the server hasn't moved (clears --moved-to)")
     p_door.add_argument("--show", action="store_true", help="print the invite code itself")
+    p_rules = sub.add_parser("rules", help="the account rules: laptops per account, passwords, two-factor (no options: say how they stand)")
+    p_rules.add_argument("set", nargs="*", help="key=value, e.g. need_password=on devices=3 master_2fa=off")
+    p_pw = sub.add_parser("password", help="a forgotten password: make a new one to pass on (signs that account's laptops out)")
+    p_pw.add_argument("handle")
+    p_2fa = sub.add_parser("two-factor", help="take two-factor off an account whose authenticator is lost")
+    p_2fa.add_argument("handle")
+    p_2fa.add_argument("--off", action="store_true", required=True)
+    p_tier = sub.add_parser("tier", help="the price a month of an artist / label / venue… account (no options: say how it stands)")
+    p_tier.add_argument("--gbp")
+    p_tier.add_argument("--eur")
     p_run = sub.add_parser("run")
     p_run.add_argument("--host", default="0.0.0.0")
     p_run.add_argument("--port", type=int, default=5301)
@@ -2344,6 +2388,42 @@ def main(argv=None):
             print("new accounts: " + ((f"need the invite code “{d['code']}”" if args.show else "need the invite code (--show prints it)")
                                       if d["code"] else "anyone who reaches the server can make one"))
             print("the server:   " + (f"has moved to {d['moved_to']} (apps asking here are told)" if d["moved_to"] else "lives here"))
+    elif args.cmd == "rules":
+        with closing(db()) as conn:
+            init_db(conn)
+            try:
+                r = gr_signin.set_rules(conn, dict(p.split("=", 1) for p in args.set)) if args.set else gr_signin.rules(conn)
+            except ValueError as e:
+                raise SystemExit(str(e) if "=" not in str(e) else "say each rule as key=value")
+            for k, v in r.items():
+                print(f"{k:<18} {'on' if v is True else 'off' if v is False else v}")
+            print("email checks:      " + ("a mail server is set" if gr_signin.mail_ready() else "no mail server set (MR_SMTP_HOST): nothing is sent"))
+    elif args.cmd in ("password", "two-factor"):
+        with closing(db()) as conn:
+            init_db(conn)
+            a = conn.execute("SELECT id, name FROM gr_accounts WHERE handle=?", (args.handle.lstrip("@"),)).fetchone()
+            if not a:
+                raise SystemExit(f"no account '{args.handle}'")
+            if args.cmd == "two-factor":
+                gr_signin.two_factor_off(conn, a["id"])
+                print(f"two-factor is off for {a['name']}")
+            else:
+                try:
+                    print(f"{a['name']} signs in with their email and this password (tell them to change it):  "
+                          f"{gr_signin.temporary_password(conn, a['id'])}")
+                except ValueError as e:
+                    raise SystemExit(str(e))
+    elif args.cmd == "tier":
+        with closing(db()) as conn:
+            init_db(conn)
+            if args.gbp is not None or args.eur is not None:
+                t = gr_apply.tier(conn)
+                try:
+                    gr_apply.set_tier(conn, args.gbp if args.gbp is not None else t["gbp"],
+                                      args.eur if args.eur is not None else t["eur"])
+                except ValueError as e:
+                    raise SystemExit(str(e))
+            print(f"UK: {gr_apply.price_words(conn, 'uk')} · everywhere else: {gr_apply.price_words(conn, 'ie')}")
     elif args.cmd == "sim":
         with closing(db()) as conn:
             init_db(conn)
@@ -2420,6 +2500,17 @@ gr_sim.register(app, sys.modules[__name__])
 import gr_art  # noqa: E402
 
 gr_art.register(app, sys.modules[__name__])
+
+# signing in (email + password, laptops, two-factor, the account rules) — gr_signin.py;
+# applying for an artist / label / venue / experience creator… account — gr_apply.py;
+# event pages — gr_happenings.py; an artist letting a label manage their account — gr_behalf.py
+import gr_signin  # noqa: E402
+import gr_apply  # noqa: E402
+import gr_happenings  # noqa: E402
+import gr_behalf  # noqa: E402
+
+for _m in (gr_signin, gr_apply, gr_happenings, gr_behalf):
+    _m.register(app, sys.modules[__name__])
 
 
 if __name__ == "__main__":

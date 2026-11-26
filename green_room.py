@@ -39,6 +39,11 @@ _TIMEOUT = 6            # seconds; the server is on the same LAN
 _DL_TIMEOUT = 120       # a whole file download
 
 
+# Kinds of account the code knows and the app does not offer for now (the server refuses them
+# too: gr_server.KINDS_OFF). Digital artists, 2026-11-26.
+KINDS_OFF = ("digital artist",)
+
+
 class GRError(Exception):
     """A friendly, user-showable Green Room failure."""
 
@@ -70,9 +75,54 @@ def _server_url(conn):
     return (_get_setting(conn, "gr_server_url") or default_server()).rstrip("/")
 
 
-def _headers(conn):
+# Managing someone else's account (an artist's, by their label or manager — gr_behalf.py on
+# the server): while it is switched on, the calls about records (and, with full access, the
+# public room and event pages) say whose account they are for. Nothing else ever does.
+ACTING_PATHS = {"records": ("/api/my/records",),
+                "full": ("/api/my/records", "/api/my/room", "/api/my/happenings")}
+
+
+def acting_for(conn=None):
+    """{handle, name, scope} of the account this app is managing right now, or None."""
+    if conn is None:
+        with closing(_db()) as c:
+            return acting_for(c)
+    handle = _get_setting(conn, "gr_acting_for")
+    if not handle:
+        return None
+    return {"handle": handle, "name": _get_setting(conn, "gr_acting_name") or handle,
+            "scope": _get_setting(conn, "gr_acting_scope") or "records"}
+
+
+def act_for(handle):
+    """Start managing `handle`'s account ('' = back to my own). The server is asked
+    first: only an account that let this one in can be chosen."""
+    handle = (handle or "").strip().lstrip("@")
+    with closing(_db()) as conn:
+        if handle:
+            me = _json_or_raise(_get(conn, "/api/me"), "the server didn't answer")
+            hit = next((m for m in me.get("manages") or [] if m.get("handle") == handle), None)
+            if not hit:
+                raise GRError("You don't manage that account.")
+            _set_setting(conn, "gr_acting_for", handle)
+            _set_setting(conn, "gr_acting_name", hit.get("name") or handle)
+            _set_setting(conn, "gr_acting_scope", hit.get("scope") or "records")
+        else:
+            for k in ("gr_acting_for", "gr_acting_name", "gr_acting_scope"):
+                _set_setting(conn, k, "")
+        return acting_for(conn)
+
+
+def _headers(conn, path=""):
     tok = _get_setting(conn, "gr_token")
-    return {"Authorization": f"Bearer {tok}"} if tok else {}
+    if not tok:
+        return {}
+    head = {"Authorization": f"Bearer {tok}"}
+    who = acting_for(conn) if path else None
+    if who and any(path == p or path.startswith(p + "/") or path.startswith(p + "?")
+                   for p in ACTING_PATHS.get(who["scope"], ())):
+        head["X-GR-For"] = who["handle"]
+    return head
 
 
 def _this_computer(url):
@@ -237,7 +287,7 @@ def _get(conn, path, **kw):
     if not url:
         raise GRError("no Green Room server set — join first")
     try:
-        r = requests.get(url + path, headers=_headers(conn),
+        r = requests.get(url + path, headers=_headers(conn, path),
                          timeout=kw.pop("timeout", _TIMEOUT), **kw)
     except requests.RequestException:
         _lost()
@@ -250,7 +300,7 @@ def _post(conn, path, payload):
     if not url:
         raise GRError("no Green Room server set — join first")
     try:
-        r = requests.post(url + path, json=payload, headers=_headers(conn),
+        r = requests.post(url + path, json=payload, headers=_headers(conn, path),
                           timeout=_TIMEOUT)
     except requests.RequestException:
         _lost()
@@ -267,7 +317,72 @@ def _err_of(r, fallback):
 
 # ───────────────────────── account ─────────────────────────
 
-def join(server_url, invite_code, device_name=""):
+def _refusal(r, fallback):
+    """A GRError for a refused sign-in, carrying what the front door should ask for next."""
+    e = GRError(_err_of(r, fallback))
+    try:
+        d = r.json()
+    except ValueError:
+        d = {}
+    for k in ("need_code", "need_2fa", "need_email_code", "need_password", "has_password", "devices_full"):
+        setattr(e, k, bool(d.get(k)))
+    return e
+
+
+def _safe_for_a_password(url):
+    """A password is only ever sent over https, or to a server on this computer:
+    on a plain http address anyone on the same Wi-Fi could read it."""
+    return url.startswith("https://") or _this_computer(url)
+
+
+PLAIN_ADDRESS = ("This server's address is not private (it starts with http://), so a password "
+                 "can't be sent to it. Use its https:// address.")
+
+
+def _signed_in(conn, server_url, d, name=""):
+    _set_setting(conn, "gr_server_url", server_url)
+    _set_setting(conn, "gr_token", d["token"])
+    _set_setting(conn, "gr_name", d.get("name") or name)
+    _set_setting(conn, "gr_invite_code", d.get("invite_code") or "")
+    for k in ("gr_acting_for", "gr_acting_name", "gr_acting_scope"):
+        _set_setting(conn, k, "")
+
+
+def login(server_url, email, password, device_name="", otp="", email_code=""):
+    """Sign this laptop in with an account's email and password. The password is
+    sent once and kept nowhere on this laptop: what is kept is the sign-in the
+    server hands back, so the app stays signed in until it is signed out."""
+    server_url = (server_url or default_server()).strip().rstrip("/")
+    if not server_url or not (email or "").strip() or not password:
+        raise GRError("Your email and your password, please.")
+    if not server_url.startswith("http"):
+        server_url = "http://" + server_url
+    if not _safe_for_a_password(server_url):
+        raise GRError(PLAIN_ADDRESS)
+    with closing(_db()) as conn:
+        ask = {"email": email.strip(), "password": password, "fingerprint": _fingerprint(conn),
+               "device_name": device_name or "laptop", "otp": (otp or "").strip(), "email_code": (email_code or "").strip()}
+        try:
+            r = requests.post(server_url + "/api/login", json=ask, timeout=_TIMEOUT)
+        except requests.RequestException:
+            home = default_server()
+            if not home.startswith("https://") or home == server_url:
+                raise GRError("that address didn't answer — is the server running?")
+            try:
+                r = requests.post(home + "/api/login", json=ask, timeout=_TIMEOUT)
+            except requests.RequestException:
+                raise GRError("that address didn't answer — is the server running?")
+            server_url = home
+        if r.status_code == 404:
+            raise GRError("This Music Room's server is from before passwords. Sign in with your account code.")
+        if r.status_code != 200:
+            raise _refusal(r, "the server refused that sign-in")
+        d = r.json()
+        _signed_in(conn, server_url, d)
+        return {"joined": True, "name": d.get("name")}
+
+
+def join(server_url, invite_code, device_name="", otp=""):
     """Join (or rejoin) the campus server. Saves the server + token."""
     server_url = (server_url or default_server()).strip().rstrip("/")
     invite_code = (invite_code or "").strip()
@@ -277,7 +392,8 @@ def join(server_url, invite_code, device_name=""):
         server_url = "http://" + server_url
     with closing(_db()) as conn:
         fp = _fingerprint(conn)
-        ask = {"invite_code": invite_code, "fingerprint": fp, "device_name": device_name or "laptop"}
+        ask = {"invite_code": invite_code, "fingerprint": fp, "device_name": device_name or "laptop",
+               "otp": (otp or "").strip()}
         try:
             r = requests.post(server_url + "/api/join", json=ask, timeout=_TIMEOUT)
         except requests.RequestException:
@@ -292,12 +408,9 @@ def join(server_url, invite_code, device_name=""):
                 raise GRError("that address didn't answer — is the server running?")
             server_url = home
         if r.status_code != 200:
-            raise GRError(_err_of(r, "the server refused the invite code"))
+            raise _refusal(r, "the server refused the invite code")
         d = r.json()
-        _set_setting(conn, "gr_server_url", server_url)
-        _set_setting(conn, "gr_token", d["token"])
-        _set_setting(conn, "gr_name", d.get("name") or "")
-        _set_setting(conn, "gr_invite_code", d.get("invite_code") or invite_code)
+        _signed_in(conn, server_url, dict(d, invite_code=d.get("invite_code") or invite_code))
         return {"joined": True, "name": d.get("name"),
                 "wallet_cents": d.get("wallet_cents")}
 
@@ -735,39 +848,38 @@ def _inside(folder, fname):
     return dest                          # (as the app writes paths elsewhere — not Windows' long form of it)
 
 
-def signup(server_url, name, device_name="", kind="listener", agreed=False, door_code=""):
-    """Make a profile on the server (no invite) and sign this laptop in. Every
-    new account is a listener; any other `kind` goes to the master as a
-    request (gr_master.py). `agreed`: the house rules were read and agreed to."""
+def signup(server_url, name, device_name="", kind="listener", agreed=False, door_code="", email="", password=""):
+    """Make a profile on the server (no invite) and sign this laptop in, with an
+    email and a password to sign in with from then on. Every new account is a
+    listener; `kind` is only what the person says they are (an artist, a venue…),
+    kept so the app can show them the way to apply for that kind of account
+    (gr_apply.py on the server). `agreed`: the house rules were read and agreed to."""
     server_url = (server_url or default_server()).strip().rstrip("/")
     name = (name or "").strip()
     if not server_url or not name:
         raise GRError("a server address and a name are both needed")
     if not server_url.startswith("http"):
         server_url = "http://" + server_url
+    if not (email or "").strip() or not password:
+        raise GRError("An email and a password, please: they are what you sign in with.")
+    if not _safe_for_a_password(server_url):
+        raise GRError(PLAIN_ADDRESS)
     with closing(_db()) as conn:
         fp = _fingerprint(conn)
         try:
             r = requests.post(server_url + "/api/signup",
                               json={"name": name, "fingerprint": fp,
-                                    "kind_requested": kind if kind and kind != "listener" else "",
+                                    "interest": kind if kind and kind != "listener" else "",
+                                    "email": email.strip(), "password": password,
                                     "agreed": bool(agreed), "device_name": device_name or "laptop",
                                     "door_code": (door_code or "").strip()},
                               timeout=_TIMEOUT)
         except requests.RequestException:
             raise GRError("that address didn't answer — is the server running?")
         if r.status_code != 200:
-            e = GRError(_err_of(r, "the server wouldn't make the profile"))
-            try:
-                e.need_code = bool(r.json().get("need_code"))     # (the front door then asks for the invite code)
-            except ValueError:
-                e.need_code = False
-            raise e
+            raise _refusal(r, "the server wouldn't make the profile")     # (need_code: the front door then asks for the invite code)
         d = r.json()
-        _set_setting(conn, "gr_server_url", server_url)
-        _set_setting(conn, "gr_token", d["token"])
-        _set_setting(conn, "gr_name", d.get("name") or name)
-        _set_setting(conn, "gr_invite_code", d.get("invite_code") or "")
+        _signed_in(conn, server_url, d, name)
         return {"joined": True, "name": d.get("name"), "handle": d.get("handle"),
                 "invite_code": d.get("invite_code"), "wallet_cents": d.get("wallet_cents"),
                 "kind_requested": d.get("kind_requested") or ""}
@@ -1081,7 +1193,7 @@ def _delete(conn, path):
     if not url:
         raise GRError("no server set — sign in first")
     try:
-        return requests.delete(url + path, headers=_headers(conn), timeout=_TIMEOUT)
+        return requests.delete(url + path, headers=_headers(conn, path), timeout=_TIMEOUT)
     except requests.RequestException:
         _lost()
         raise GRError("the server can't be reached")
@@ -1092,7 +1204,7 @@ def _post_files(conn, path, files, data=None):
     if not url:
         raise GRError("no server set — sign in first")
     try:
-        return requests.post(url + path, files=files, data=data or {}, headers=_headers(conn),
+        return requests.post(url + path, files=files, data=data or {}, headers=_headers(conn, path),
                              timeout=_DL_TIMEOUT)
     except requests.RequestException:
         _lost()

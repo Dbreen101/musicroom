@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <link rel="stylesheet" href="/static/css/people.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+
+<main class="gr-main gr-main--narrow pp">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">Accounts</div>
+        <h1 class="gr-h1" id="head">&nbsp;</h1>
+    </header>
+    <div id="state"></div>
+
+    <form id="form" hidden onsubmit="return send(event)">
+        <section class="pp-sec">
+            <h2>What are you?</h2>
+            <div class="pp-kinds" id="kinds"></div>
+        </section>
+        <section class="pp-sec" id="about-sec" hidden>
+            <h2 id="about-h"></h2>
+            <div class="pp-row"><span class="v" id="means"></span></div>
+            <div class="pp-price" id="price"></div>
+            <div class="pp-say">One price for now. The Music Room reads every application before an account is switched on.</div>
+        </section>
+        <section class="pp-sec" id="fields-sec" hidden>
+            <h2>Your application</h2>
+            <div id="fields"></div>
+            <div class="pp-keys"><button class="gr-btn gr-btn--primary" type="submit">Send it</button><span class="pp-say" id="say"></span></div>
+        </section>
+    </form>
+</main>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const when = s => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('en-IE'); };
+let FORM = null, KIND = '';
+async function ask(sub, body){
+    const r = await fetch('/api/gr/people/' + sub, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return { ok: r.ok, d: await r.json().catch(() => ({})) };
+}
+async function load(){
+    const r = await ask('apply');
+    if (!r.ok) { $('head').textContent = 'Not now'; $('state').innerHTML = `<div class="pp-say bad">${esc(r.d.error || 'The server can’t be reached just now.')}</div>`; return; }
+    FORM = r.d;
+    const me = FORM.me, app = me.application;
+    $('form').hidden = true; $('state').innerHTML = '';
+    if (me.kind !== 'listener') {
+        const k = FORM.kinds.find(x => x.key === me.kind);
+        $('head').textContent = (k ? k.name : me.kind) + ' account';
+        $('state').innerHTML = `<section class="pp-sec"><div class="pp-row"><span class="v">${esc(k ? k.means : '')}</span></div>
+            <div class="pp-keys"><a class="gr-btn gr-btn--small" href="/myroom">My Public Room</a><a class="pp-link" href="/account">Account</a></div></section>`;
+        return;
+    }
+    if (app && app.status === 'pending') {
+        $('head').textContent = 'Your application is waiting';
+        $('state').innerHTML = `<section class="pp-sec">
+            <div class="pp-row"><span class="k">For</span><span class="v">${esc(app.kind_name)} account</span></div>
+            <div class="pp-row"><span class="k">Sent</span><span class="v">${esc(when(app.at))}</span></div>
+            <div class="pp-row"><span class="k">Price</span><span class="v">${esc(app.price)}</span></div>
+            <div class="pp-row"><span class="k">Until then</span><span class="v">Your account works as a listener's.</span></div>
+            <div class="pp-keys"><button class="pp-link" onclick="withdraw()">take it back</button></div></section>`;
+        return;
+    }
+    $('head').textContent = 'Apply for an account';
+    if (app && app.status === 'rejected') {
+        $('state').innerHTML = `<section class="pp-sec"><div class="pp-row"><span class="k">Last time</span><span class="v">Your application for ${esc(app.kind_name.toLowerCase())} account was not approved${app.note ? ': ' + esc(app.note) : '.'}</span></div></section>`;
+    }
+    $('form').hidden = false;
+    $('kinds').innerHTML = FORM.kinds.map(k => `<label class="pp-kind"><input type="radio" name="kind" value="${esc(k.key)}"><b>${esc(k.name)}</b><span>${esc(k.for)}</span></label>`).join('');
+    $('kinds').addEventListener('change', e => pick(e.target.value));
+    const want = new URLSearchParams(location.search).get('kind') || me.interest || (app && app.kind) || '';
+    const box = [...document.querySelectorAll('input[name=kind]')].find(b => b.value === want);
+    if (box) { box.checked = true; pick(want); }
+}
+function pick(key){
+    KIND = key;
+    const k = FORM.kinds.find(x => x.key === key); if (!k) return;
+    const was = {}; document.querySelectorAll('#fields [data-key]').forEach(el => { was[el.dataset.key] = el.value; });
+    $('about-sec').hidden = $('fields-sec').hidden = false;
+    $('about-h').textContent = k.name + ' account';
+    $('means').textContent = k.means;
+    $('fields').innerHTML = k.fields.map(f => {
+        const id = 'f-' + f.key, v = was[f.key] !== undefined ? was[f.key] : (f.key === 'name' ? FORM.me.name : f.key === 'email' ? FORM.me.email : '');
+        const label = `<label for="${id}">${esc(f.label)}${f.need ? '' : ' (if you like)'}</label>`;
+        if (f.kind === 'region') return `<div class="pp-f">${label}<select id="${id}" data-key="${esc(f.key)}">` +
+            FORM.regions.map(r => `<option value="${esc(r.key)}"${r.key === v ? ' selected' : ''}>${esc(r.name)}</option>`).join('') + '</select></div>';
+        if (f.kind === 'long') return `<div class="pp-f">${label}<textarea id="${id}" data-key="${esc(f.key)}" maxlength="${f.max || 4000}">${esc(v)}</textarea></div>`;
+        if (f.kind === 'links') return `<div class="pp-f">${label}<textarea id="${id}" data-key="${esc(f.key)}" data-links="1" placeholder="https://…  (one to a line)" style="min-height:76px">${esc(v)}</textarea></div>`;
+        return `<div class="pp-f">${label}<input type="${f.kind === 'email' ? 'email' : 'text'}" id="${id}" data-key="${esc(f.key)}" maxlength="${f.max || 400}" value="${esc(v)}"></div>`;
+    }).join('');
+    const reg = $('f-region'); if (reg) reg.addEventListener('change', price);
+    price();
+}
+function price(){
+    const reg = $('f-region'), r = FORM.regions.find(x => x.key === (reg ? reg.value : 'ie'));
+    $('price').textContent = r ? r.price : '';
+}
+async function send(e){
+    e.preventDefault();
+    const say = $('say'); say.className = 'pp-say'; say.textContent = '';
+    if (!KIND) { say.className = 'pp-say bad'; say.textContent = 'Choose what you are first.'; return false; }
+    const fields = {};
+    document.querySelectorAll('#fields [data-key]').forEach(el => { fields[el.dataset.key] = el.dataset.links ? el.value.split('\n').map(x => x.trim()).filter(Boolean) : el.value; });
+    const r = await ask('apply', { kind: KIND, fields });
+    if (!r.ok) { say.className = 'pp-say bad'; say.textContent = r.d.error || 'That wasn’t sent.'; return false; }
+    load(); window.scrollTo(0, 0); return false;
+}
+async function withdraw(){
+    if (!confirm('Take your application back?')) return;
+    await ask('apply/withdraw', {}); load();
+}
+load();
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

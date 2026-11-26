@@ -869,6 +869,10 @@ def register(app, server):
                 return no("only the master account can do that", 403, master=False)
             if master and not gr_master.master_here():
                 return no("the master's page works only on the Mac the server runs on", 403, master=False)
+            if master:
+                stop = S.gr_signin.need_two_factor(conn, acct)
+                if stop:
+                    return stop
             return fn(conn, acct)
 
     def acting(fn):
@@ -894,6 +898,11 @@ def register(app, server):
 
     @app.post("/api/sim/home")
     def sim_home():
+        with closing(S.db()) as conn:
+            acct, dev = S._auth(conn)
+            stop = S.gr_signin.one_at_a_time(conn, acct, dev) if acct else None    # (one of an account's laptops at a time)
+            if stop:
+                return stop
         return acting(do_home)
 
     @app.post("/api/sim/buy")

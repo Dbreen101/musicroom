@@ -31,6 +31,7 @@ def fresh(name):
     with closing(gr_server.db()) as c:
         gr_server.init_db(c)
     gr_master.make_master("Master", handle="master")
+    import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 client = gr_server.app.test_client()
 def join(handle, fp):
     code = sql("SELECT invite_code FROM gr_accounts WHERE handle=?", handle)[0][0]

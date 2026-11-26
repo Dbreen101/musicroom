@@ -28,6 +28,9 @@
         .lg-err { color: #d48080; font-size: var(--gr-t5); min-height: 1.3em; }
         .lg-server { font-size: var(--gr-t6); color: var(--gr-faint); margin-top: var(--gr-s4); font-family: var(--gr-mono); }
         @media (max-width: 860px) { body.gr-page.lg { grid-template-columns: 1fr; } .lg-side { min-height: 38vh; } .lg-pane { border-left: none; border-top: 1px solid var(--gr-line); } }
+        .lg-pw { display: flex; align-items: center; gap: 12px; }
+        .lg-pw input { flex: 1; min-width: 0; }
+        .lg-pw .lg-change { flex: none; font-size: var(--gr-t6); }
         .lg-asked { margin-top: 10px; font-size: var(--gr-t6); line-height: 1.6; color: var(--gr-muted); }
         .lg-asked b { font-weight: 400; color: var(--gr-ink); }
         .lg-agree { display: flex !important; align-items: flex-start; gap: 9px; margin-top: 18px; font-size: var(--gr-t6); line-height: 1.6; color: var(--gr-ink);
@@ -57,20 +60,30 @@
         <button data-tab="back" onclick="tab('back')">I have an account</button>
     </div>
 
-    <form class="lg-form" id="f-new" onsubmit="return go(event, 'new')">
-        <label>Your name</label>
-        <input id="n-name" placeholder="What people will see" autocomplete="off" autofocus>
+    <!-- The fields are named and marked the way password managers expect (username / new-password /
+         current-password), so a browser or the system's own passwords can offer to make and keep one. -->
+    <form class="lg-form" id="f-new" onsubmit="return go(event, 'new')" autocomplete="on">
+        <label for="n-name">Your name</label>
+        <input id="n-name" name="name" placeholder="What people will see" autocomplete="name" autofocus>
+        <label for="n-email">Email</label>
+        <input id="n-email" name="username" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="email">
+        <label for="n-pass">Password</label>
+        <div class="lg-pw">
+            <input id="n-pass" name="new-password" type="password" autocomplete="new-password" minlength="10" passwordrules="minlength: 10;">
+            <button type="button" class="lg-change" id="n-suggest">suggest one</button>
+            <button type="button" class="lg-change" data-show="n-pass">show</button>
+        </div>
         <label>I'm here as</label>
         <div class="lg-kinds" id="n-kinds">
             <button type="button" class="lg-kind on" data-kind="listener">a listener</button>
             <button type="button" class="lg-kind" data-kind="artist">an artist</button>
-            <button type="button" class="lg-kind" data-kind="digital artist">a digital artist</button>
             <button type="button" class="lg-kind" data-kind="label">a label</button>
             <button type="button" class="lg-kind" data-kind="shop">a record shop</button>
             <button type="button" class="lg-kind" data-kind="venue">a venue</button>
+            <button type="button" class="lg-kind" data-kind="experience creator">an experience creator</button>
             <button type="button" class="lg-kind" data-kind="business">a business</button>
         </div>
-        <div class="lg-asked" id="n-asked" hidden>You start as a listener. <b id="n-asked-kind"></b> is switched on once your request has been looked at.</div>
+        <div class="lg-asked" id="n-asked" hidden>Everyone starts as a listener. Inside, you can apply for <b id="n-asked-kind"></b> account.</div>
         <label class="lg-agree"><input type="checkbox" id="n-agree"><span>I have read the <a href="/house-rules" target="_blank" rel="noopener" id="n-rules">house rules</a> and agree to them.</span></label>
         <div id="n-code-row" style="display:none">
             <label for="n-code">Invite code</label>
@@ -78,19 +91,39 @@
         </div>
         <div id="n-server-row" style="display:none">
             <label>Server address</label>
-            <input id="n-server" placeholder="http://…:5300" autocapitalize="off" spellcheck="false">
+            <input id="n-server" placeholder="https://…" autocapitalize="off" spellcheck="false">
         </div>
         <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Make my room</button><span class="lg-err" id="n-err"></span></div>
     </form>
 
-    <form class="lg-form" id="f-back" style="display:none" onsubmit="return go(event, 'back')">
-        <label>Your account code</label>
-        <input id="b-code" placeholder="gr-xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <form class="lg-form" id="f-back" style="display:none" onsubmit="return go(event, 'back')" autocomplete="on">
+        <div id="b-pw-rows">
+            <label for="b-email">Email</label>
+            <input id="b-email" name="username" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="email">
+            <label for="b-pass">Password</label>
+            <div class="lg-pw">
+                <input id="b-pass" name="current-password" type="password" autocomplete="current-password">
+                <button type="button" class="lg-change" data-show="b-pass">show</button>
+            </div>
+        </div>
+        <div id="b-code-rows" style="display:none">
+            <label for="b-code">Your account code</label>
+            <input id="b-code" placeholder="gr-xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div id="b-otp-row" style="display:none">
+            <label for="b-otp">Six numbers from your authenticator app</label>
+            <input id="b-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="7">
+        </div>
+        <div id="b-mail-row" style="display:none">
+            <label for="b-mail">The code sent to your email</label>
+            <input id="b-mail" inputmode="numeric" autocomplete="one-time-code" maxlength="7">
+        </div>
         <div id="b-server-row" style="display:none">
             <label>Server address</label>
-            <input id="b-server" placeholder="http://…:5300" autocapitalize="off" spellcheck="false">
+            <input id="b-server" placeholder="https://…" autocapitalize="off" spellcheck="false">
         </div>
         <div class="lg-go"><button class="gr-btn gr-btn--primary" type="submit">Sign in on this device</button><span class="lg-err" id="b-err"></span></div>
+        <div class="lg-asked"><button type="button" class="lg-change" id="b-how">I have an account code instead</button></div>
     </form>
 
     <div class="lg-server"><span id="server-note"></span> <button type="button" class="lg-change" id="server-change" hidden>change</button></div>
@@ -115,6 +148,27 @@ document.getElementById('n-kinds').addEventListener('click', e => {
     const asked = document.getElementById('n-asked');
     asked.hidden = KIND === 'listener';
     document.getElementById('n-asked-kind').textContent = b.textContent;
+});
+// a password: show what was typed · have one made (long, random, shown so it can be kept somewhere)
+document.querySelectorAll('[data-show]').forEach(b => b.addEventListener('click', () => {
+    const f = document.getElementById(b.dataset.show), hide = f.type === 'text';
+    f.type = hide ? 'password' : 'text'; b.textContent = hide ? 'show' : 'hide';
+}));
+document.getElementById('n-suggest').addEventListener('click', () => {
+    const letters = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', pick = new Uint32Array(18);
+    crypto.getRandomValues(pick);
+    const raw = Array.from(pick, n => letters[n % letters.length]).join('');
+    const f = document.getElementById('n-pass');
+    f.value = raw.slice(0, 6) + '-' + raw.slice(6, 12) + '-' + raw.slice(12);
+    f.type = 'text'; document.querySelector('[data-show="n-pass"]').textContent = 'hide';
+});
+// an account from before passwords signs in with its account code
+let BY_CODE = false;
+document.getElementById('b-how').addEventListener('click', e => {
+    BY_CODE = !BY_CODE;
+    document.getElementById('b-pw-rows').style.display = BY_CODE ? 'none' : '';
+    document.getElementById('b-code-rows').style.display = BY_CODE ? '' : 'none';
+    e.target.textContent = BY_CODE ? 'I have an email and a password' : 'I have an account code instead';
 });
 // the house rules open over this page, not instead of it
 document.getElementById('n-rules').addEventListener('click', e => {
@@ -147,21 +201,34 @@ async function go(e, which){
     err.textContent = '';
     if (which === 'new' && !document.getElementById('n-agree').checked) { err.textContent = 'Please read the house rules and tick the box first.'; return false; }
     if (which === 'new' && !document.getElementById('n-name').value.trim()) { err.textContent = 'Your name, please.'; return false; }
+    if (which === 'new' && !document.getElementById('n-email').value.trim()) { err.textContent = 'Your email, please.'; return false; }
+    if (which === 'new' && document.getElementById('n-pass').value.length < 10) { err.textContent = 'A password needs at least 10 characters.'; return false; }
     const btn = e.target.querySelector('button[type=submit]');
     go.busy = true; if (btn) btn.disabled = true;
     const again = () => { go.busy = false; if (btn) btn.disabled = false; return false; };
     const body = which === 'new'
-        ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform, door_code: document.getElementById('n-code').value }
-        : { server_url: document.getElementById('b-server').value || DEFAULT_SERVER, invite_code: document.getElementById('b-code').value, device_name: navigator.platform };
+        ? { server_url: document.getElementById('n-server').value || DEFAULT_SERVER, name: document.getElementById('n-name').value, kind: KIND, agreed: true, device_name: navigator.platform, door_code: document.getElementById('n-code').value,
+            email: document.getElementById('n-email').value, password: document.getElementById('n-pass').value }
+        : Object.assign({ server_url: document.getElementById('b-server').value || DEFAULT_SERVER, device_name: navigator.platform,
+                          otp: document.getElementById('b-otp').value, email_code: document.getElementById('b-mail').value },
+            BY_CODE ? { invite_code: document.getElementById('b-code').value }
+                    : { email: document.getElementById('b-email').value, password: document.getElementById('b-pass').value });
     let r = null, d = {};
     try {
-        r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        r = await fetch(which === 'new' ? '/api/gr/signup' : '/api/gr/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         d = await r.json().catch(() => ({}));
     } catch (_) {}
     if (d.need_code) {                              // this server makes no account without its invite code
         const row = document.getElementById('n-code-row'), was = row.style.display !== 'none';
         row.style.display = '';
         if (!was) document.getElementById('n-code').focus();
+    }
+    for (const [flag, row, field] of [['need_2fa', 'b-otp-row', 'b-otp'], ['need_email_code', 'b-mail-row', 'b-mail']]) {
+        if (d[flag]) {                              // the account asks for one more thing: its row appears
+            const el = document.getElementById(row), was = el.style.display !== 'none';
+            el.style.display = '';
+            if (!was) document.getElementById(field).focus();
+        }
     }
     if (!r || !r.ok) { err.textContent = d.error || 'That did not work. Check the server address.'; return again(); }
     location.href = which === 'new' ? '/intro' : '/room';

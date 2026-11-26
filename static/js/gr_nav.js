@@ -94,11 +94,11 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
   // names where it is and offers to move it to the Bin. Closed, it stays closed for those copies.
   async function copies(){
     let d;
-    try { d = await (await fetch('/api/gr/update/copies')).json(); } catch (_) { return; }
+    try { d = await (await fetch('/api/gr/update/copies')).json(); } catch (_) { return people(); }
     const list = (d && d.copies) || [];
-    if (!list.length) return;
+    if (!list.length) return people();                    // (nothing to say about the app itself: anything about the account?)
     const key = 'mr_copies_closed', sig = list.map(c => c.path).sort().join('|');
-    try { if (localStorage.getItem(key) === sig) return; } catch (_) {}
+    try { if (localStorage.getItem(key) === sig) return people(); } catch (_) {}
     const places = [...new Set(list.map(c => c.where))];
     const bar = document.createElement('div'); bar.className = 'mr-update'; bar.setAttribute('role', 'status');
     const say = document.createElement('span');
@@ -118,6 +118,83 @@ if (!document.querySelector('.nav')) document.documentElement.classList.add('no-
     });
     bar.append(say, go, x);
     dress(); document.body.append(bar);
+  }
+  // One line about the person's ACCOUNT, when there is one to say (2026-11-26): the master's page
+  // is shut until two-factor is set up · an application was answered · they said at sign-up that
+  // they are an artist, a venue… and have not applied yet. One at a time, each closable for good.
+  const A_KIND = { artist: 'an artist', label: 'a record label', shop: 'a record shop', venue: 'a venue', 'experience creator': 'an experience creator', business: 'a business' };
+  function line(words, goWords, href, onClose){
+    const bar = document.createElement('div'); bar.className = 'mr-update'; bar.setAttribute('role', 'status');
+    const say = document.createElement('span'); say.textContent = words + ' ';
+    const go = document.createElement('a'); go.href = href; go.textContent = goWords;
+    go.addEventListener('click', () => { if (onClose) onClose(); });
+    bar.append(say, go);
+    if (onClose) {
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.title = 'Close'; x.setAttribute('aria-label', 'Close');
+      x.addEventListener('click', () => { bar.remove(); onClose(); });
+      bar.append(x);
+    }
+    dress(); document.body.append(bar);
+  }
+  const kept = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const keep = k => () => { try { localStorage.setItem(k, '1'); } catch (_) {} };
+  async function people(){
+    if (!document.documentElement.classList.contains('is-gr')) return;
+    if (await whatsNew()) return;
+    const here = location.pathname;
+    if (here === '/apply' || here === '/account' || here === '/login' || here === '/intro') return;
+    let me;
+    try { me = (await (await fetch('/api/gr/status')).json()).me; } catch (_) { return; }
+    if (!me || !me.apply) return;                          // (not signed in, or a server from before applications)
+    if (me.is_master && me.signin && me.signin.two_factor.missing && here !== '/master')
+      return line('The master page is shut until two-factor is set up.', 'Set it up', '/account#two-factor');
+    const a = me.apply.application;
+    if (a && (a.status === 'approved' || a.status === 'rejected') && !kept('mr_apply_seen_' + a.id))
+      return line(a.status === 'approved' ? `Your application was approved. This is now ${A_KIND[a.kind] || a.kind} account.` : 'Your application was not approved.',
+                  a.status === 'approved' ? 'See what changed' : 'Read the note', '/apply', keep('mr_apply_seen_' + a.id));
+    const k = me.apply.interest;
+    if (k && me.kind === 'listener' && me.apply.can_apply && !a && !kept('mr_apply_closed_' + k))
+      return line(`You said you are ${A_KIND[k] || k}.`, `See the ${k} account`, '/apply?kind=' + encodeURIComponent(k), keep('mr_apply_closed_' + k));
+  }
+  // What is new in this version, the first time the app is opened after an update: a small window
+  // with a few words and a button that leads to the new thing. The words are in
+  // static/data/whats_new.json; a version with no entry there says nothing. It sits above a
+  // page's first-visit tips (mr_tips.js), which wait beneath it.
+  async function whatsNew(){
+    let n;
+    try { n = (await (await fetch('/api/gr/whats-new')).json()).note; } catch (_) { return false; }
+    if (!n) return false;
+    if (!document.getElementById('mr-new-css')) {
+      const css = document.createElement('style'); css.id = 'mr-new-css';
+      css.textContent = `.mr-new{position:fixed;inset:0;z-index:9600;display:grid;place-items:center;padding:24px;background:rgba(22,21,19,.45)}
+        .mr-new__box{width:min(520px,100%);max-height:calc(100vh - 48px);overflow:auto;padding:28px 30px 24px;background:var(--bg,#f2efe8);color:var(--text,#161513);border:1px solid var(--text,#161513)}
+        .mr-new__v{font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#6e6a61)}
+        .mr-new__box h2{margin:10px 0 14px;font-family:var(--f-serif,"Instrument Serif",serif);font-weight:400;font-size:1.9rem;line-height:1.1}
+        .mr-new__box p{margin:0 0 10px;font-size:.92rem;line-height:1.55}
+        .mr-new__keys{display:flex;gap:10px;margin-top:20px}
+        .mr-new__keys button{appearance:none;border:1px solid var(--text,#161513);border-radius:0;background:none;color:inherit;font-family:var(--f-mono,"IBM Plex Mono",monospace);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;cursor:pointer}
+        .mr-new__keys button.go{background:var(--text,#161513);color:var(--bg,#f2efe8)}`;
+      document.head.append(css);
+    }
+    const w = document.createElement('div'); w.className = 'mr-new'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'What is new');
+    const box = document.createElement('div'); box.className = 'mr-new__box';
+    const v = document.createElement('div'); v.className = 'mr-new__v'; v.textContent = 'New in version ' + n.version;
+    const h = document.createElement('h2'); h.textContent = n.title;
+    box.append(v, h);
+    (n.words || []).forEach(t => { const p = document.createElement('p'); p.textContent = t; box.append(p); });
+    const keys = document.createElement('div'); keys.className = 'mr-new__keys';
+    const seen = () => fetch('/api/gr/whats-new', { method: 'POST' }).catch(() => {});
+    const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Close';
+    close.addEventListener('click', () => { seen(); w.remove(); });
+    if (n.go) {
+      const go = document.createElement('button'); go.type = 'button'; go.className = 'go'; go.textContent = n.go_label || 'Show me';
+      go.addEventListener('click', async () => { await seen(); location.href = n.go; });
+      keys.append(go);
+    }
+    keys.append(close); box.append(keys); w.append(box);
+    document.addEventListener('keydown', function esc(e){ if (e.key === 'Escape' && w.isConnected) { seen(); w.remove(); document.removeEventListener('keydown', esc); } });
+    document.body.append(w);
+    return true;
   }
   async function look(){
     let v;

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account — Music Room</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{ theme_head|safe }}
+    <link rel="stylesheet" href="/static/css/explore-theme.css">
+    <link rel="stylesheet" href="/static/css/gr.css">
+    <link rel="stylesheet" href="/static/css/people.css">
+    <script src="/static/js/room_transition.js"></script>
+    <link rel="stylesheet" href="/static/css/ui.css">
+</head>
+<body class="gr-page">
+{% include "_gr_nav.html" %}
+
+<main class="gr-main gr-main--narrow pp">
+    <header class="gr-hero">
+        <div class="gr-eyebrow">Account</div>
+        <h1 class="gr-h1" id="who">&nbsp;</h1>
+    </header>
+    <div class="pp-say bad" id="top-say"></div>
+
+    <section class="pp-sec" id="kind-sec">
+        <h2>Kind of account</h2>
+        <div id="kind"></div>
+    </section>
+
+    <section class="pp-sec">
+        <h2>Sign-in</h2>
+        <div class="pp-row"><span class="k">Email</span><span class="v" id="email"></span><button class="pp-link" data-open="f-email" id="email-btn">change</button></div>
+        <form class="pp-form" id="f-email" hidden autocomplete="on" onsubmit="return saveEmail(event)">
+            <label for="e-new">New email</label>
+            <input type="email" id="e-new" name="username" autocomplete="username" autocapitalize="off" spellcheck="false">
+            <div id="e-pass-row"><label for="e-pass">Your password</label>
+            <input type="password" id="e-pass" name="current-password" autocomplete="current-password"></div>
+            <div class="pp-keys"><button class="gr-btn gr-btn--small" type="submit">Save</button><span class="pp-say" id="e-say"></span></div>
+        </form>
+        <div class="pp-row"><span class="k">Password</span><span class="v" id="pw"></span><button class="pp-link" data-open="f-pw" id="pw-btn"></button></div>
+        <form class="pp-form" id="f-pw" hidden autocomplete="on" onsubmit="return savePassword(event)">
+            <div id="p-email-row"><label for="p-email">Email</label>
+            <input type="email" id="p-email" name="username" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+            <div id="p-old-row"><label for="p-old">Password now</label>
+            <input type="password" id="p-old" name="current-password" autocomplete="current-password"></div>
+            <label for="p-new">New password</label>
+            <input type="password" id="p-new" name="new-password" autocomplete="new-password" minlength="10" passwordrules="minlength: 10;">
+            <div class="pp-keys"><button class="gr-btn gr-btn--small" type="submit">Save</button><span class="pp-say" id="p-say"></span></div>
+        </form>
+        <div class="pp-row" id="code-row" hidden><span class="k">Account code</span><span class="v"><code id="code"></code></span></div>
+    </section>
+
+    <section class="pp-sec" id="two-factor" hidden>
+        <h2>Two-factor</h2>
+        <div class="pp-row"><span class="k">Now</span><span class="v" id="tf-now"></span><button class="pp-link" id="tf-btn"></button></div>
+        <div id="tf-setup" hidden>
+            <div class="pp-row"><span class="k">1</span><span class="v">Add this key to your authenticator app (Passwords on a Mac or iPhone, or any other).</span></div>
+            <div class="pp-key" id="tf-key"></div>
+            <form class="pp-form" onsubmit="return tfConfirm(event)">
+                <label for="tf-code">2 · The six numbers it shows</label>
+                <input type="text" id="tf-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7">
+                <div class="pp-keys"><button class="gr-btn gr-btn--small" type="submit">Switch it on</button><span class="pp-say" id="tf-say"></span></div>
+            </form>
+        </div>
+        <form class="pp-form" id="tf-off" hidden onsubmit="return tfOff(event)">
+            <label for="tf-off-code">The six numbers from your authenticator app</label>
+            <input type="text" id="tf-off-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7">
+            <div class="pp-keys"><button class="gr-btn gr-btn--small" type="submit">Switch it off</button><span class="pp-say" id="tf-off-say"></span></div>
+        </form>
+    </section>
+
+    <section class="pp-sec">
+        <h2>Laptops</h2>
+        <div id="devices"></div>
+        <div class="pp-say" id="limits"></div>
+    </section>
+
+    <section class="pp-sec" id="give-sec" hidden>
+        <h2>Who can manage this account</h2>
+        <div id="given"></div>
+        <form class="pp-form" onsubmit="return give(event)">
+            <label for="g-handle">Their room's address</label>
+            <input type="text" id="g-handle" placeholder="@their-label" autocapitalize="off" spellcheck="false">
+            <label for="g-scope">They may</label>
+            <select id="g-scope"></select>
+            <div class="pp-keys"><button class="gr-btn gr-btn--small" type="submit">Let them in</button><span class="pp-say" id="g-say"></span></div>
+        </form>
+        <div id="behalf-log"></div>
+    </section>
+
+    <section class="pp-sec" id="got-sec" hidden>
+        <h2>Accounts you manage</h2>
+        <div id="got"></div>
+    </section>
+
+    <section class="pp-sec">
+        <h2>Sign-ins</h2>
+        <div id="signins"></div>
+    </section>
+</main>
+
+<script src="/static/vendor/gsap/gsap.min.js"></script>
+<script src="/static/js/gr_nav.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const when = s => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('en-IE') + ' ' + d.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' }); };
+const KIND = { listener: 'Listener', artist: 'Artist', label: 'Record label', shop: 'Record shop', venue: 'Venue', 'experience creator': 'Experience creator', business: 'Business', 'digital artist': 'Digital artist' };
+const HOW = { password: 'password', code: 'account code', signup: 'new account' };
+let SEC = null, ME = null;
+async function ask(sub, body, method){
+    const r = await fetch('/api/gr/people/' + sub, body === undefined && !method ? {} : { method: method || 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    const d = await r.json().catch(() => ({}));
+    return { ok: r.ok, d };
+}
+document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { const f = $(b.dataset.open); f.hidden = !f.hidden; }));
+
+async function load(){
+    const st = await (await fetch('/api/gr/status')).json();
+    ME = st.me;
+    if (!ME) { $('top-say').textContent = 'The server can’t be reached just now.'; return; }
+    $('who').textContent = ME.name;
+    const s = await ask('me/security');
+    if (!s.ok) { $('top-say').textContent = s.d.error || 'This Music Room’s server is from before this page.'; return; }
+    SEC = s.d;
+    paintKind(); paintSignin(st); paintTwoFactor(); paintDevices(); paintSignins();
+    loadBehalf();
+    if (location.hash === '#two-factor' && !$('two-factor').hidden) $('two-factor').scrollIntoView();
+}
+function paintKind(){
+    const a = ME.apply || {}, app = a.application;
+    let h = `<div class="pp-row"><span class="k">This is</span><span class="v">${esc(KIND[ME.kind] || ME.kind)}${a.status === 'suspended' ? ' <span class="pp-mark red">suspended</span>' : ''}</span></div>`;
+    if (ME.kind === 'listener') {
+        if (app && app.status === 'pending') h += `<div class="pp-row"><span class="k">Application</span><span class="v">${esc(app.kind_name)} · waiting</span><a class="pp-link" href="/apply">open</a></div>`;
+        else if (app && app.status === 'rejected') h += `<div class="pp-row"><span class="k">Application</span><span class="v">${esc(app.kind_name)} · not approved</span><a class="pp-link" href="/apply">read the note</a></div>`;
+        else h += `<div class="pp-row"><span class="k">More</span><span class="v">Artist, record label, record shop, venue, experience creator and business accounts are applied for.</span><a class="pp-link" href="/apply">apply</a></div>`;
+    }
+    $('kind').innerHTML = h;
+}
+function paintSignin(st){
+    $('email').textContent = SEC.email || 'none yet';
+    $('email-btn').hidden = !SEC.has_password;
+    $('pw').textContent = SEC.has_password ? 'set' : 'none yet: this account signs in with its account code';
+    $('pw-btn').textContent = SEC.has_password ? 'change' : 'set an email and a password';
+    $('p-email-row').hidden = SEC.has_password; $('p-old-row').hidden = !SEC.has_password;
+    $('p-email').value = SEC.email || '';
+    const code = !SEC.has_password && st && st.invite_code;
+    $('code-row').hidden = !code; if (code) $('code').textContent = st.invite_code;
+}
+async function saveEmail(e){
+    e.preventDefault(); $('e-say').className = 'pp-say';
+    const r = await ask('me/email', { email: $('e-new').value, password: $('e-pass').value });
+    if (!r.ok) { $('e-say').className = 'pp-say bad'; $('e-say').textContent = r.d.error || 'That wasn’t saved.'; return false; }
+    SEC = r.d; $('e-pass').value = ''; $('f-email').hidden = true; paintSignin(); return false;
+}
+async function savePassword(e){
+    e.preventDefault(); $('p-say').className = 'pp-say';
+    const had = SEC.has_password;
+    const r = await ask('me/password', had ? { old: $('p-old').value, new: $('p-new').value } : { new: $('p-new').value, email: $('p-email').value });
+    if (!r.ok) { $('p-say').className = 'pp-say bad'; $('p-say').textContent = r.d.error || 'That wasn’t saved.'; return false; }
+    SEC = r.d; $('p-old').value = $('p-new').value = '';
+    $('p-say').textContent = had ? ('Changed.' + (r.d.signed_out ? ' Your other laptops were signed out.' : '')) : 'Saved. From now on this account signs in with its email and password.';
+    paintSignin(); paintDevices(); return false;
+}
+
+function paintTwoFactor(){
+    const t = SEC.two_factor;
+    $('two-factor').hidden = t.rule === 'off' && !t.on;
+    $('tf-now').innerHTML = t.on ? 'On' : (t.rule === 'required' ? 'Off · <span class="pp-mark red">this account needs it</span>' : 'Off');
+    $('tf-btn').textContent = t.on ? (t.rule === 'required' ? '' : 'switch it off') : 'set it up';
+    $('tf-btn').onclick = t.on ? () => { $('tf-off').hidden = !$('tf-off').hidden; } : tfStart;
+    if (t.on) $('tf-setup').hidden = true; else $('tf-off').hidden = true;
+}
+async function tfStart(){
+    const r = await ask('me/2fa/start', {});
+    if (!r.ok) { $('tf-now').textContent = r.d.error || 'That did not work.'; return; }
+    $('tf-key').textContent = r.d.key.replace(/(.{4})/g, '$1 ').trim();
+    $('tf-setup').hidden = false; $('tf-code').focus();
+}
+async function tfConfirm(e){
+    e.preventDefault(); $('tf-say').className = 'pp-say';
+    const r = await ask('me/2fa/confirm', { code: $('tf-code').value });
+    if (!r.ok) { $('tf-say').className = 'pp-say bad'; $('tf-say').textContent = r.d.error || 'That did not work.'; return false; }
+    SEC = r.d; $('tf-code').value = ''; paintTwoFactor(); paintDevices(); return false;
+}
+async function tfOff(e){
+    e.preventDefault(); $('tf-off-say').className = 'pp-say';
+    const r = await ask('me/2fa/off', { code: $('tf-off-code').value });
+    if (!r.ok) { $('tf-off-say').className = 'pp-say bad'; $('tf-off-say').textContent = r.d.error || 'That did not work.'; return false; }
+    SEC = r.d; $('tf-off-code').value = ''; paintTwoFactor(); return false;
+}
+
+function paintDevices(){
+    $('devices').innerHTML = SEC.devices.map(d => `<div class="pp-row"><span class="k">${d.this ? 'This one' : 'Another'}</span>
+        <span class="v">${esc(d.name)} · since ${esc(when(d.since))}${d.last_seen && !d.this ? ' · last used ' + esc(when(d.last_seen)) : ''}</span>
+        <button class="pp-link" onclick="deviceOut(${d.id}, ${d.this ? 1 : 0})">sign it out</button></div>`).join('');
+    $('limits').textContent = `${SEC.limits.devices} laptops to an account · ${SEC.limits.at_once} at a time for borrowing`;
+}
+async function deviceOut(id, mine){
+    if (mine && !confirm('Sign this laptop out?')) return;
+    const r = await ask(`me/devices/${id}/out`, {});
+    if (mine && r.ok) { location.href = '/login'; return; }
+    const s = await ask('me/security'); if (s.ok) { SEC = s.d; paintDevices(); }
+}
+function paintSignins(){
+    const rows = SEC.signins || [];
+    $('signins').innerHTML = rows.length ? `<table class="pp-table"><tr><th>When</th><th>Laptop</th><th>With</th><th></th></tr>` + rows.map(s =>
+        `<tr><td>${esc(when(s.at))}</td><td>${esc(s.device || '—')}</td><td>${esc(HOW[s.how] || s.how)}</td>
+         <td class="${s.ok ? '' : 'bad'}">${s.ok ? (s.new ? 'new laptop' : '') : 'refused: ' + esc(s.note)}</td></tr>`).join('') + '</table>' : '';
+}
+
+// ── who can manage this account (an artist's) · accounts this one manages ──
+async function loadBehalf(){
+    const r = await ask('my/behalf'); if (!r.ok) return;
+    const b = r.d, act = (await (await fetch('/api/gr/acting')).json()).acting;
+    $('give-sec').hidden = !b.can_give;
+    $('g-scope').innerHTML = b.scopes.map(s => `<option value="${esc(s.key)}">${esc(s.name)}</option>`).join('');
+    $('given').innerHTML = b.given.map(g => `<div class="pp-row"><span class="k">${esc(g.scope_name)}</span><span class="v">${esc(g.name)} · @${esc(g.handle)} · since ${esc(when(g.since))}</span>
+        <button class="pp-link" onclick="takeBack(${g.id})">take it back</button></div>`).join('');
+    $('behalf-log').innerHTML = b.can_give && b.log.length ? `<table class="pp-table"><tr><th>When</th><th>Who</th><th>What</th></tr>` + b.log.map(l =>
+        `<tr><td>${esc(when(l.at))}</td><td>${esc(l.by_name || l.by_handle)}</td><td>${esc(l.did)}${l.answer >= 400 ? ' · refused' : ''}</td></tr>`).join('') + '</table>' : '';
+    $('got-sec').hidden = !b.got.length;
+    $('got').innerHTML = b.got.map(g => { const on = act && act.handle === g.handle; return `<div class="pp-row"><span class="k">${esc(g.scope_name)}</span>
+        <span class="v">${esc(g.name)} · @${esc(g.handle)}${on ? ' <span class="pp-mark">managing now</span>' : ''}</span>
+        <button class="pp-link" onclick="actFor('${on ? '' : esc(g.handle)}')">${on ? 'stop' : 'manage'}</button>
+        <button class="pp-link" onclick="takeBack(${g.id})">give it up</button></div>`; }).join('');
+}
+async function give(e){
+    e.preventDefault(); $('g-say').className = 'pp-say'; $('g-say').textContent = '';
+    const r = await ask('my/behalf', { handle: $('g-handle').value, scope: $('g-scope').value });
+    if (!r.ok) { $('g-say').className = 'pp-say bad'; $('g-say').textContent = r.d.error || 'That did not work.'; return false; }
+    $('g-handle').value = ''; loadBehalf(); return false;
+}
+async function takeBack(id){ await ask('my/behalf/' + id, undefined, 'DELETE'); await fetch('/api/gr/acting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"handle":""}' }); loadBehalf(); }
+async function actFor(handle){
+    const r = await fetch('/api/gr/acting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ handle }) });
+    if (r.ok && handle) location.href = '/myroom'; else loadBehalf();
+}
+load();
+</script>
+<script src="/static/js/theme.js"></script>
+</body>
+</html>

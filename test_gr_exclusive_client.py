@@ -38,6 +38,7 @@ with closing(gr_server.db()) as conn:
     gr_server.init_db(conn)
 gr_server.add_folder(str(music))
 gr_master.make_master("Master", handle="master")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 with closing(gr_server.db()) as conn:
     conn.execute("UPDATE gr_settings SET value=value")      # (the table is there)
     ids = {r["filename"]: r["id"] for r in conn.execute("SELECT id, filename FROM gr_tracks")}

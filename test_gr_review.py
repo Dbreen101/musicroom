@@ -50,6 +50,7 @@ def get(tok, path, **kw): return client.get(path, headers=hdr(tok), **kw)
 def post(tok, path, body=None): return client.post(path, json=body or {}, headers=hdr(tok))
 
 gr_master.make_master("The Master", handle="boss")
+import gr_signin; gr_signin.set_rules_here({"master_2fa": "off"})   # (the master's two-factor has its own test: test_gr_signin.py)
 mtok = join(code_of("boss"), "mac-boss").get_json()["token"]
 gr_server.make_invite("Órla Artist", kind="artist", public=True)
 otok = join(code_of("orla-artist"), "mac-orla").get_json()["token"]

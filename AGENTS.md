@@ -11,7 +11,7 @@ Music Room: local-first desktop music library (Flask + SQLite + Jinja/plain wind
 ```
 musicroom/                # FLAT: all modules + all test_*.py at root (no src/, no tests/)
 ├── app.py                # desktop Flask app, 16k lines; core routes + 9 X.register(app, ...)
-├── gr_server.py          # rooms server + CLI; registers gr_shop/gr_master/gr_sim/gr_art
+├── gr_server.py          # rooms server + CLI; registers gr_shop/gr_master/gr_sim/gr_art + gr_signin/gr_apply/gr_happenings/gr_behalf
 ├── green_room.py         # desktop-side HTTP client to rooms server (encrypted borrow cache)
 ├── migrate.py schema.py  # repeatable non-destructive migration / fresh DB
 ├── importer.py           # import + analysis CLI
@@ -22,14 +22,19 @@ musicroom/                # FLAT: all modules + all test_*.py at root (no src/, 
 ├── plugins/              # sandboxed example plug-ins (thread, shelves); spec in docs/PLUGINS.md
 ├── native/               # real entry launcher.py, PyInstaller specs, build scripts (see native/README.md)
 ├── tools/                # run_tests.py, release.sh, server.sh, publish_public.py, take_public.sh
-└── docs/                 # DESIGN, PLUGINS, THEMES, SERVER, RECOMMENDATIONS (dated advice, not defaults)
+└── docs/                 # DESIGN, PLUGINS, THEMES, SERVER
 ```
 
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| Desktop route/page | app.py or a module's `register()` | extracted: plugins, structures, removed, record_shop, sound_out, gr_sim_app, gr_art_app, explore_globe, map_look |
+| Desktop route/page | app.py or a module's `register()` | extracted: plugins, structures, removed, record_shop, sound_out, gr_sim_app, gr_art_app, gr_people_app, explore_globe, map_look |
 | Rooms server endpoint | gr_server.py, gr_shop/gr_sim/gr_master/gr_art | `register(app, server)` + `ensure(conn)` |
+| Sign-in (email + password, laptops, two-factor, the account rules) | gr_signin.py | every limit is an entry of `RULES`; `sign_in_device()` is the one way a laptop gets a sign-in |
+| Kinds of account, applications, the master's queue | gr_apply.py (`FIELDS`, `EXTRA[kind]`), gr_server.`ACCOUNT_KINDS` / `KINDS_OFF` | everyone starts a listener; the app's pages: templates/apply.html, account.html |
+| Event pages (experience creators, venues) | gr_happenings.py, static/js/events_maker.js, room_blocks.js `events` | table `gr_happenings` (`gr_events` is the activity log) |
+| One account managing another (artist → label) | gr_behalf.py (`PATHS` per scope), green_room.`ACTING_PATHS` | header `X-GR-For`; checked in gr_server.`_auth` |
+| What's-new note after an update | static/data/whats_new.json, gr_people_app.`whats_new`, gr_nav.js | one entry per version; shown once |
 | GR call from desktop | green_room.py | |
 | Data paths / env | mr_paths.py | |
 | Schema change | migrate.py (+ schema.py) | |

@@ -1,0 +1,56 @@
+/* people.css — the account page, the application page, event pages in the room editor
+   (2026-11-26). Everything is under .pp, drawn with the Green Room's own tokens (gr.css). */
+.pp [hidden] { display: none !important; }     /* (a row laid out with flex would otherwise ignore `hidden`) */
+.pp-sec { border-top: 1px solid var(--gr-line); padding: var(--gr-s4) 0; }
+.pp-sec > h2 { font-family: var(--gr-mono); font-weight: 400; font-size: var(--gr-t6); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gr-muted); margin: 0 0 var(--gr-s3); }
+.pp-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; padding: 7px 0; font-size: var(--gr-t4); line-height: 1.5; }
+.pp-row > .k { flex: 0 0 150px; font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .1em; text-transform: uppercase; color: var(--gr-muted); }
+.pp-row > .v { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.pp-link { appearance: none; padding: 0; border: 0; background: none; color: var(--gr-muted); font: inherit; font-size: var(--gr-t5);
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.pp-link:hover { color: var(--gr-ink); }
+.pp-form { display: grid; gap: 4px; max-width: 460px; margin: var(--gr-s2) 0 var(--gr-s3); }
+.pp-form[hidden] { display: none; }
+.pp-form label, .pp-f > label { display: block; font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gr-muted); margin: var(--gr-s2) 0 4px; }
+.pp input[type=text], .pp input[type=email], .pp input[type=password], .pp input[type=datetime-local], .pp input[type=number],
+.pp select, .pp textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--gr-line); border-radius: var(--gr-r, 0);
+  background: transparent; color: var(--gr-ink); font-family: var(--gr-sans); font-size: var(--gr-t4); outline: none; }
+.pp textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+.pp input:focus, .pp select:focus, .pp textarea:focus { border-color: var(--gr-ink); }
+.pp-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: var(--gr-s2); }
+.pp-say { font-size: var(--gr-t5); color: var(--gr-muted); min-height: 1.3em; }
+.pp-say.bad { color: var(--red, #c9412f); }
+.pp-key { font-family: var(--gr-mono); font-size: var(--gr-t3); letter-spacing: .12em; padding: 12px 14px; border: 1px solid var(--gr-line);
+  user-select: all; overflow-wrap: anywhere; }
+.pp-table { width: 100%; border-collapse: collapse; font-size: var(--gr-t5); }
+.pp-table th { text-align: left; font-family: var(--gr-mono); font-weight: 400; font-size: var(--gr-t6); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gr-muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--gr-line); }
+.pp-table td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--gr-line); vertical-align: top; }
+.pp-table td.bad { color: var(--red, #c9412f); }
+.pp-mark { font-family: var(--gr-mono); font-size: var(--gr-t6); letter-spacing: .1em; text-transform: uppercase; border: 1px solid currentColor; padding: 2px 6px; }
+.pp-mark.red { color: var(--red, #c9412f); }
+
+/* choosing a kind of account */
+.pp-kinds { display: grid; gap: 0; border-top: 1px solid var(--gr-line); }
+.pp-kind { display: grid; grid-template-columns: 22px 1fr; gap: 4px 12px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--gr-line); cursor: pointer; }
+.pp-kind input { margin: 0; accent-color: var(--gr-ink); }
+.pp-kind b { font-family: var(--gr-serif); font-weight: 400; font-size: var(--gr-t2); line-height: 1.1; }
+.pp-kind span { grid-column: 2; font-size: var(--gr-t5); line-height: 1.55; color: var(--gr-muted); }
+.pp-price { font-family: var(--gr-serif); font-size: var(--gr-t2); margin: var(--gr-s3) 0 4px; }
+
+/* event pages in the room editor */
+.ev-list { display: grid; gap: 0; margin-top: var(--gr-s2); }
+.ev-item { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gr-line); font-size: var(--gr-t5); }
+.ev-item .t { flex: 1; min-width: 0; cursor: pointer; }
+.ev-item .t b { display: block; font-weight: 400; font-size: var(--gr-t4); color: var(--gr-ink); }
+.ev-item .t span { color: var(--gr-muted); }
+.ev-soon { margin-top: var(--gr-s3); font-size: var(--gr-t5); color: var(--gr-muted); }
+.ev-soon label { display: flex; align-items: center; gap: 8px; margin: 6px 0; text-transform: none; letter-spacing: 0; font-family: var(--gr-sans); font-size: var(--gr-t5); }
+
+/* the line across the room editor while someone else's account is being managed */
+.pp-acting { display: flex; align-items: center; gap: 12px; padding: 9px 14px; background: var(--gr-ink); color: var(--gr-bg); font-family: var(--gr-mono);
+  font-size: var(--gr-t6); letter-spacing: .06em; }
+.pp-acting button { appearance: none; border: 1px solid currentColor; border-radius: 0; background: none; color: inherit; font: inherit; text-transform: uppercase;
+  letter-spacing: .08em; padding: 4px 9px; cursor: pointer; }

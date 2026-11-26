@@ -380,8 +380,8 @@ _backup_lock     = threading.Lock()
 # The database is never copied as a plain file while the app has it open. A copy made
 # mid-write can be torn or out of date (what was saved last still sits in its -wal side
 # file), and those side files come and go under rsync: on 24 Nov 2026 a launch backup was
-# skipped whole ("library.db-wal: No such file"). Found by Kristian Vastveit
-# (docs/RECOMMENDATIONS.md). SQLite makes the copy itself (_copy_database_to), and rsync
+# skipped whole ("library.db-wal: No such file"). Found by Kristian Vastveit.
+# SQLite makes the copy itself (_copy_database_to), and rsync
 # is told to leave these names alone.
 _DB_FILE = os.path.basename(DB_PATH)
 _DB_SIDE = ("-wal", "-shm", "-journal")
@@ -14412,7 +14412,7 @@ def api_gr_join():
     d = request.get_json(silent=True) or {}
     return _gr_guard(lambda: green_room.join(
         d.get("server_url") or "", d.get("invite_code") or "",
-        d.get("device_name") or ""))
+        d.get("device_name") or "", otp=d.get("otp") or ""))
 
 
 @app.route("/api/gr/catalogue")
@@ -14711,10 +14711,12 @@ def api_gr_signup():
     try:
         return jsonify(green_room.signup(d.get("server_url") or "", d.get("name") or "",
                                          d.get("device_name") or "", d.get("kind") or "listener",
-                                         agreed=bool(d.get("agreed")), door_code=d.get("door_code") or ""))
+                                         agreed=bool(d.get("agreed")), door_code=d.get("door_code") or "",
+                                         email=d.get("email") or "", password=d.get("password") or ""))
     except green_room.GRError as e:
         # (need_code: this server makes no account without its invite code — the front door then asks for it)
-        return jsonify({"error": str(e), "need_code": bool(getattr(e, "need_code", False))}), 502
+        return jsonify({"error": str(e), "need_code": bool(getattr(e, "need_code", False)),
+                        "need_password": bool(getattr(e, "need_password", False))}), 502
     except OSError as e:
         print(f"[green room] {type(e).__name__}: {e}")
         return jsonify({"error": "That was interrupted. Try again."}), 502
@@ -14774,7 +14776,7 @@ def subscribe_page():
 # files, the sign-in calls, the intro and the feedback widget stay open.
 
 _GR_OPEN_PREFIXES = ("/login", "/intro", "/static/", "/api/gr/status", "/api/gr/signup", "/house-rules", "/api/gr/version",
-                     "/api/gr/join", "/api/gr/plans", "/api/feedback", "/favicon", "/api/tips")
+                     "/api/gr/join", "/api/gr/login", "/api/gr/plans", "/api/feedback", "/favicon", "/api/tips")
 # the look can be chosen at the front door (its key used to open an empty list): reading the
 # themes and picking one, nothing more — importing and deleting wait for sign-in
 _GR_OPEN_EXACT = ("/api/themes", "/api/themes/current")
@@ -14889,6 +14891,7 @@ def _md_page(path):
 # ── the master account's page, and what everyone can ask of the master (gr_master.py on the server) ──
 import re as _re_master
 _MASTER_SUB = _re_master.compile(r"^(overview|accounts(/\d+)?|records(/\d+)?|reports(/\d+)?|feedback(/\d+)?|version|door|grupai/\d+"
+                                  r"|applications(/\d+)?|tier|rules|signins|accounts/\d+/(password|two-factor)"
                                   r"|sim(/(rules|credits|playlist|activity|sync-note))?|spotify-keys(/assign)?)$")
 
 # the credits trial (gr_sim.py on the server): bring home, buy, take out, the
@@ -14912,6 +14915,13 @@ def _app_version():
 
 APP_VERSION = _app_version()
 _version_seen = {"at": 0.0, "v": None}
+
+
+# accounts (gr_signin / gr_apply / gr_happenings / gr_behalf on the server): signing in with an email and
+# a password, the account page, applying for another kind of account, event pages, managing an artist's account
+import gr_people_app  # noqa: E402
+gr_people_app.register(app, get_setting=_get_setting_threadsafe, set_setting=_set_setting_threadsafe,
+                       app_version=APP_VERSION, base_dir=BASE_DIR)
 
 
 @app.route("/master")
@@ -15123,7 +15133,7 @@ def api_gr_leave():
     """Log out on this laptop: forget who you are, but REMEMBER the server —
     the sign-in page needs its address and nobody should have to type it.
     Borrows stay (they'd need returning first, which needs the server)."""
-    for k in ("gr_token", "gr_name"):
+    for k in ("gr_token", "gr_name", "gr_acting_for", "gr_acting_name", "gr_acting_scope"):
         execute("DELETE FROM settings WHERE key=?", (k,))
     return jsonify({"left": True})
 

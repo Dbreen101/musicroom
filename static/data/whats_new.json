@@ -1,0 +1,4 @@
+{
+  "how": "One entry per version that has something to tell people. The first time someone opens that version after an update, the app shows the entry once: a title, a few lines, and a button that leads to the new thing. A version with no entry shows nothing. Shape: {\"version\": \"2026.12.01\", \"title\": \"…\", \"words\": [\"…\", \"…\"], \"go\": \"/a-page-in-the-app\", \"go_label\": \"Show me\"}",
+  "notes": []
+}

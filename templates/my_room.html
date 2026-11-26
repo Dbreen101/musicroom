@@ -8,6 +8,7 @@
     {{ theme_head|safe }}
     <link rel="stylesheet" href="/static/css/explore-theme.css">
     <link rel="stylesheet" href="/static/css/gr.css">
+    <link rel="stylesheet" href="/static/css/people.css">
     <script src="/static/js/room_transition.js"></script>
     <style>
         /* The designer: controls on the left, the room itself on the right,
@@ -139,6 +140,7 @@
         <button data-tab="works" id="tab-works" onclick="tab('works')" style="display:none">Works</button>
         <button data-tab="records" id="tab-records" onclick="tab('records')">Records</button>
         <button data-tab="crates" id="tab-crates" onclick="tab('crates')" title="Crates of records for people shopping in Explore">Crates</button>
+        <button data-tab="events" id="tab-events" onclick="tab('events')" style="display:none">Events</button>
         <button data-tab="code" onclick="tab('code')">Code</button>
     </div>
 
@@ -234,6 +236,8 @@
 
     <div class="ds-panel" id="p-crates"><div id="crates-host"></div></div>
 
+    <div class="ds-panel" id="p-events"><div id="events-host"></div></div>
+
     <div class="ds-panel" id="p-code">
         <div class="f"><label>Your own CSS, over the standard room</label><textarea class="code" id="d-css" placeholder=".rb-name{ letter-spacing:.08em }  .rb-records__grid{ grid-template-columns:repeat(2,1fr) }" oninput="CUR.css = this.value; dirty()"></textarea><div class="hint">Every block has a class: .rb-hero .rb-text .rb-image .rb-gallery .rb-records .rb-picks .rb-places .rb-linklist. Records are .pr-rec. Theme tokens: --pr-bg --pr-ink --pr-accent --pr-font-title --pr-font-body.</div></div>
         <div class="f"><label>Or a whole page of your own HTML (replaces the blocks; no scripts)</label><textarea class="code" id="d-html" placeholder="<!--records--> goes where your records should appear" oninput="CUR.html = this.value; dirty()"></textarea></div>
@@ -257,6 +261,7 @@
 <script>window.MR_MAP_LOOK = {{ (map_look() if map_look is defined else {})|tojson }};</script>
 <script src="/static/js/explore_map.js"></script>
 <script src="/static/js/crate_maker.js"></script>
+<script src="/static/js/events_maker.js"></script>
 <script>
 const esc = RoomBlocks.esc;
 const $ = id => document.getElementById(id);
@@ -270,8 +275,20 @@ function tab(t){
     if (t === 'works') loadWorks();
     if (t === 'who') placeMount();
     if (t === 'crates') { if (!window._crates) window._crates = CrateMaker.mount($('crates-host')); else window._crates.refresh(); }
+    if (t === 'events') { if (!window._events) window._events = EventsMaker.mount($('events-host'), { assets: () => ASSETS, changed: () => { try { refreshPreview(); } catch (_) {} } }); else window._events.refresh(); }
 }
 function status(s){ $('status').textContent = s; }
+// managing someone else's account (a label looking after an artist's: /account → Accounts you manage)
+async function paintActing(){
+    let a = null; try { a = (await (await fetch('/api/gr/acting')).json()).acting; } catch (_) {}
+    let bar = $('pp-acting');
+    if (!a) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'pp-acting'; bar.className = 'pp-acting'; $('ds').parentNode.insertBefore(bar, $('ds')); }
+    bar.innerHTML = `<span></span><button type="button">Stop</button>`;
+    bar.firstChild.textContent = a.scope === 'full' ? `You are managing ${a.name}'s account: this is their room, their records and their events.`
+                                                    : `You are managing ${a.name}'s releases: the Records tab is theirs. Everything else here is your own.`;
+    bar.lastChild.onclick = async () => { await fetch('/api/gr/acting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"handle":""}' }); location.reload(); };
+}
 
 // ── load everything ──
 async function load(){
@@ -287,6 +304,8 @@ async function load(){
     placeFill();
     $('tab-records').style.display = ['artist', 'label', 'shop'].includes(d.kind) ? '' : '';
     $('tab-works').style.display = d.kind === 'digital artist' ? '' : 'none';
+    $('tab-events').style.display = ['experience creator', 'venue'].includes(d.kind) ? '' : 'none';
+    paintActing();
     ASSETS = await (await fetch('/api/gr/my/assets')).json().then(x => x.assets || []).catch(() => []);
     renderAssets();
     MY_GRUPAI = d.handle ? await fetch('/api/gr/grupai?handle=' + encodeURIComponent(d.handle)).then(x => x.ok ? x.json() : {}).then(x => x.grupai || []).catch(() => []) : [];
