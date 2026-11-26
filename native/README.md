@@ -9,6 +9,7 @@ computer: Python, every library, ffmpeg and the Music Room's own code (as
 | Mac, Apple Silicon | `native/build.sh` | `music-room.spec` |
 | Mac, Intel | `native/build-intel.sh` (under Rosetta, its own x86_64 venv) | `music-room.spec` |
 | Windows | GitHub Actions, on every release tag (`.github/workflows/windows.yml`) | `music-room-win.spec` |
+| Windows installer | the same run, from that build (Inno Setup) | `music-room-gr.iss` |
 
 For a release, `tools/release.sh` runs the two Mac builds itself
 ([docs/SERVER.md](../docs/SERVER.md)). First time on a Mac:

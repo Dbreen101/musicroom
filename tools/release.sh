@@ -77,7 +77,7 @@ NOTES="$NOTE
 
 **Mac**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag *Music Room GR* to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
 
-**Windows PC**: download *Music Room GR (Windows).zip* (it arrives a few minutes after the Mac ones), unzip, open the Music Room GR folder, double-click Music Room GR.exe. The first time Windows may say it protected your PC: More info → Run anyway.
+**Windows PC**: download *Install.Music.Room.GR.Windows.exe* (it arrives a few minutes after the Mac ones) and open it. If the browser says it isn't commonly downloaded, choose Keep. If Windows says it protected your PC: More info → Run anyway. Press Install: Music Room GR opens by itself, and stays in the Start menu and on the desktop. (*Music.Room.GR.Windows.zip* is what the app uses to update itself; you don't need it.)
 
 **From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\` (Mac) or \`run_gr.bat\` (Windows)."
 # The files go up ONE AT A TIME, each tried again if the line drops. (25 Nov 2026: on a slow line

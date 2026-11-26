@@ -14,7 +14,7 @@ you do in a record shop: digging through crates, asking at the counter, or
 listening blind.
 
 Twenty fellows are trying it first at the Green Room builder residency, with
-the server running on one Mac on the residency's Wi-Fi and all money set to
+the server running on one Mac, reachable from anywhere, and all money set to
 play money.
 
 ---
@@ -55,10 +55,12 @@ Download the latest build from the [Releases](https://github.com/Dbreen101/music
   Chip). Unzip, drag it to Applications, and open it. Because it isn't signed
   by Apple yet, macOS stops it the first time: open **System Settings**, go to
   **Privacy & Security**, scroll down, and press **Open Anyway**.
-- **Windows PC** (Windows 10 or 11): *Music.Room.GR.Windows.zip*. Unzip it, open
-  the *Music Room GR* folder, and double-click **Music Room GR.exe**. The first time,
-  Windows may say *Windows protected your PC*: press **More info**, then **Run
-  anyway**.
+- **Windows PC** (Windows 10 or 11): *Install.Music.Room.GR.Windows.exe*. Open it
+  and press **Install**; Music Room GR opens by itself and stays in the Start menu
+  and on the desktop. Because it isn't signed yet, the browser may say the file
+  isn't commonly downloaded (choose **Keep**) and Windows may say *Windows
+  protected your PC* (press **More info**, then **Run anyway**).
+  (*Music.Room.GR.Windows.zip* is what the app uses to update itself.)
 
 More on how the bundled app is built and launched lives in
 [native/README.md](native/README.md).

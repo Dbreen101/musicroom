@@ -5,7 +5,14 @@
 #   1. the tests that matter for the trial, on Windows
 #   2. the app (native/music-room-win.spec), with the Green Room's settings baked in
 #   3. the built app is started with no window and asked a few things
-#   4. "Music Room GR (Windows).zip" goes on the release's page
+#   4. the installer people download (native/music-room-gr.iss): made, then run on this
+#      machine as a person would — the app must open by itself — and taken away again
+#   5. "Install Music Room GR (Windows).exe" (for people) and "Music Room GR (Windows).zip"
+#      (for the app's own updater, app_update.py) go on the release's page
+#
+# Run by hand for a release that already exists, the installer script comes from the branch
+# the run was started on, the app's code from the release's tag — so an older release can be
+# given an installer. Its zip is then left as it is (apps may be updating from it).
 name: Windows app
 
 on:
@@ -34,6 +41,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: The installer script from the branch this run was started on
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: wf
+          sparse-checkout: native/music-room-gr.iss
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v5
         with:
@@ -118,18 +133,92 @@ jobs:
           Stop-Process -Id $p.Id -Force
           if (-not $ok) { exit 1 }
 
-      - name: Zip it
+      - name: Make the installer
+        shell: pwsh
+        run: |
+          # 26 Nov 2026: a person double-clicked the app INSIDE the zip; Windows took out that one
+          # file alone and it could not start ("Failed to load Python DLL"). People get this instead.
+          # Inno Setup 6.3 or later (it knows "x64compatible": also Windows on Arm laptops)
+          choco upgrade innosetup -y --no-progress | Out-Null
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { Write-Host "Inno Setup isn't here and couldn't be installed."; exit 1 }
+          Write-Host "Inno Setup $((Get-Item $iscc).VersionInfo.ProductVersion)"
+          Copy-Item "wf\native\music-room-gr.iss" "native\music-room-gr.iss" -Force
+          $ver = if (Test-Path VERSION) { (Get-Content VERSION -Raw).Trim() } else { $env:TAG.TrimStart('v') }
+          $parts = @([regex]::Matches($ver, '\d+') | ForEach-Object { [int]$_.Value } | Select-Object -First 4)
+          while ($parts.Count -lt 4) { $parts += 0 }
+          $num = ($parts | ForEach-Object { [Math]::Min($_, 65535) }) -join '.'
+          Write-Host "installer for $ver ($num)"
+          & $iscc /Q "/DAppVer=$ver" "/DNumVer=$num" "/DSrcDir=dist\Music Room GR" "/DOutName=Install Music Room GR (Windows)" "native\music-room-gr.iss"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-Item "native\Output\Install Music Room GR (Windows).exe" | Select-Object Name, Length
+
+      - name: Check the installer as a person would meet it
+        shell: pwsh
+        run: |
+          # what the app opened BY THE INSTALLER inherits: no window, its own data folder and port
+          $env:MUSICROOM_HEADLESS = "1"
+          $env:MUSICROOM_DATA = Join-Path $env:RUNNER_TEMP "mrdata-installed"
+          $env:MUSICROOM_PORT = "5198"
+          $env:SDL_AUDIODRIVER = "dummy"
+          $log = Join-Path $env:RUNNER_TEMP "install.log"
+          $setup = (Get-Item "native\Output\Install Music Room GR (Windows).exe").FullName
+          $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$log`"" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { Write-Host "The installer stopped ($($p.ExitCode))."; Get-Content $log | Write-Host; exit 1 }
+          $app = Join-Path $env:LOCALAPPDATA "Programs\Music Room GR"
+          $start = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Music Room GR.lnk"
+          $desk = Join-Path ([Environment]::GetFolderPath("Desktop")) "Music Room GR.lnk"
+          $uninst = Join-Path $env:LOCALAPPDATA "Music Room GR\uninstall\unins000.exe"
+          $have = [ordered]@{
+            "the app" = Test-Path (Join-Path $app "Music Room GR.exe")
+            "python312.dll beside it" = Test-Path (Join-Path $app "_internal\python312.dll")
+            "ffmpeg" = Test-Path (Join-Path $app "_internal\ffmpeg.exe")
+            "Start menu" = Test-Path $start
+            "desktop" = Test-Path $desk
+            "uninstaller (outside the app folder)" = Test-Path $uninst
+          }
+          $have.GetEnumerator() | ForEach-Object { Write-Host "$($_.Key): $($_.Value)" }
+          if ($have.Values -contains $false) { Get-Content $log | Write-Host; exit 1 }
+          # the installer opened the app itself: it must answer without being started by hand
+          $up = $false
+          foreach ($i in 1..180) {
+            try { Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:5198/login" -TimeoutSec 2 | Out-Null; $up = $true; break } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) {
+            Write-Host "The installed app didn't open by itself."
+            $why = Join-Path $env:MUSICROOM_DATA "startup-error.txt"
+            if (Test-Path $why) { Get-Content $why | Write-Host }
+            Get-Content $log | Write-Host; exit 1
+          }
+          $ver = Invoke-RestMethod "http://127.0.0.1:5198/api/gr/version"
+          $status = Invoke-RestMethod "http://127.0.0.1:5198/api/gr/status"
+          Write-Host "opened by the installer · version $($ver.mine) · server $($status.default_server) · in a place it can update: $(-not $ver.why_not)"
+          if (-not $ver.mine -or $status.default_server -ne $env:MR_GR_SERVER) { exit 1 }
+          Get-Process -Name "Music Room GR" -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+          # and it can be taken away again, leaving the person's own data
+          Start-Process -FilePath $uninst -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+          foreach ($i in 1..60) { if (-not (Test-Path $app)) { break }; Start-Sleep -Seconds 1 }
+          $gone = -not (Test-Path $app) -and -not (Test-Path $start) -and -not (Test-Path $desk)
+          $kept = Test-Path $env:MUSICROOM_DATA
+          Write-Host "uninstalled: $gone · data kept: $kept"
+          if (-not $gone -or -not $kept) { exit 1 }
+
+      - name: Zip it (what the app's own updater takes)
         shell: pwsh
         run: |
           Copy-Item "native\Read me first (Windows).txt" "native\dist\Music Room GR\" -ErrorAction SilentlyContinue
           Compress-Archive -Path "native\dist\Music Room GR" -DestinationPath "Music Room GR (Windows).zip"
           Get-Item "Music Room GR (Windows).zip" | Select-Object Name, Length
+          Move-Item "native\Output\Install Music Room GR (Windows).exe" "Install Music Room GR (Windows).exe"
 
       - name: Keep it with this run (for a trial build, or if the release step fails)
         uses: actions/upload-artifact@v4
         with:
           name: Music Room GR (Windows)
-          path: Music Room GR (Windows).zip
+          path: |
+            Install Music Room GR (Windows).exe
+            Music Room GR (Windows).zip
           retention-days: 14
 
       - name: Put it on the release
@@ -142,7 +231,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $env:TAG --title "The Music Room $env:TAG" --notes "The Windows app is here; the Mac apps follow."
           }
-          gh release upload $env:TAG "Music Room GR (Windows).zip" --clobber
+          gh release upload $env:TAG "Install Music Room GR (Windows).exe" --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # a release made by hand earlier keeps its zip: apps may be updating from it right now
+          $has = @(gh release view $env:TAG --json assets -q '.assets[].name')
+          if ($env:GITHUB_EVENT_NAME -eq "push" -or -not ($has -contains "Music.Room.GR.Windows.zip")) {
+            gh release upload $env:TAG "Music Room GR (Windows).zip" --clobber
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          } else { Write-Host "The zip already on $env:TAG is left as it is." }
 
       - name: Say how the tests went
         if: steps.tests.outcome == 'failure'

@@ -53,7 +53,10 @@ Nothing reaches the fellows without you:
    ```
    The **Windows** app builds itself: the tag starts GitHub's Windows machines
    (`.github/workflows/windows.yml`), which run the tests on Windows, build
-   *Music Room (Windows).zip*, check it starts, and add it to the same page
+   the app, make the installer people download (*Install Music Room GR
+   (Windows).exe*, from `native/music-room-gr.iss`) and the zip the app updates
+   itself from, check that the installer installs, opens the app by itself and
+   uninstalls cleanly, and add both to the same page
    (about 15 minutes; watch it under the repo's **Actions** tab). For a release
    that already exists: Actions → *Windows app* → *Run workflow* → its tag.
 4. Move the server to it: `tools/server.sh deploy v2026.11.21`.
