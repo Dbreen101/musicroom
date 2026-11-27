@@ -1,0 +1,36 @@
+Music Room workshop
+Make plug-ins, the look of your music room, and your own look of the app with
+Claude Code, without changing the Music Room app itself.
+
+The Music Room works like Ableton: the app is finished, and you add to it.
+You make things in this folder; the app takes them in with its own buttons.
+Your Music Room GR needs to be version 2026.11.27 or newer.
+
+1. Put this folder anywhere you like (Documents is fine).
+   Not inside a copy of the Music Room's code, if you have one.
+
+2. Open Claude Code in this folder.
+   In the Claude app: start a Code session and choose this folder.
+   In a terminal: go into this folder and type  claude
+
+   Claude reads CLAUDE.md in this folder by itself. It tells Claude how the
+   Music Room takes plug-ins and looks, and the settings in .claude/ stop it
+   touching the app or downloading its code.
+
+3. Tell it what you'd like, in your own words. For example:
+   "Make me a plug-in that shows every record for sale by where its seller is."
+   "Make my music room feel like a late-night radio station."
+   "Give the app a dark green theme."
+
+4. To see it, in the Music Room:
+   A plug-in:     Explore → Plug-ins → Add a plug-in… → choose its folder
+                  (plugins/<its name>) → Switch on → Open.
+                  After a change: Look again.
+   Your room:     My Public Room → Code → Save as a file (keeps what you have),
+                  then Open a file… → choose room/room.css.
+   The app's look: Settings → Your own look → Open a file… → look/my-look.css
+                  (⌘⇧0, or Ctrl+Shift+0 on Windows, opens Settings without it).
+   A theme:       the ◐ key in the top bar → Import a theme… → themes/<name>.json
+
+Claude won't change the Music Room app or make a new one. If it ever starts
+to, stop it and say: "Read CLAUDE.md first."

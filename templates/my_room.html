@@ -62,6 +62,14 @@
         .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
         .thumb { aspect-ratio: 1; border-radius: 6px; object-fit: cover; width: 100%; border: 2px solid transparent; cursor: pointer; background: #16120b; }
         .thumb.on { border-color: var(--gr-accent); }
+        #assets { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .asset { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .asset .thumb { cursor: default; }
+        .asset__url { width: 100%; min-width: 0; padding: 3px 5px; border: 1px solid var(--gr-line); background: none; color: var(--gr-ink); font-family: var(--gr-mono); font-size: .66rem; }
+        .asset__acts { display: flex; justify-content: space-between; gap: 6px; }
+        .asset__btn { appearance: none; padding: 0; border: 0; background: none; color: var(--gr-ink); font: inherit; font-size: var(--gr-t6); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--gr-line); cursor: pointer; }
+        .asset__btn--del { color: var(--gr-muted); }
+        .code-files { display: flex; gap: 6px; flex-wrap: wrap; }
         .reclist { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
         .reclist label { display: flex; gap: 8px; align-items: center; font-size: var(--gr-t5); cursor: pointer; }
         .items { display: flex; flex-direction: column; gap: 8px; }
@@ -159,7 +167,7 @@
         <div class="f"><label>Text</label><div class="row"><input type="color" id="t-ink-c" oninput="themeSet('ink', this.value)"><input type="text" id="t-ink" placeholder="#eee6d2" oninput="themeSet('ink', this.value)"></div></div>
         <div class="f"><label>Accent</label><div class="row"><input type="color" id="t-accent-c" oninput="themeSet('accent', this.value)"><input type="text" id="t-accent" placeholder="#e6c97a" oninput="themeSet('accent', this.value)"></div></div>
         <div class="sec-h">Type</div>
-        <div class="f"><label>Titles</label><input type="text" id="t-font-title" placeholder="'EB Garamond', serif" oninput="themeSet('font_title', this.value)"><div class="hint">Any font name on the reader's machine, or a web font your own CSS loads (Code tab).</div></div>
+        <div class="f"><label>Titles</label><input type="text" id="t-font-title" placeholder="'EB Garamond', serif" oninput="themeSet('font_title', this.value)"><div class="hint">One of the Music Room's own fonts (Instrument Serif, Fraunces, Gloock, Young Serif, Bagnard, Basteleur, Le Murmure, Nyght Serif, Sorts Mill Goudy, Bricolage Grotesque, Apfel Grotezk, League Gothic), or one on the reader's own computer. Fonts from the internet don't load in a room.</div></div>
         <div class="f"><label>Text</label><input type="text" id="t-font-body" placeholder="Inter, sans-serif" oninput="themeSet('font_body', this.value)"></div>
     </div>
 
@@ -239,7 +247,12 @@
     <div class="ds-panel" id="p-events"><div id="events-host"></div></div>
 
     <div class="ds-panel" id="p-code">
-        <div class="f"><label>Your own CSS, over the standard room</label><textarea class="code" id="d-css" placeholder=".rb-name{ letter-spacing:.08em }  .rb-records__grid{ grid-template-columns:repeat(2,1fr) }" oninput="CUR.css = this.value; dirty()"></textarea><div class="hint">Every block has a class: .rb-hero .rb-text .rb-image .rb-gallery .rb-records .rb-picks .rb-places .rb-linklist. Records are .pr-rec. Theme tokens: --pr-bg --pr-ink --pr-accent --pr-font-title --pr-font-body.</div></div>
+        <div class="f code-files">
+            <button class="gr-btn gr-btn--small" onclick="$('code-file').click()" title="A .css file goes in the first box, an .html file in the second">Open a file…</button>
+            <button class="gr-btn gr-btn--small" onclick="saveCodeFiles()">Save as a file</button>
+            <input type="file" id="code-file" accept=".css,.html,.htm,text/css,text/html" hidden onchange="openCodeFile(this)">
+        </div>
+        <div class="f"><label>Your own CSS, over the standard room</label><textarea class="code" id="d-css" placeholder=".rb-name{ letter-spacing:.08em }  .rb-records__grid{ grid-template-columns:repeat(2,1fr) }" oninput="CUR.css = this.value; dirty()"></textarea><div class="hint">Every block has a class: .rb-hero .rb-text .rb-image .rb-gallery .rb-records .rb-picks .rb-places .rb-linklist. Records are .pr-rec. Theme tokens: --pr-bg --pr-ink --pr-accent --pr-font-title --pr-font-body. Your own pictures: their addresses are on the Images tab.</div></div>
         <div class="f"><label>Or a whole page of your own HTML (replaces the blocks; no scripts)</label><textarea class="code" id="d-html" placeholder="<!--records--> goes where your records should appear" oninput="CUR.html = this.value; dirty()"></textarea></div>
     </div>
   </aside>
@@ -358,6 +371,33 @@ async function save(){
     refreshPreview();
 }
 function refreshPreview(){ if (ME && ME.handle) $('frame').src = `/rooms/${encodeURIComponent(ME.handle)}?design=${CUR.id}&editing=1&t=${Date.now()}`; }
+
+// ── code from a file, and back to one (a look made somewhere else — by hand, or by someone's Claude) ──
+const CODE_MAX = 120000;
+async function openCodeFile(input){
+    const f = input.files[0]; input.value = '';
+    if (!f || !CUR) return;
+    const text = await f.text();
+    const html = /\.html?$/i.test(f.name) || (!/\.css$/i.test(f.name) && /^\s*</.test(text));
+    if (text.length > CODE_MAX) { alert(`That file is too long for a room (${CODE_MAX.toLocaleString()} characters at most).`); return; }
+    const box = html ? 'html' : 'css', was = CUR[box] || '';
+    if (was.trim() && was !== text && !confirm(`Put ${f.name} in place of the ${html ? 'HTML' : 'CSS'} this design has now? (Save as a file first to keep what is there.)`)) return;
+    CUR[box] = text; $(html ? 'd-html' : 'd-css').value = text;
+    dirty();
+    status(`${f.name} opened`);
+}
+function saveCodeFiles(){
+    if (!CUR) return;
+    const base = ((CUR.name || 'room').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'room');
+    const out = [['css', 'text/css'], ['html', 'text/html']].filter(([k]) => (CUR[k] || '').trim());
+    if (!out.length) { status('no code to save'); return; }
+    out.forEach(([k, type], i) => setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([CUR[k]], { type }));
+        a.download = `${base}.${k}`;
+        a.click();
+    }, i * 400));
+}
 async function makeLive(){
     clearTimeout(saveTimer); await save();
     const r = await fetch(`/api/gr/my/room/designs/${CUR.id}/live`, { method: 'POST' });
@@ -533,8 +573,23 @@ async function saveProfile(){
 
 // ── images ──
 function renderAssets(){
-    $('assets').innerHTML = ASSETS.map(a => `<img class="thumb" src="/api/gr/asset/${a.id}" title="${esc(a.label || '')} — click to delete" onclick="deleteAsset(${a.id})" alt="">`).join('');
+    // each picture says its address, for your own code: url(/api/gr/asset/12). Deleting is its own key.
+    $('assets').innerHTML = ASSETS.map(a => `<figure class="asset">
+        <img class="thumb" src="/api/gr/asset/${a.id}" title="${esc(a.label || '')}" alt="">
+        <input class="asset__url" readonly value="/api/gr/asset/${a.id}" onclick="this.select()" aria-label="This picture's address">
+        <div class="asset__acts"><button type="button" class="asset__btn" onclick="copyAsset(${a.id}, this)">Copy address</button><button type="button" class="asset__btn asset__btn--del" onclick="deleteAsset(${a.id})" title="Delete this picture">Delete</button></div>
+    </figure>`).join('');
     $('assets-empty').style.display = ASSETS.length ? 'none' : '';
+}
+async function copyAsset(id, btn){
+    const text = `/api/gr/asset/${id}`;
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (_) {
+        const f = btn.closest('.asset').querySelector('.asset__url'); f.select();
+        try { ok = document.execCommand('copy'); } catch (_) {}
+    }
+    btn.textContent = ok ? 'Copied' : 'Select it and copy';
+    setTimeout(() => { btn.textContent = 'Copy address'; }, 1600);
 }
 async function uploadImage(input){
     const f = input.files[0]; if (!f) return;

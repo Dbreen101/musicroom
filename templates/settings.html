@@ -456,6 +456,9 @@
         <div class="settings-field" style="margin-top:10px;">
             <button class="settings-save" onclick="ownCssSave()">Save</button>
             <button class="settings-save settings-save--quiet" onclick="document.getElementById('own-css').value=''; ownCssSave()">Clear</button>
+            <button class="settings-save settings-save--quiet" onclick="document.getElementById('own-css-file').click()">Open a file…</button>
+            <button class="settings-save settings-save--quiet" onclick="ownCssToFile()">Save as a file</button>
+            <input type="file" id="own-css-file" accept=".css,text/css" hidden onchange="ownCssFromFile(this)">
             <span class="settings-hint" id="own-css-said"></span>
         </div>
     </div>
@@ -1160,6 +1163,23 @@ async function ownCssSave() {
     if (css.length > 60000) { said.textContent = 'That is too long to keep (60,000 characters at most).'; return; }
     const r = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_css: css }) });
     said.textContent = r.ok ? 'Saved. It shows on the next page you open.' : 'That wasn’t saved.';
+}
+// a look made somewhere else (by hand, or by someone's Claude) comes in as a .css file, and goes out as one
+async function ownCssFromFile(input) {
+    const f = input.files[0]; input.value = '';
+    if (!f) return;
+    const text = await f.text(), box = document.getElementById('own-css');
+    if (box.value.trim() && box.value !== text && !confirm(`Put ${f.name} in place of the look you have now? (Save as a file first to keep it.)`)) return;
+    box.value = text;
+    await ownCssSave();
+}
+function ownCssToFile() {
+    const css = document.getElementById('own-css').value;
+    if (!css.trim()) { document.getElementById('own-css-said').textContent = 'There is nothing to save yet.'; return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([css], { type: 'text/css' }));
+    a.download = 'my-music-room-look.css';
+    a.click();
 }
 ownCssLoad();
 

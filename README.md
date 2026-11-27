@@ -68,8 +68,9 @@ More on how the bundled app is built and launched lives in
 
 ### From source
 
-If you want to change the app, build a plug-in, or send a fix, run it from the
-code with Python 3.11 or 3.12:
+If you want to change the app or send a fix, run it from the code with Python
+3.11 or 3.12. (To make a plug-in, a look for your room, or a theme, you don't
+need the code: see [Make it yours](#make-it-yours).)
 
 ```bash
 git clone https://github.com/Dbreen101/musicroom.git
@@ -132,6 +133,11 @@ are covered in [docs/SERVER.md](docs/SERVER.md).
 
 ## Make it yours
 
+The Music Room works like Ableton: the app is finished, and you add to it with
+plug-ins, looks and themes that the app takes in with its own buttons. How it
+works, and the workshop folder that lets Claude Code make them without building
+a new app: [docs/MAKERS.md](docs/MAKERS.md).
+
 - **Themes and map skins.** Pick *Paper* or *Ink* from the `◐` button in the
   top bar, or export a theme JSON file, edit its colour tokens, and import it
   back ([docs/THEMES.md](docs/THEMES.md)). In Explore, open the Map's **Look**
@@ -139,13 +145,13 @@ are covered in [docs/SERVER.md](docs/SERVER.md).
   for the "working document" look behind Paper, Ink, Instrument Serif, and IBM
   Plex Mono.
 - **Your own CSS.** Open **Settings** and go to **Your own look** to lay custom
-  CSS over the whole app on your laptop.
+  CSS over the whole app on your laptop, or open a `.css` file there.
 - **Your public room.** Shape **My Public Room** with blocks, pictures, custom
-  CSS, or a whole page of your own. Others view it inside a sealed frame that
+  CSS (typed in, or opened from a file on the Code tab), or a whole page of your own. Others view it inside a sealed frame that
   can play music only from the Music Room and the streaming services' own
   players, such as Spotify and SoundCloud.
 - **Plug-ins.** Switch on discovery tools in **Explore**, **Plug-ins**, or
-  build your own in `plugins/<your-plugin>/`. Each plug-in runs in a sealed box
+  build your own in a folder anywhere and press **Add a plug-in…**. Each plug-in runs in a sealed box
   with no network access and sees only what its `wants` list asks for
   (`catalogue`, `rooms`, `grupai`, or `library`) after you agree. Start by
   copying [plugins/thread](plugins/thread) or [plugins/shelves](plugins/shelves),
@@ -162,9 +168,9 @@ start, and keep to the [house rules](HOUSE_RULES.md).
 ### Good first contributions
 
 1. **A plug-in.** Try a new way of browsing the catalogue or someone's own
-   library without touching core server code. Put a folder in your local
-   `plugins/` directory, test it live, and open a pull request to `plugins/`
-   ([docs/PLUGINS.md](docs/PLUGINS.md)).
+   library without touching core server code. Make it in a folder of its own,
+   add it in the app (Explore → Plug-ins → Add a plug-in…), test it live, and
+   open a pull request that adds it to `plugins/` ([docs/PLUGINS.md](docs/PLUGINS.md)).
 2. **A theme.** Export an existing colour file, tune the palette so text stays
    crisp and readable, and share the JSON ([docs/THEMES.md](docs/THEMES.md)).
 3. **A fix with a test.** Pick something broken, fix the cause, and run

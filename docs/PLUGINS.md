@@ -48,11 +48,20 @@ borrows or private work.
 
 ## Trying it
 
-Put the folder in **your own plug-ins folder** (Explore → Plug-ins → *Show the
-folder*; it is `plugins/` inside the app's data folder), press *Look again*,
-switch it on and open it. Change a file and press *Look again* (or close and
-open the plug-in) to see the change. Your own plug-ins are marked *yours · not
-reviewed* and run only in your app.
+Make the folder anywhere on your computer. In the app: **Explore → Plug-ins →
+Add a plug-in…** and choose it. The app checks it (the rules above), takes a copy
+into its own plug-ins folder, and lists it as *yours · not reviewed*. Switch it
+on and open it.
+
+Change a file, then press **Look again**: the app takes a fresh copy from the
+same folder and starts the plug-in again. **Remove** moves the app's copy to the
+Trash; your folder stays where it is. Only these kinds of file are copied, each
+up to 2 MB, 200 files and 20 MB in all: `.js .css .json .png .jpg .jpeg .svg
+.webp .woff2 .txt`. Your own plug-ins run only in your app.
+
+Making one with Claude Code? Use the workshop folder, so Claude doesn't build a
+new app instead: docs/MAKERS.md
+(https://github.com/Dbreen101/musicroom/blob/main/docs/MAKERS.md).
 
 ## What your code can use
 

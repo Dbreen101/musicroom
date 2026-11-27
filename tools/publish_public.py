@@ -116,7 +116,14 @@ def identity_problems(*repos):
     return out
 
 
+# published although a PRIVATE pattern covers them: the note any Claude opened in a copy of the
+# code reads first (it sends people who want a plug-in or a look to the workshop, not into the code)
+PUBLIC_ANYWAY = (".claude/CLAUDE.md",)
+
+
 def private(path):
+    if path in PUBLIC_ANYWAY:
+        return False
     return any(fnmatch.fnmatch(path, pat) for pat in PRIVATE)
 
 

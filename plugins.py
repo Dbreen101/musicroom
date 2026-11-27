@@ -29,6 +29,8 @@ Where plug-ins come from
     only through a pull request Daithí has approved, then a release.
   · YOUR OWN — `<app data>/plugins/<id>/`. They run only in your own app, are
     marked "yours — not reviewed", and are how a plug-in is made and tried.
+    "Add a plug-in…" copies one in from any folder (and "Look again" copies it
+    afresh), so its maker never has to touch the app's own folders.
 
 How a plug-in is kept in its box
   It runs in Explore → Plug-ins, inside a frame that is sandboxed (scripts only,
@@ -57,6 +59,7 @@ might still try to send the app.
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -71,7 +74,10 @@ FILE_TYPES = {".js": "text/javascript", ".css": "text/css", ".json": "applicatio
               ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webp": "image/webp",
               ".woff2": "font/woff2", ".txt": "text/plain"}
 MAX_FILE = 2 * 1024 * 1024
+MAX_FILES = 200                 # in one plug-in, when it is added
+MAX_TOTAL = 20 * 1024 * 1024
 SETTING = "plugins_on"          # {id: {"on": bool, "granted": [wants…], "source": "built-in"|"yours"}}
+FROM = "plugins_from"           # {id: the folder it was added from} — "Look again" takes a fresh copy from there
 
 
 def builtin_root(base_dir):
@@ -199,6 +205,7 @@ def state(get_setting):
 
 def listing(base_dir, data_dir, get_setting):
     on = state(get_setting)
+    added = links(get_setting)
     out = []
     for p in discover(base_dir, data_dir):
         s = on.get(p["id"]) or {}
@@ -206,6 +213,7 @@ def listing(base_dir, data_dir, get_setting):
             and set(p.get("wants") or []) <= set(s.get("granted") or [])
         out.append({k: v for k, v in p.items() if k != "folder"} | {
             "on": is_on, "wants_said": [WANTS[w] for w in p.get("wants") or []],
+            "added": p["source"] == "yours" and p["id"] in added,
         })
     return out
 
@@ -263,6 +271,174 @@ def show_folder(data_dir):
     return str(root)
 
 
+# ---------- adding a plug-in from a folder (like dropping a device into Ableton) ----------
+#
+# Daithí, 2026-11-27: "i would like the app to function like ableton … i only want people
+# to be able to make plug ins or import code to change the look of their … music rooms."
+# A person (or their Claude, in a folder of its own) makes a plug-in anywhere on their
+# computer; Explore → Plug-ins → "Add a plug-in…" takes a COPY of it into the app's own
+# plug-ins folder, after the same checks as above. The app remembers where it came from,
+# and "Look again" takes a fresh copy, so nobody has to touch the app's folders at all.
+
+def links(get_setting):
+    try:
+        v = json.loads(get_setting(FROM, "") or "{}")
+        return v if isinstance(v, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _plugin_folder(folder):
+    """The plug-in in a chosen folder: the folder itself, or the one plug-in folder inside it
+    (a zip unpacked into a folder of its own, a workshop's plugins/ with one in it)."""
+    f = Path(str(folder or "")).expanduser()
+    if not str(folder or "").strip() or not f.is_dir():
+        return None, "that isn't a folder"
+    if (f / "plugin.json").is_file():
+        return f, None
+    inner = sorted(d for d in f.iterdir()
+                   if d.is_dir() and not d.name.startswith(".") and (d / "plugin.json").is_file())
+    if len(inner) == 1:
+        return inner[0], None
+    if inner:
+        return None, "that folder holds several plug-ins: choose the one to add"
+    return None, "there is no plugin.json in that folder"
+
+
+def _files_to_copy(src):
+    """([(rel, path)], [what was left out], None) or (None, None, why it can't be added).
+    Only the kinds of file a plug-in's page can use, none hidden, none a link, none too big."""
+    take, left, total = [], [], 0
+    for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
+        dirnames[:] = sorted(d for d in dirnames
+                             if not d.startswith(".") and not os.path.islink(os.path.join(dirpath, d)))
+        for name in sorted(filenames):
+            p = Path(dirpath) / name
+            rel = p.relative_to(src).as_posix()
+            if not _safe_rel(rel):
+                continue                                  # hidden: .DS_Store, .git…
+            if p.is_symlink() or not p.is_file():
+                left.append(rel)
+                continue
+            if p.suffix.lower() not in FILE_TYPES:
+                left.append(rel)
+                continue
+            size = p.stat().st_size
+            if size > MAX_FILE:
+                left.append(rel)
+                continue
+            take.append((rel, p))
+            total += size
+            if len(take) > MAX_FILES:
+                return None, None, f"it has more than {MAX_FILES} files"
+            if total > MAX_TOTAL:
+                return None, None, "it is bigger than 20 MB"
+    return take, left, None
+
+
+def _trash(path):
+    import trash_util
+    return trash_util.move_to_trash(path)
+
+
+def add_from(base_dir, data_dir, folder, get_setting, set_setting, trash=None):
+    """Copy the plug-in in `folder` into your own plug-ins folder → ({id, name, left_out}, None)
+    or (None, why not). The folder it came from is remembered for "Look again"."""
+    src, why = _plugin_folder(folder)
+    if why:
+        return None, why
+    try:
+        raw = json.loads((src / "plugin.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None, "its plugin.json can't be read"
+    pid = str(raw.get("id") or "").strip() if isinstance(raw, dict) else ""
+    m, why = clean_manifest(raw, pid)
+    if why:
+        return None, why
+    if (builtin_root(base_dir) / pid).is_dir():
+        return None, f"a plug-in that comes with the app is already called {pid}: give yours another id"
+    take, left, why = _files_to_copy(src)
+    if why:
+        return None, why
+    have = {rel for rel, _ in take}
+    for need in (m["entry"], m["style"]):
+        if need and need not in have:
+            return None, f"{need} isn't in its folder"
+    root = mine_root(data_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    dest = root / pid
+    known = links(get_setting)
+    if dest.exists() and dest.resolve() == src.resolve():
+        known.pop(pid, None)                              # it is already the app's own folder: nothing to copy
+        set_setting(FROM, json.dumps(known))
+        return {"id": pid, "name": m["name"], "left_out": left}, None
+    tmp = root / f".adding-{pid}"
+    if tmp.exists():
+        shutil.rmtree(tmp)                                # a copy of ours that was cut short
+    try:
+        for rel, p in take:
+            d = tmp / rel
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(p, d)
+        if dest.exists():
+            if pid in known:
+                shutil.rmtree(dest)                       # the app's own copy of the same plug-in, added before
+            else:
+                # a folder made here by hand may be the only copy there is: to the Trash, never deleted
+                ok, err = (trash or _trash)(str(dest))
+                if not ok:
+                    raise OSError(f"the {pid} already here couldn't be moved to the Trash ({err})")
+        os.replace(tmp, dest)
+    except OSError as e:
+        shutil.rmtree(tmp, ignore_errors=True)
+        return None, str(e) or "it couldn't be copied"
+    known[pid] = str(src.resolve())
+    set_setting(FROM, json.dumps(known))
+    return {"id": pid, "name": m["name"], "left_out": left}, None
+
+
+def again(base_dir, data_dir, get_setting, set_setting, trash=None):
+    """"Look again": a fresh copy of every plug-in that was added from a folder.
+    → {id: what went wrong} — a plug-in whose folder is gone or broken keeps the copy it had."""
+    notes = {}
+    for pid, path in list(links(get_setting).items()):
+        if not Path(path).is_dir():
+            notes[pid] = "the folder it was added from isn't there any more; the copy from before still runs"
+            continue
+        out, why = add_from(base_dir, data_dir, path, get_setting, set_setting, trash=trash)
+        if why:
+            notes[pid] = f"its folder has a problem ({why}); the copy from before still runs"
+        elif out["id"] != pid:                            # its id was changed in its folder: the old copy goes
+            known = links(get_setting)
+            known.pop(pid, None)
+            set_setting(FROM, json.dumps(known))
+            old = mine_root(data_dir) / pid
+            if old.is_dir():
+                shutil.rmtree(old)
+    return notes
+
+
+def remove(base_dir, data_dir, pid, get_setting, set_setting, trash=None):
+    """Take one of your own plug-ins out of the app: its folder there goes to the Trash
+    (the folder it was added from stays where it is). → (True, None) or (False, why)."""
+    # (a folder that can't run is listed by its own name, which may not be a good id: it can go too)
+    if not pid or pid != Path(pid).name or pid.startswith(".") or "\\" in pid:
+        return False, "no such plug-in"
+    folder = mine_root(data_dir) / pid
+    if not folder.is_dir():
+        return False, "no such plug-in"
+    ok, err = (trash or _trash)(str(folder))
+    if not ok:
+        return False, err or "it couldn't be moved to the Trash"
+    known = links(get_setting)
+    known.pop(pid, None)
+    set_setting(FROM, json.dumps(known))
+    on = state(get_setting)
+    if on.pop(pid, None) is not None:
+        set_setting(SETTING, json.dumps(on))
+    return True, None
+
+
 # ---------- routes ----------
 
 def register(app, base_dir, data_dir, get_setting, set_setting, query, green_room, track=None):
@@ -302,6 +478,46 @@ def register(app, base_dir, data_dir, get_setting, set_setting, query, green_roo
     @app.route("/api/plugins/folder/show", methods=["POST"])
     def api_plugins_folder():
         return jsonify({"folder": show_folder(data_dir)})
+
+    def told(kind, data):
+        if track:
+            try:
+                track(kind, data)
+            except Exception:
+                pass
+
+    @app.route("/api/plugins/folder/add", methods=["POST"])
+    def api_plugins_add():
+        """Add a plug-in: the computer's own "choose a folder" window, then a copy of what
+        is chosen (checked like any plug-in) into your own plug-ins folder."""
+        d = request.get_json(silent=True) or {}
+        folder = str(d.get("folder") or "").strip()
+        if not folder:
+            import mr_os
+            folder, why = mr_os.choose("folder", start=str(d.get("start") or ""),
+                                       prompt="Choose the plug-in's folder (the one with plugin.json in it)")
+            if not folder:
+                if why == "cancelled":
+                    return jsonify({"cancelled": True, "plugins": listing(base_dir, data_dir, get_setting)})
+                return no(why or "the window to choose a folder didn't open")
+        out, why = add_from(base_dir, data_dir, folder, get_setting, set_setting)
+        if why:
+            return no(why)
+        told("plugin_added", {"id": out["id"], "left_out": len(out["left_out"])})
+        return jsonify(dict(out, plugins=listing(base_dir, data_dir, get_setting)))
+
+    @app.route("/api/plugins/folder/again", methods=["POST"])
+    def api_plugins_again():
+        notes = again(base_dir, data_dir, get_setting, set_setting)
+        return jsonify({"plugins": listing(base_dir, data_dir, get_setting), "notes": notes})
+
+    @app.route("/api/plugins/<pid>/remove", methods=["POST"])
+    def api_plugin_remove(pid):
+        ok, why = remove(base_dir, data_dir, pid, get_setting, set_setting)
+        if not ok:
+            return no(why, 404 if why == "no such plug-in" else 400)
+        told("plugin_removed", {"id": pid})
+        return jsonify({"plugins": listing(base_dir, data_dir, get_setting)})
 
     @app.route("/plugins/frame/<pid>")
     def plugin_frame(pid):

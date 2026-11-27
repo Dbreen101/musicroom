@@ -33,6 +33,11 @@ body.view-plugins .ex-filters { display: none !important; }
 .pl-link { appearance: none; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: .6rem; letter-spacing: .08em;
   text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); cursor: pointer; }
 .pl-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 14px; }
+.pl-note { margin: 10px 0 0; font-size: .64rem; line-height: 1.6; color: var(--text); }
+.pl-note:empty { display: none; }
+.pl-card__acts { align-items: center; }
+.pl-link--out { margin-left: auto; color: var(--muted); }
+.pl-link--out:hover, .pl-link--out:focus-visible { color: var(--text); outline: none; }
 .pl-stage { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .pl-bar { display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 18px; border-bottom: 1px solid var(--border); flex: none; }
 .pl-bar__n { font-family: var(--f-display, Georgia, serif); font-size: 1.2rem; line-height: 1.1; }

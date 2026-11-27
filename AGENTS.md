@@ -1,5 +1,11 @@
 # PROJECT KNOWLEDGE BASE
 
+> **Making a plug-in, a look for a music room, or a theme? That is not a change to
+> this code.** The Music Room works like Ableton: the app is finished, and people add
+> to it from outside. Make those things in a workshop folder (`workshop/`, copied
+> somewhere outside this repo) and bring them into the installed app with its own
+> buttons. Don't build, run, copy or change this code for that. See `docs/MAKERS.md`.
+
 **Generated:** 2026-11-24T15:09Z
 **Commit:** f9417fe
 **Branch:** cleanup/optimise
@@ -20,9 +26,10 @@ musicroom/                # FLAT: all modules + all test_*.py at root (no src/, 
 ├── static/               # assets, CSS, vendored libs -> static/AGENTS.md
 │   └── js/               # 33 IIFE scripts, each a window.X -> static/js/AGENTS.md
 ├── plugins/              # sandboxed example plug-ins (thread, shelves); spec in docs/PLUGINS.md
+├── workshop/             # the folder people make plug-ins and looks in (its own CLAUDE.md + .claude/settings.json)
 ├── native/               # real entry launcher.py, PyInstaller specs, build scripts (see native/README.md)
 ├── tools/                # run_tests.py, release.sh, server.sh, publish_public.py, take_public.sh
-└── docs/                 # DESIGN, PLUGINS, THEMES, SERVER
+└── docs/                 # MAKERS, DESIGN, PLUGINS, THEMES, SERVER
 ```
 
 ## WHERE TO LOOK
@@ -43,7 +50,8 @@ musicroom/                # FLAT: all modules + all test_*.py at root (no src/, 
 | 3D room hub | templates/room3d.html | |
 | Persistent player | static/js/seinnteoir.js, seinnteoir_player.py | `/api/seinnteoir/*` |
 | Look/tokens | static/css/ui.css, themes.py, docs/DESIGN.md | |
-| Plug-in API | docs/PLUGINS.md, plugins.py (`frame_csp`), static/js/plugin_runtime.js | |
+| Plug-in API | docs/PLUGINS.md, plugins.py (`frame_csp`, `add_from`, `again`), static/js/plugin_runtime.js | adding from a folder: Explore → Plug-ins → Add a plug-in… |
+| Making things for the app from outside | docs/MAKERS.md, workshop/ | plug-ins, room looks, your own look (`user_css`), themes |
 | Packaging | native/*.spec, native/launcher.py | |
 | Release/deploy | tools/release.sh, tools/server.sh, docs/SERVER.md | |
 

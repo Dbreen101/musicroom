@@ -65,6 +65,11 @@ PY
     echo "   (no Intel build here — native/pyx86 is missing; the release has the Apple Silicon app only)"
   fi
   cp "native/Read me first (GR).txt" "$OUT/Read me first.txt"
+  # the folder people make plug-ins and looks in, with Claude Code or by hand (docs/MAKERS.md);
+  # on the release page it is "Music.Room.workshop.zip" (GitHub puts dots for the spaces)
+  W="$(mktemp -d)"; cp -R workshop "$W/Music Room workshop"
+  (cd "$W" && zip -qrX "$OUT/Music Room workshop.zip" "Music Room workshop" -x "*.DS_Store")
+  rm -rf "$W"
   ASSETS=("$OUT"/*)
   rm -rf "$BAKE"
   # the apps are in their zips now: the built copies go, so this Mac has ONE Music Room GR (the
@@ -78,6 +83,8 @@ NOTES="$NOTE
 **Mac**: download the zip for your Mac (Apple Silicon for Macs from late 2020 on; Intel for older ones), unzip, drag *Music Room GR* to Applications, open. The first time, macOS stops it: System Settings → Privacy & Security → Open Anyway.
 
 **Windows PC**: download *Install.Music.Room.GR.Windows.exe* (it arrives a few minutes after the Mac ones) and open it. If the browser says it isn't commonly downloaded, choose Keep. If Windows says it protected your PC: More info → Run anyway. Press Install: Music Room GR opens by itself, and stays in the Start menu and on the desktop. (*Music.Room.GR.Windows.zip* is what the app uses to update itself; you don't need it.)
+
+**Making a plug-in, a look for your room, or a theme**: download *Music.Room.workshop.zip*, unzip it, and open Claude Code in it (or read the files yourself). It keeps Claude from building a new app: everything goes into the app through its own buttons. How it works: [docs/MAKERS.md](https://github.com/Dbreen101/musicroom/blob/main/docs/MAKERS.md).
 
 **From the code**: \`git checkout $TAG\`, then \`./run_gr.sh\` (Mac) or \`run_gr.bat\` (Windows)."
 # The files go up ONE AT A TIME, each tried again if the line drops. (25 Nov 2026: on a slow line

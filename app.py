@@ -1222,6 +1222,15 @@ def _theme_head():
 
 
 USER_CSS_MAX = 60_000
+_CSS_IMPORT = _re.compile(r"@import\b[^;]*;?", _re.I)
+_CSS_FAR_URL = _re.compile(r"""url\(\s*(['"]?)\s*(?:[a-z][a-z0-9+.-]*:)?//[^)]*\)""", _re.I)
+
+
+def _css_stays_here(css):
+    """A look may only be a look (2026-11-27: looks are passed around as files now, like
+    themes): nothing in it loads from the internet — no @import, no url() to another
+    computer. Pictures and fonts of the app's own, and data: ones, still work."""
+    return _CSS_FAR_URL.sub("none", _CSS_IMPORT.sub("/* @import is not used here */", css))
 
 
 def _user_css_tag():
@@ -1233,7 +1242,7 @@ def _user_css_tag():
         return ""
     if not css.strip() or (request and request.args.get("plain") == "1"):    # ?plain=1: the app without it
         return ""
-    css = css[:USER_CSS_MAX].replace("</", "<\\/")
+    css = _css_stays_here(css[:USER_CSS_MAX]).replace("</", "<\\/")
     # ⌘⇧0 / Ctrl+Shift+0 opens Settings WITHOUT it: a stylesheet that hides the page would
     # otherwise lock its author out for good (the desktop window has no address bar)
     way_back = ("<script>addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.shiftKey&&(e.key==='0'||e.code==='Digit0'))"

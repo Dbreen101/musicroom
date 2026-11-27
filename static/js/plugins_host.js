@@ -11,7 +11,8 @@
 window.PluginsHost = (function () {
     'use strict';
     const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let host, opts, list = [], folder = '', open = null, frame = null, said = '', busy = false;
+    let host, opts, list = [], folder = '', open = null, frame = null, said = '', busy = false, note = '';
+    const BIN = /Win/.test(navigator.platform || '') ? 'Recycle Bin' : 'Trash';
 
     async function call(url, method, body) {
         try {
@@ -44,8 +45,9 @@ window.PluginsHost = (function () {
 
     function card(p) {
         const mark = p.source === 'yours' ? '<span class="pl-mark pl-mark--yours">yours · not reviewed</span>' : '<span class="pl-mark">built in</span>';
-        if (p.error) return `<div class="pl-card is-broken"><div class="pl-card__n">${esc(p.name)}</div>${mark}
-            <p class="pl-card__d">This one can’t run: ${esc(p.error)}.</p></div>`;
+        const out = p.source === 'yours' ? `<button type="button" class="pl-link pl-link--out" data-act="remove">Remove</button>` : '';
+        if (p.error) return `<div class="pl-card is-broken" data-id="${esc(p.id)}"><div class="pl-card__n">${esc(p.name)}</div>${mark}
+            <p class="pl-card__d">This one can’t run: ${esc(p.error)}.</p>${out ? `<div class="pl-card__acts">${out}</div>` : ''}</div>`;
         const reads = (p.wants_said || []).length ? `<p class="pl-card__w"><span>It may read</span>${p.wants_said.map(esc).join('; ')}.</p>`
                                                   : `<p class="pl-card__w"><span>It may read</span>nothing — it only shows things.</p>`;
         return `<div class="pl-card${p.on ? ' is-on' : ''}${open && open.id === p.id ? ' is-open' : ''}" data-id="${esc(p.id)}">
@@ -56,6 +58,7 @@ window.PluginsHost = (function () {
               ${p.on ? `<button type="button" class="pl-btn pl-btn--go" data-act="open">Open</button>
                         <button type="button" class="pl-btn" data-act="off">Switch off</button>`
                      : `<button type="button" class="pl-btn" data-act="on" title="Switching it on lets it read what is listed above">Switch on</button>`}
+              ${out}
             </div></div>`;
     }
 
@@ -97,16 +100,28 @@ window.PluginsHost = (function () {
             <div class="pl-k">Your own</div>
             ${mine.length ? mine.map(card).join('') : '<p class="pl-none">None yet.</p>'}
             <div class="pl-foot">
+              <button type="button" class="pl-btn pl-btn--go" data-act="add" title="Choose a plug-in's folder: the app takes a copy of it">Add a plug-in…</button>
+              <button type="button" class="pl-btn" data-act="again" title="Take a fresh copy of each plug-in you added">Look again</button>
               <button type="button" class="pl-btn" data-act="folder">Show the folder</button>
-              <button type="button" class="pl-btn" data-act="again">Look again</button>
               ${opts.helpUrl ? `<button type="button" class="pl-link" data-act="help">How to make one${opts.helpUrl.charAt(0) === '/' ? '' : ' ↗'}</button>` : ''}
             </div>
+            <p class="pl-note" role="status">${esc(note)}</p>
           </aside>`;
     }
 
     function close() {
         if (frame) frame.remove();
         frame = null; open = null; said = '';
+    }
+    function reopen() {                       // the open plug-in's files changed: start it again
+        if (!open) return;
+        open = list.find(x => x.id === open.id) || open;
+        if (frame) { frame.remove(); frame = null; }
+        const stage = host.querySelector('.pl-stage'); if (stage) stage.dataset.open = '';
+    }
+    function say(words) {
+        note = words || '';
+        const el = host.querySelector('.pl-note'); if (el) el.textContent = note;
     }
 
     async function onClick(e) {
@@ -127,7 +142,42 @@ window.PluginsHost = (function () {
             paint(); return;
         }
         if (act === 'folder') { await call('/api/plugins/folder/show', 'POST'); return; }
-        if (act === 'again') { await load(); return; }
+        if (act === 'add') {
+            busy = true; b.disabled = true; say('Choose the plug-in’s folder…');
+            const r = await call('/api/plugins/folder/add', 'POST', {});
+            busy = false; b.disabled = false;
+            if (r.ok && r.d.cancelled) { say(''); return; }
+            if (!r.ok) { say('It wasn’t added: ' + (r.d.error || 'something went wrong') + '.'); return; }
+            list = r.d.plugins || list;
+            const left = r.d.left_out || [];
+            say(`${r.d.name || r.d.id} is added.` + (left.length ? ` Left out, as a plug-in can’t use them: ${left.slice(0, 4).join(', ')}${left.length > 4 ? '…' : ''}.` : ''), true);
+            if (open && open.id === r.d.id) reopen();
+            paint(); return;
+        }
+        if (act === 'again') {
+            busy = true;
+            const r = await call('/api/plugins/folder/again', 'POST', {});
+            busy = false;
+            if (r.ok) {
+                list = r.d.plugins || list;
+                const notes = Object.entries(r.d.notes || {}).map(([id, why]) => `${(list.find(x => x.id === id) || {}).name || id}: ${why}.`);
+                note = notes.join(' ');
+                if (open && !list.some(x => x.id === open.id && x.on)) close(); else if (open) reopen();
+                paint();
+            } else await load();
+            return;
+        }
+        if (act === 'remove' && id) {
+            const name = p ? p.name : id;
+            if (!confirm(p && p.added ? `Remove ${name} from the Music Room? The app’s copy goes to the ${BIN}; the folder you added it from stays where it is.`
+                                      : `Remove ${name} from the Music Room? Its folder goes to the ${BIN}.`)) return;
+            busy = true;
+            const r = await call('/api/plugins/' + encodeURIComponent(id) + '/remove', 'POST', {});
+            busy = false;
+            if (open && open.id === id) close();
+            if (r.ok) { list = r.d.plugins || list; say(''); paint(); } else say('It wasn’t removed: ' + (r.d.error || 'something went wrong') + '.');
+            return;
+        }
         if (act === 'help' && opts.helpUrl) {
             if (opts.helpUrl.charAt(0) === '/') (window.rtGo || (h => { location.href = h; }))(opts.helpUrl);   // a page of the app's own
             else call('/api/open-url', 'POST', { url: opts.helpUrl });
